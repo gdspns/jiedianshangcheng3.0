@@ -278,10 +278,30 @@ Deno.serve(async (req) => {
       if (isSocksLike) {
         credentials = { protocol: "socks", username: client.username, password: client.password };
       } else if (client.protocol === "trojan") {
-        // Trojan uses password as the credential (which is the UUID)
         credentials = { protocol: "trojan", uuid: client.password || client.clientId };
       } else {
         credentials = { protocol: client.protocol, uuid: client.clientId };
+      }
+
+      // For SOCKS5/mixed clients, expiryTime from 3x-ui is 0 (no per-client expiry).
+      // Look up the fulfilled order in our DB to get the real expiry.
+      let finalExpiryTime = client.expiryTime;
+      if (isSocksLike && (!finalExpiryTime || finalExpiryTime === 0)) {
+        const lookupKey = client.username || client.password || uuid;
+        // Find order where uuid matches the socks username (create-client stores username as uuid)
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select("fulfilled_at, duration_days, months")
+          .eq("uuid", lookupKey)
+          .eq("status", "fulfilled")
+          .order("fulfilled_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (orderData?.fulfilled_at) {
+          const fulfilledAt = new Date(orderData.fulfilled_at).getTime();
+          const durationDays = orderData.duration_days || (orderData.months * 30);
+          finalExpiryTime = fulfilledAt + durationDays * 24 * 60 * 60 * 1000;
+        }
       }
 
       // Combine inbound remark with client remark for display
@@ -293,7 +313,7 @@ Deno.serve(async (req) => {
         success: true,
         email: displayRemark,
         remark: client.email,
-        expiryDate: client.expiryTime,
+        expiryDate: finalExpiryTime,
         trafficUsed: Math.round(trafficUsedGB * 100) / 100,
         trafficTotal: Math.round(trafficTotalGB * 100) / 100,
         enable: client.enable,
