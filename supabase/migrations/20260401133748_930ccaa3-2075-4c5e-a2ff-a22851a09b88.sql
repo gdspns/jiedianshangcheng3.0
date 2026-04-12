@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_config ADD COLUMN IF NOT EXISTS notify_stock_out boolean NOT NULL DEFAULT false;

@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_config ADD COLUMN IF NOT EXISTS landing_image text NOT NULL DEFAULT '';

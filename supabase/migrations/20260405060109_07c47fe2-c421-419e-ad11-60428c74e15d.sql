@@ -1,0 +1,1 @@
+ALTER TABLE public.orders ADD COLUMN order_type text NOT NULL DEFAULT 'renew';
