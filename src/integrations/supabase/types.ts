@@ -14,7 +14,392 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_config: {
+        Row: {
+          admin_password_hash: string
+          created_at: string
+          crypto_address: string | null
+          crypto_key: string | null
+          crypto_trx: boolean
+          crypto_usdt: boolean
+          hupi_alipay: boolean
+          hupi_alipay_app_id: string | null
+          hupi_alipay_app_secret: string | null
+          hupi_wechat: boolean
+          hupi_wechat_app_id: string | null
+          hupi_wechat_app_secret: string | null
+          id: string
+          landing_image: string
+          notify_email: string
+          notify_stock_out: boolean
+          panel_pass: string
+          panel_url: string
+          panel_user: string
+          price_exclusive_month: number
+          price_exclusive_quarter: number
+          price_exclusive_year: number
+          price_month: number
+          price_quarter: number
+          price_shared_month: number
+          price_shared_quarter: number
+          price_shared_year: number
+          price_year: number
+          qq_qrcode_url: string
+          resend_api_key: string
+          sales_inbound_id: number
+          sales_protocol: string
+          tawk_id: string
+          telegram_link: string
+          updated_at: string
+          video_embed: string
+        }
+        Insert: {
+          admin_password_hash?: string
+          created_at?: string
+          crypto_address?: string | null
+          crypto_key?: string | null
+          crypto_trx?: boolean
+          crypto_usdt?: boolean
+          hupi_alipay?: boolean
+          hupi_alipay_app_id?: string | null
+          hupi_alipay_app_secret?: string | null
+          hupi_wechat?: boolean
+          hupi_wechat_app_id?: string | null
+          hupi_wechat_app_secret?: string | null
+          id?: string
+          landing_image?: string
+          notify_email?: string
+          notify_stock_out?: boolean
+          panel_pass?: string
+          panel_url?: string
+          panel_user?: string
+          price_exclusive_month?: number
+          price_exclusive_quarter?: number
+          price_exclusive_year?: number
+          price_month?: number
+          price_quarter?: number
+          price_shared_month?: number
+          price_shared_quarter?: number
+          price_shared_year?: number
+          price_year?: number
+          qq_qrcode_url?: string
+          resend_api_key?: string
+          sales_inbound_id?: number
+          sales_protocol?: string
+          tawk_id?: string
+          telegram_link?: string
+          updated_at?: string
+          video_embed?: string
+        }
+        Update: {
+          admin_password_hash?: string
+          created_at?: string
+          crypto_address?: string | null
+          crypto_key?: string | null
+          crypto_trx?: boolean
+          crypto_usdt?: boolean
+          hupi_alipay?: boolean
+          hupi_alipay_app_id?: string | null
+          hupi_alipay_app_secret?: string | null
+          hupi_wechat?: boolean
+          hupi_wechat_app_id?: string | null
+          hupi_wechat_app_secret?: string | null
+          id?: string
+          landing_image?: string
+          notify_email?: string
+          notify_stock_out?: boolean
+          panel_pass?: string
+          panel_url?: string
+          panel_user?: string
+          price_exclusive_month?: number
+          price_exclusive_quarter?: number
+          price_exclusive_year?: number
+          price_month?: number
+          price_quarter?: number
+          price_shared_month?: number
+          price_shared_quarter?: number
+          price_shared_year?: number
+          price_year?: number
+          qq_qrcode_url?: string
+          resend_api_key?: string
+          sales_inbound_id?: number
+          sales_protocol?: string
+          tawk_id?: string
+          telegram_link?: string
+          updated_at?: string
+          video_embed?: string
+        }
+        Relationships: []
+      }
+      articles: {
+        Row: {
+          content: string
+          created_at: string
+          enabled: boolean
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          amount: number
+          client_remark: string | null
+          created_at: string
+          crypto_amount: number | null
+          crypto_currency: string | null
+          currency: string
+          duration_days: number
+          email: string | null
+          fulfilled_at: string | null
+          id: string
+          inbound_id: number | null
+          inbound_remark: string | null
+          months: number
+          notify_data: Json | null
+          order_type: string
+          paid_at: string | null
+          payment_method: string
+          plan_name: string
+          status: string
+          trade_no: string | null
+          tx_hash: string | null
+          updated_at: string
+          uuid: string
+        }
+        Insert: {
+          amount: number
+          client_remark?: string | null
+          created_at?: string
+          crypto_amount?: number | null
+          crypto_currency?: string | null
+          currency?: string
+          duration_days?: number
+          email?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          inbound_id?: number | null
+          inbound_remark?: string | null
+          months: number
+          notify_data?: Json | null
+          order_type?: string
+          paid_at?: string | null
+          payment_method: string
+          plan_name: string
+          status?: string
+          trade_no?: string | null
+          tx_hash?: string | null
+          updated_at?: string
+          uuid: string
+        }
+        Update: {
+          amount?: number
+          client_remark?: string | null
+          created_at?: string
+          crypto_amount?: number | null
+          crypto_currency?: string | null
+          currency?: string
+          duration_days?: number
+          email?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          inbound_id?: number | null
+          inbound_remark?: string | null
+          months?: number
+          notify_data?: Json | null
+          order_type?: string
+          paid_at?: string | null
+          payment_method?: string
+          plan_name?: string
+          status?: string
+          trade_no?: string | null
+          tx_hash?: string | null
+          updated_at?: string
+          uuid?: string
+        }
+        Relationships: []
+      }
+      plan_regions: {
+        Row: {
+          created_at: string
+          id: string
+          plan_id: string
+          region_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_id: string
+          region_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_id?: string
+          region_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_regions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_regions_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          duration_days: number
+          duration_months: number
+          enabled: boolean
+          featured: boolean
+          id: string
+          price: number
+          region_id: string | null
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          duration_days?: number
+          duration_months?: number
+          enabled?: boolean
+          featured?: boolean
+          id?: string
+          price?: number
+          region_id?: string | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          duration_days?: number
+          duration_months?: number
+          enabled?: boolean
+          featured?: boolean
+          id?: string
+          price?: number
+          region_id?: string | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regions: {
+        Row: {
+          created_at: string
+          current_clients: number
+          enabled: boolean
+          id: string
+          inbound_id: number
+          max_clients: number
+          name: string
+          protocol: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_clients?: number
+          enabled?: boolean
+          id?: string
+          inbound_id?: number
+          max_clients?: number
+          name?: string
+          protocol?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_clients?: number
+          enabled?: boolean
+          id?: string
+          inbound_id?: number
+          max_clients?: number
+          name?: string
+          protocol?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tutorials: {
+        Row: {
+          content: string
+          created_at: string
+          enabled: boolean
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
