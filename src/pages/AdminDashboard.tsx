@@ -517,6 +517,12 @@ export default function AdminDashboard() {
             <option value="renew_shared">👥 续费·共享</option>
           </select>
         </div>
+        <div className="md:col-span-1">
+          <label className="block text-[15px] text-muted-foreground">排序</label>
+          <input type="number" value={plan.sort_order}
+            onChange={e => updatePlanField(plan.id, "sort_order", Number(e.target.value))}
+            className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
+        </div>
         <div className="md:col-span-2">
           <label className="block text-[15px] text-muted-foreground">天数</label>
           <input type="number" value={plan.duration_days}
@@ -527,7 +533,7 @@ export default function AdminDashboard() {
             }}
             className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
         </div>
-        <div className="md:col-span-2">
+        <div className="md:col-span-1">
           <label className="block text-[15px] text-muted-foreground">价格¥</label>
           <input type="number" value={plan.price}
             onChange={e => updatePlanField(plan.id, "price", Number(e.target.value))}
