@@ -1157,12 +1157,6 @@ export default function AdminDashboard() {
                                 className="w-full border border-input p-2 rounded-lg text-sm bg-background focus:ring-2 focus:ring-accent outline-none font-bold" />
                             </div>
                             <div className="md:col-span-1">
-                              <label className="block text-xs text-muted-foreground mb-1">入站 ID</label>
-                              <input type="number" value={region.inbound_id}
-                                onChange={e => updateRegionField(region.id, "inbound_id", Number(e.target.value))}
-                                className="w-full border border-input p-2 rounded-lg text-sm bg-background focus:ring-2 focus:ring-accent outline-none" />
-                            </div>
-                            <div className="md:col-span-1">
                               <label className="block text-xs text-muted-foreground mb-1">最大客户端</label>
                               <input type="number" value={region.max_clients}
                                 onChange={e => updateRegionField(region.id, "max_clients", Number(e.target.value))}
@@ -1205,7 +1199,7 @@ export default function AdminDashboard() {
                                 启用
                               </label>
                             </div>
-                            <div className="md:col-span-3 flex items-end gap-2">
+                            <div className="md:col-span-4 flex items-end gap-2">
                               <button onClick={() => handleUpdateRegion(region)} disabled={!!btnStatus[`saveRegion-${region.id}`]}
                                 className="bg-success text-success-foreground px-3 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-colors disabled:opacity-70 min-w-[60px]">
                                 {btnStatus[`saveRegion-${region.id}`] || "保存"}
@@ -1216,6 +1210,165 @@ export default function AdminDashboard() {
                               </button>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Multi-inbound management */}
+                        <div className="px-5 py-4 border-b border-border bg-muted/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold text-accent flex items-center gap-1">📡 入站 ID 列表</span>
+                            <button
+                              onClick={async () => {
+                                const key = `addInbound-${region.id}`;
+                                setBtnLoading(key, "添加中...");
+                                try {
+                                  const riList = regionInbounds.filter(ri => ri.region_id === region.id);
+                                  const maxSort = riList.length > 0 ? Math.max(...riList.map(ri => ri.sort_order)) : 0;
+                                  await adminCreateRegionInbound(token, { region_id: region.id, inbound_id: 1, sort_order: maxSort + 1 });
+                                  await loadRegionInbounds();
+                                  setBtnLoading(key, "✅");
+                                } catch { setBtnLoading(key, "❌"); }
+                                clearBtn(key);
+                              }}
+                              disabled={!!btnStatus[`addInbound-${region.id}`]}
+                              className="bg-accent text-accent-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center disabled:opacity-70 hover:opacity-90">
+                              <Plus className="w-3 h-3 mr-1" /> {btnStatus[`addInbound-${region.id}`] || "添加入站"}
+                            </button>
+                          </div>
+
+                          {(() => {
+                            const riList = regionInbounds.filter(ri => ri.region_id === region.id).sort((a, b) => a.sort_order - b.sort_order);
+                            if (riList.length === 0) return (
+                              <div className="text-center text-muted-foreground py-3 text-xs border border-dashed border-border rounded-lg">
+                                暂无入站ID，点击"添加入站"创建
+                              </div>
+                            );
+                            return (
+                              <div className="space-y-3">
+                                {riList.map(ri => {
+                                  const riPlans = inboundPlans.filter(ip => ip.region_inbound_id === ri.id);
+                                  const riPlanItems = riPlans.map(ip => plans.find(p => p.id === ip.plan_id)).filter(Boolean) as Plan[];
+                                  return (
+                                    <div key={ri.id} className="border border-border rounded-xl bg-card p-3">
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-muted-foreground">入站ID:</label>
+                                          <input type="number" value={ri.inbound_id}
+                                            onChange={e => setRegionInbounds(prev => prev.map(r => r.id === ri.id ? { ...r, inbound_id: Number(e.target.value) } : r))}
+                                            className="w-20 border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-accent outline-none" />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-xs text-muted-foreground">排序:</label>
+                                          <input type="number" value={ri.sort_order}
+                                            onChange={e => setRegionInbounds(prev => prev.map(r => r.id === ri.id ? { ...r, sort_order: Number(e.target.value) } : r))}
+                                            className="w-16 border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-accent outline-none" />
+                                        </div>
+                                        <button
+                                          onClick={async () => {
+                                            const key = `saveInbound-${ri.id}`;
+                                            setBtnLoading(key, "保存中...");
+                                            try {
+                                              await adminUpdateRegionInbound(token, ri);
+                                              setBtnLoading(key, "✅");
+                                            } catch { setBtnLoading(key, "❌"); }
+                                            clearBtn(key);
+                                          }}
+                                          disabled={!!btnStatus[`saveInbound-${ri.id}`]}
+                                          className="bg-success text-success-foreground px-2.5 py-1.5 rounded text-xs font-bold hover:opacity-90 disabled:opacity-70">
+                                          {btnStatus[`saveInbound-${ri.id}`] || "保存"}
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (!confirm("确定删除该入站？关联的商品映射也会删除。")) return;
+                                            const key = `delInbound-${ri.id}`;
+                                            setBtnLoading(key, "删除中...");
+                                            try {
+                                              await adminDeleteRegionInbound(token, ri.id);
+                                              setRegionInbounds(prev => prev.filter(r => r.id !== ri.id));
+                                              setInboundPlans(prev => prev.filter(ip => ip.region_inbound_id !== ri.id));
+                                            } catch { setBtnLoading(key, "❌"); clearBtn(key); }
+                                          }}
+                                          className="bg-destructive/10 text-destructive px-2 py-1.5 rounded text-xs font-bold hover:bg-destructive/20">
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => setAssignInboundId(assignInboundId === ri.id ? null : ri.id)}
+                                          className="bg-accent/10 text-accent px-2.5 py-1.5 rounded text-xs font-bold hover:bg-accent/20 border border-accent/20">
+                                          <Package className="w-3.5 h-3.5 inline mr-1" />关联商品
+                                        </button>
+                                      </div>
+
+                                      {/* Assigned plans for this inbound */}
+                                      {riPlanItems.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                          {riPlanItems.map(p => (
+                                            <span key={p.id} className="inline-flex items-center gap-1 text-xs bg-accent/10 text-accent px-2 py-1 rounded-lg font-bold">
+                                              {p.title}
+                                              <button
+                                                onClick={async () => {
+                                                  try {
+                                                    await adminUnassignInboundPlan(token, ri.id, p.id);
+                                                    setInboundPlans(prev => prev.filter(ip => !(ip.region_inbound_id === ri.id && ip.plan_id === p.id)));
+                                                  } catch {}
+                                                }}
+                                                className="text-destructive hover:text-destructive/80 ml-0.5">✕</button>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Plan picker for this inbound */}
+                                      {assignInboundId === ri.id && (
+                                        <div className="mt-2 bg-accent/5 border border-accent/20 rounded-lg p-3">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-bold text-accent">选择商品关联到此入站</span>
+                                            <button onClick={() => setAssignInboundId(null)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+                                          </div>
+                                          {(() => {
+                                            const assignedIds = riPlans.map(ip => ip.plan_id);
+                                            const available = plans.filter(p =>
+                                              (p.category === "new_exclusive" || p.category === "new_shared") &&
+                                              !assignedIds.includes(p.id)
+                                            );
+                                            if (available.length === 0) return <p className="text-xs text-muted-foreground text-center py-2">没有可关联的商品</p>;
+                                            return (
+                                              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                                {available.map(p => (
+                                                  <div key={p.id} className="flex items-center justify-between bg-card p-2 rounded-lg border border-border">
+                                                    <div className="flex items-center gap-2">
+                                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${p.category === "new_exclusive" ? "bg-accent/10 text-accent" : "bg-success/10 text-success"}`}>
+                                                        {p.category === "new_exclusive" ? "独享" : "共享"}
+                                                      </span>
+                                                      <span className="text-xs font-bold">{p.title}</span>
+                                                      <span className="text-[10px] text-muted-foreground">¥{p.price}/{p.duration_days}天</span>
+                                                    </div>
+                                                    <button
+                                                      onClick={async () => {
+                                                        const key = `assignIP-${ri.id}-${p.id}`;
+                                                        setBtnLoading(key, "...");
+                                                        try {
+                                                          await adminAssignInboundPlan(token, ri.id, p.id);
+                                                          setInboundPlans(prev => [...prev, { id: crypto.randomUUID(), region_inbound_id: ri.id, plan_id: p.id }]);
+                                                          setBtnLoading(key, "✅");
+                                                        } catch { setBtnLoading(key, "❌"); }
+                                                        clearBtn(key);
+                                                      }}
+                                                      disabled={!!btnStatus[`assignIP-${ri.id}-${p.id}`]}
+                                                      className="bg-accent text-accent-foreground px-2 py-1 rounded text-[10px] font-bold hover:opacity-90 disabled:opacity-70">
+                                                      {btnStatus[`assignIP-${ri.id}-${p.id}`] || "关联"}
+                                                    </button>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Plans under this region */}
