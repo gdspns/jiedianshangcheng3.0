@@ -259,6 +259,82 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ====== REGION INBOUNDS ======
+    if (action === "list-region-inbounds") {
+      const { regionId } = body;
+      const query = supabase.from("region_inbounds").select("*").order("sort_order", { ascending: true });
+      if (regionId) query.eq("region_id", regionId);
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      // Also fetch inbound_plans for these inbounds
+      const inboundIds = (data || []).map((ri: any) => ri.id);
+      let inboundPlansData: any[] = [];
+      if (inboundIds.length > 0) {
+        const { data: ipData } = await supabase.from("inbound_plans").select("*").in("region_inbound_id", inboundIds);
+        inboundPlansData = ipData || [];
+      }
+      return new Response(JSON.stringify({ regionInbounds: data, inboundPlans: inboundPlansData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create-region-inbound") {
+      const { regionInbound } = body;
+      const { data, error } = await supabase.from("region_inbounds").insert({
+        region_id: regionInbound.region_id,
+        inbound_id: regionInbound.inbound_id || 1,
+        sort_order: regionInbound.sort_order || 0,
+      }).select().single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, regionInbound: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-region-inbound") {
+      const { regionInbound } = body;
+      const { id, ...updates } = regionInbound;
+      const { error } = await supabase.from("region_inbounds").update(updates).eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-region-inbound") {
+      const { regionInboundId } = body;
+      const { error } = await supabase.from("region_inbounds").delete().eq("id", regionInboundId);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ====== INBOUND PLANS ======
+    if (action === "assign-inbound-plan") {
+      const { regionInboundId, planId } = body;
+      const { error } = await supabase.from("inbound_plans").upsert(
+        { region_inbound_id: regionInboundId, plan_id: planId },
+        { onConflict: "region_inbound_id,plan_id" }
+      );
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "unassign-inbound-plan") {
+      const { regionInboundId, planId } = body;
+      const { error } = await supabase.from("inbound_plans").delete()
+        .eq("region_inbound_id", regionInboundId)
+        .eq("plan_id", planId);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ====== ARTICLES ======
     if (action === "list-articles") {
       const { data, error } = await supabase
