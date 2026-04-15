@@ -113,12 +113,69 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine inbound_id and protocol: check if order's plan has a region
+    // Determine inbound_id and protocol
     let salesInboundId = (config as any).sales_inbound_id ?? 1;
     let salesProtocol = (config as any).sales_protocol ?? "mixed";
 
-    // Try to find the plan and its region
-    if (regionId) {
+    // Try to find the correct inbound_id from inbound_plans mapping
+    // 1. Find which plan was purchased by matching plan_name
+    const { data: matchedPlans } = await supabase
+      .from("plans")
+      .select("id")
+      .eq("title", order.plan_name);
+    
+    let foundViaInboundPlans = false;
+    
+    if (matchedPlans && matchedPlans.length > 0) {
+      const planIds = matchedPlans.map((p: any) => p.id);
+      
+      // 2. Look up inbound_plans for this plan
+      const { data: inboundPlanRows } = await supabase
+        .from("inbound_plans")
+        .select("region_inbound_id")
+        .in("plan_id", planIds);
+      
+      if (inboundPlanRows && inboundPlanRows.length > 0) {
+        // If regionId is provided, prefer inbound from that region
+        let targetRegionInboundId = inboundPlanRows[0].region_inbound_id;
+        
+        if (regionId) {
+          const { data: regionInbounds } = await supabase
+            .from("region_inbounds")
+            .select("id, inbound_id")
+            .eq("region_id", regionId);
+          
+          if (regionInbounds) {
+            const riIds = regionInbounds.map((ri: any) => ri.id);
+            const match = inboundPlanRows.find((ip: any) => riIds.includes(ip.region_inbound_id));
+            if (match) targetRegionInboundId = match.region_inbound_id;
+          }
+        }
+        
+        // 3. Get the actual inbound_id from region_inbounds
+        const { data: riData } = await supabase
+          .from("region_inbounds")
+          .select("inbound_id, region_id")
+          .eq("id", targetRegionInboundId)
+          .single();
+        
+        if (riData) {
+          salesInboundId = riData.inbound_id;
+          foundViaInboundPlans = true;
+          
+          // Get protocol from the region
+          const { data: regionData } = await supabase
+            .from("regions")
+            .select("protocol")
+            .eq("id", riData.region_id)
+            .single();
+          if (regionData) salesProtocol = regionData.protocol;
+        }
+      }
+    }
+    
+    // Fallback: use region's legacy inbound_id if no inbound_plans mapping found
+    if (!foundViaInboundPlans && regionId) {
       const { data: regionData } = await supabase
         .from("regions")
         .select("inbound_id, protocol")
