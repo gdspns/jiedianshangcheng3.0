@@ -158,6 +158,31 @@ export async function adminUnassignPlanRegion(token: string, planId: string, reg
   return callEdgeFunction("admin-plans", { action: "unassign-plan-region", token, planId, regionId });
 }
 
+// Region Inbounds APIs
+export async function adminGetRegionInbounds(token: string, regionId?: string) {
+  return callEdgeFunction("admin-plans", { action: "list-region-inbounds", token, regionId });
+}
+
+export async function adminCreateRegionInbound(token: string, regionInbound: object) {
+  return callEdgeFunction("admin-plans", { action: "create-region-inbound", token, regionInbound });
+}
+
+export async function adminUpdateRegionInbound(token: string, regionInbound: object) {
+  return callEdgeFunction("admin-plans", { action: "update-region-inbound", token, regionInbound });
+}
+
+export async function adminDeleteRegionInbound(token: string, regionInboundId: string) {
+  return callEdgeFunction("admin-plans", { action: "delete-region-inbound", token, regionInboundId });
+}
+
+export async function adminAssignInboundPlan(token: string, regionInboundId: string, planId: string) {
+  return callEdgeFunction("admin-plans", { action: "assign-inbound-plan", token, regionInboundId, planId });
+}
+
+export async function adminUnassignInboundPlan(token: string, regionInboundId: string, planId: string) {
+  return callEdgeFunction("admin-plans", { action: "unassign-inbound-plan", token, regionInboundId, planId });
+}
+
 // Admin orders
 export async function adminGetOrders(token: string, params?: { page?: number; pageSize?: number; search?: string; statusFilter?: string }) {
   return callEdgeFunction("admin-orders", { action: "list", token, ...params });
