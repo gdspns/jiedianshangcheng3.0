@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       
       if (inboundPlanRows && inboundPlanRows.length > 0) {
         // If regionId is provided, prefer inbound from that region
-        let targetRegionInboundId = inboundPlanRows[0].region_inbound_id;
+        targetRegionInboundId = inboundPlanRows[0].region_inbound_id;
         
         if (regionId) {
           const { data: regionInbounds } = await supabase
