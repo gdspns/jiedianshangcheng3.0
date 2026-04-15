@@ -161,6 +161,42 @@ export type Database = {
         }
         Relationships: []
       }
+      inbound_plans: {
+        Row: {
+          created_at: string
+          id: string
+          plan_id: string
+          region_inbound_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_id: string
+          region_inbound_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_id?: string
+          region_inbound_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_plans_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_plans_region_inbound_id_fkey"
+            columns: ["region_inbound_id"]
+            isOneToOne: false
+            referencedRelation: "region_inbounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           amount: number
@@ -324,6 +360,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "plans_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      region_inbounds: {
+        Row: {
+          created_at: string
+          id: string
+          inbound_id: number
+          region_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inbound_id?: number
+          region_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inbound_id?: number
+          region_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "region_inbounds_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "regions"
