@@ -152,10 +152,10 @@ Deno.serve(async (req) => {
           }
         }
         
-        // 3. Get the actual inbound_id from region_inbounds
+        // 3. Get the actual inbound_id and protocol from region_inbounds
         const { data: riData } = await supabase
           .from("region_inbounds")
-          .select("inbound_id, region_id")
+          .select("inbound_id, region_id, protocol")
           .eq("id", targetRegionInboundId)
           .single();
         
@@ -163,13 +163,8 @@ Deno.serve(async (req) => {
           salesInboundId = riData.inbound_id;
           foundViaInboundPlans = true;
           
-          // Get protocol from the region
-          const { data: regionData } = await supabase
-            .from("regions")
-            .select("protocol")
-            .eq("id", riData.region_id)
-            .single();
-          if (regionData) salesProtocol = regionData.protocol;
+          // Use protocol from region_inbounds (per-inbound setting)
+          if (riData.protocol) salesProtocol = riData.protocol;
         }
       }
     }

@@ -285,6 +285,9 @@ Deno.serve(async (req) => {
         region_id: regionInbound.region_id,
         inbound_id: regionInbound.inbound_id || 1,
         sort_order: regionInbound.sort_order || 0,
+        max_clients: regionInbound.max_clients || 0,
+        current_clients: 0,
+        protocol: regionInbound.protocol || "mixed",
       }).select().single();
       if (error) throw error;
       return new Response(JSON.stringify({ success: true, regionInbound: data }), {
