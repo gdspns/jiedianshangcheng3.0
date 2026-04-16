@@ -277,7 +277,41 @@ export default function ClientPortal() {
     }
   }, []);
 
-  const extractIdentifier = (input: string): string | null => {
+  // Merge plan_regions + inbound_plans into a combined plan-region mapping
+  const mergedPlanRegions = useMemo(() => {
+    const result = [...dynamicPlanRegions];
+    const existingKeys = new Set(result.map(pr => `${pr.plan_id}_${pr.region_id}`));
+    // Derive region from inbound_plans -> region_inbounds -> region_id
+    for (const ip of inboundPlansData) {
+      const ri = regionInbounds.find(r => r.id === ip.region_inbound_id);
+      if (ri) {
+        const key = `${ip.plan_id}_${ri.region_id}`;
+        if (!existingKeys.has(key)) {
+          result.push({ plan_id: ip.plan_id, region_id: ri.region_id });
+          existingKeys.add(key);
+        }
+      }
+    }
+    return result;
+  }, [dynamicPlanRegions, inboundPlansData, regionInbounds]);
+
+  // Compute sold-out per region based on region_inbounds capacity
+  const isRegionSoldOut = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const region of dynamicRegions) {
+      const rInbounds = regionInbounds.filter(ri => ri.region_id === region.id);
+      if (rInbounds.length > 0) {
+        // Sold out if ALL inbounds for this region are full
+        const allFull = rInbounds.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
+        map[region.id] = allFull;
+      } else {
+        // Fallback to region-level check
+        map[region.id] = region.max_clients > 0 && region.current_clients >= region.max_clients;
+      }
+    }
+    return map;
+  }, [dynamicRegions, regionInbounds]);
+
     const trimmed = input.trim();
     if (!trimmed) return null;
     const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
