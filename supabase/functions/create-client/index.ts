@@ -213,10 +213,11 @@ Deno.serve(async (req) => {
     const durationDays = order.duration_days || (order.months * 30);
     const expiryTime = Date.now() + durationDays * 24 * 60 * 60 * 1000;
 
-    // Remark/email for the new client - include 独享/共享 label
-    const planName = (order.plan_name || "").toLowerCase();
+    // Remark/email for the new client - include expiry date
     const categoryLabel = "自助";
-    const remark = `${categoryLabel}_${order.trade_no || order.id.substring(0, 8)}`;
+    const expiryDate = new Date(expiryTime);
+    const expiryLabel = `${expiryDate.getMonth() + 1}月${expiryDate.getDate()}日到期`;
+    const remark = `${categoryLabel}${expiryLabel}_${order.trade_no || order.id.substring(0, 8)}`;
 
     let credentials: Record<string, string> = {};
     let clientSettings: any;
