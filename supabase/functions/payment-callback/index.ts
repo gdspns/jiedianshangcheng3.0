@@ -338,10 +338,17 @@ async function extendExpiry(
   const settings = JSON.parse(inbound.settings || "{}");
 
   let found = false;
+  // Build updated remark with new expiry date
+  const newExpiryDate = new Date(newExpiry);
+  const newExpiryLabel = `${newExpiryDate.getMonth() + 1}月${newExpiryDate.getDate()}日到期`;
   for (const entry of settings.clients || []) {
     const entryEmail = entry.email || "";
     if (entryEmail === email) {
       entry.expiryTime = newExpiry;
+      // Update remark to reflect new expiry date (format: 自助X月X日到期_xxx)
+      if (entryEmail.includes("自助")) {
+        entry.email = entryEmail.replace(/\d+月\d+日到期/, newExpiryLabel);
+      }
       found = true;
       break;
     }
