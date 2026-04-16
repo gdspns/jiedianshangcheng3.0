@@ -1328,11 +1328,11 @@ export default function ClientPortal() {
                       {/* Region tabs */}
                       <div className="flex flex-wrap gap-2 mb-6">
                         {dynamicRegions.map(region => {
-                          const regionPlanIds = dynamicPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
+                          const regionPlanIds = mergedPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
                           const hasPlans = dynamicPlans.some(p => regionPlanIds.includes(p.id) && (p.category === "new_exclusive" || p.category === "new_shared"));
                           if (!hasPlans) return null;
                           const isActive = (selectedBuyRegion || dynamicRegions[0]?.id) === region.id;
-                          const isSoldOut = region.max_clients > 0 && region.current_clients >= region.max_clients;
+                          const isSoldOut = isRegionSoldOut[region.id] || false;
                           return (
                             <button key={region.id} onClick={() => setSelectedBuyRegion(region.id)}
                               className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${isActive ? "bg-client-primary text-client-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border"}`}>
