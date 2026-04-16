@@ -107,6 +107,23 @@ export async function getPlanRegions() {
   return data || [];
 }
 
+export async function getRegionInbounds() {
+  const { data, error } = await (supabase as any)
+    .from("region_inbounds")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getInboundPlans() {
+  const { data, error } = await (supabase as any)
+    .from("inbound_plans")
+    .select("*");
+  if (error) throw error;
+  return data || [];
+}
+
 export async function adminGetPlans(token: string) {
   return callEdgeFunction("admin-plans", { action: "list", token });
 }

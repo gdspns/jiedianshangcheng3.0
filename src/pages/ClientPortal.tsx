@@ -34,6 +34,8 @@ import {
   lookupOrdersByEmail,
   getPlanRegions,
   getTutorials,
+  getRegionInbounds,
+  getInboundPlans,
 } from "@/lib/api";
 
 interface PublicConfig {
@@ -195,6 +197,8 @@ export default function ClientPortal() {
   const [dynamicRegions, setDynamicRegions] = useState<RegionItem[]>([]);
   const [selectedBuyRegion, setSelectedBuyRegion] = useState<string | null>(null);
   const [dynamicPlanRegions, setDynamicPlanRegions] = useState<{ plan_id: string; region_id: string }[]>([]);
+  const [regionInbounds, setRegionInbounds] = useState<any[]>([]);
+  const [inboundPlansData, setInboundPlansData] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [checkoutData, setCheckoutData] = useState<{ months: number; durationDays: number; price: number; planName: string; type: string; regionId?: string | null } | null>(null);
@@ -244,6 +248,12 @@ export default function ClientPortal() {
     getPlanRegions()
       .then(setDynamicPlanRegions)
       .catch(() => {});
+    getRegionInbounds()
+      .then(setRegionInbounds)
+      .catch(() => {});
+    getInboundPlans()
+      .then(setInboundPlansData)
+      .catch(() => {});
     getTutorials()
       .then(setTutorials)
       .catch(() => {});
@@ -266,6 +276,41 @@ export default function ClientPortal() {
       document.body.appendChild(s);
     }
   }, []);
+
+  // Merge plan_regions + inbound_plans into a combined plan-region mapping
+  const mergedPlanRegions = useMemo(() => {
+    const result = [...dynamicPlanRegions];
+    const existingKeys = new Set(result.map(pr => `${pr.plan_id}_${pr.region_id}`));
+    // Derive region from inbound_plans -> region_inbounds -> region_id
+    for (const ip of inboundPlansData) {
+      const ri = regionInbounds.find(r => r.id === ip.region_inbound_id);
+      if (ri) {
+        const key = `${ip.plan_id}_${ri.region_id}`;
+        if (!existingKeys.has(key)) {
+          result.push({ plan_id: ip.plan_id, region_id: ri.region_id });
+          existingKeys.add(key);
+        }
+      }
+    }
+    return result;
+  }, [dynamicPlanRegions, inboundPlansData, regionInbounds]);
+
+  // Compute sold-out per region based on region_inbounds capacity
+  const isRegionSoldOut = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const region of dynamicRegions) {
+      const rInbounds = regionInbounds.filter(ri => ri.region_id === region.id);
+      if (rInbounds.length > 0) {
+        // Sold out if ALL inbounds for this region are full
+        const allFull = rInbounds.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
+        map[region.id] = allFull;
+      } else {
+        // Fallback to region-level check
+        map[region.id] = region.max_clients > 0 && region.current_clients >= region.max_clients;
+      }
+    }
+    return map;
+  }, [dynamicRegions, regionInbounds]);
 
   const extractIdentifier = (input: string): string | null => {
     const trimmed = input.trim();
@@ -1283,11 +1328,11 @@ export default function ClientPortal() {
                       {/* Region tabs */}
                       <div className="flex flex-wrap gap-2 mb-6">
                         {dynamicRegions.map(region => {
-                          const regionPlanIds = dynamicPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
+                          const regionPlanIds = mergedPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
                           const hasPlans = dynamicPlans.some(p => regionPlanIds.includes(p.id) && (p.category === "new_exclusive" || p.category === "new_shared"));
                           if (!hasPlans) return null;
                           const isActive = (selectedBuyRegion || dynamicRegions[0]?.id) === region.id;
-                          const isSoldOut = region.max_clients > 0 && region.current_clients >= region.max_clients;
+                          const isSoldOut = isRegionSoldOut[region.id] || false;
                           return (
                             <button key={region.id} onClick={() => setSelectedBuyRegion(region.id)}
                               className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${isActive ? "bg-client-primary text-client-primary-foreground shadow-md" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border"}`}>
@@ -1303,10 +1348,10 @@ export default function ClientPortal() {
                         const activeRegionId = selectedBuyRegion || dynamicRegions[0]?.id;
                         const region = dynamicRegions.find(r => r.id === activeRegionId);
                         if (!region) return null;
-                        const regionPlanIds = dynamicPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
+                        const regionPlanIds = mergedPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
                         const regionExclusive = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_exclusive");
                         const regionShared = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_shared");
-                        const isSoldOut = region.max_clients > 0 && region.current_clients >= region.max_clients;
+                        const isSoldOut = isRegionSoldOut[region.id] || false;
 
                         return (
                           <div>
