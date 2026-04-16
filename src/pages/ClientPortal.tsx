@@ -514,7 +514,13 @@ export default function ClientPortal() {
               const baseExpiry = clientData.expiryDate === 0 ? Date.now() : clientData.expiryDate;
               const newExpiry = new Date(baseExpiry);
               newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
-              setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime() });
+              // Update email remark with new expiry date
+              let updatedEmail = clientData.email || "";
+              if (updatedEmail.includes("自助")) {
+                const newLabel = `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}日到期`;
+                updatedEmail = updatedEmail.replace(/\d+月\d+日到期/, newLabel);
+              }
+              setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
             }
           }
         };
@@ -596,7 +602,12 @@ export default function ClientPortal() {
           const baseExpiry = clientData.expiryDate === 0 ? Date.now() : clientData.expiryDate;
           const newExpiry = new Date(baseExpiry);
           newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
-          setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime() });
+          let updatedEmail = clientData.email || "";
+          if (updatedEmail.includes("自助")) {
+            const newLabel = `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}日到期`;
+            updatedEmail = updatedEmail.replace(/\d+月\d+日到期/, newLabel);
+          }
+          setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
         }
       } else {
         setPayStatus("waiting");
