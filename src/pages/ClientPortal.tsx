@@ -842,6 +842,7 @@ export default function ClientPortal() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     );
