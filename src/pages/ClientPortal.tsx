@@ -1534,6 +1534,39 @@ export default function ClientPortal() {
                   <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg text-sm text-warning font-bold mb-4">
                     ⚠️ 请截图或复制保存以上凭证，关闭后将无法再次查看！
                   </div>
+                  <button
+                    onClick={async () => {
+                      const identifier = newClientCredentials?.uuid || newClientCredentials?.username || newClientCredentials?.password;
+                      if (!identifier) return;
+                      setLoginInput(identifier);
+                      setUuid(identifier);
+                      setError("");
+                      setLoading(true);
+                      try {
+                        const res = await lookupClient(identifier);
+                        if (res?.success) {
+                          setClientData({
+                            expiryDate: res.expiryDate ?? 0,
+                            trafficUsed: res.trafficUsed ?? 0,
+                            trafficTotal: res.trafficTotal ?? 100,
+                            email: res.email || "",
+                          });
+                          setLogged(true);
+                          setPayStatus(null);
+                          setTab("dashboard");
+                        } else {
+                          alert("查询失败：" + (res?.error || "未找到"));
+                        }
+                      } catch {
+                        alert("查询失败，请稍后重试");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="bg-client-primary text-client-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity inline-flex items-center gap-2"
+                  >
+                    <Clock className="w-5 h-5" /> 我的状态
+                  </button>
                 </div>
               )}
               {payStatus === "success" && (
