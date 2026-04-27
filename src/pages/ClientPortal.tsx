@@ -224,7 +224,7 @@ export default function ClientPortal() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [autoCheckCount, setAutoCheckCount] = useState(0);
   const [tutorials, setTutorials] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
-  const [announcements, setAnnouncements] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
+  const [announcement, setAnnouncement] = useState<string>("");
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
 
   const copyWithFeedback = (text: string, key: string) => {
