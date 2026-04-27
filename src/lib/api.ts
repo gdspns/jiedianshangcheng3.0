@@ -213,6 +213,17 @@ export async function adminBatchDeleteOrders(token: string, orderIds: string[]) 
   return callEdgeFunction("admin-orders", { action: "batch-delete", token, orderIds });
 }
 
+// Articles (public)
+export async function getArticles() {
+  const { data, error } = await (supabase as any)
+    .from("articles")
+    .select("*")
+    .eq("enabled", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
 // Tutorials APIs
 export async function getTutorials() {
   const { data, error } = await (supabase as any)
