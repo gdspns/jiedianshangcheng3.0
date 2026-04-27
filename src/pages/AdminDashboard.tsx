@@ -230,8 +230,27 @@ export default function AdminDashboard() {
   const loadArticles = async () => {
     try {
       const res = await adminGetArticles(token);
-      if (res?.articles) setArticles(res.articles);
+      if (res?.articles) {
+        setArticles(res.articles);
+        const ann = (res.articles as Article[]).find((a) => a.title === ANNOUNCEMENT_MARKER);
+        setAnnouncementContent(ann?.content || "");
+      }
     } catch {}
+  };
+
+  const saveAnnouncement = async () => {
+    const existing = articles.find((a) => a.title === ANNOUNCEMENT_MARKER);
+    if (existing) {
+      await adminUpdateArticle(token, { ...existing, content: announcementContent, enabled: true });
+    } else {
+      await adminCreateArticle(token, {
+        title: ANNOUNCEMENT_MARKER,
+        content: announcementContent,
+        sort_order: -1,
+        enabled: true,
+      });
+    }
+    await loadArticles();
   };
 
   const loadOrders = async (page = 1, search = ordersSearch, status = ordersStatus) => {
