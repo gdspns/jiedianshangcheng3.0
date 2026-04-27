@@ -259,8 +259,8 @@ export default function ClientPortal() {
     getTutorials()
       .then(setTutorials)
       .catch(() => {});
-    getArticles()
-      .then((data) => setAnnouncements(data || []))
+    getAnnouncement()
+      .then((data: any) => setAnnouncement(data?.content || ""))
       .catch(() => {});
     // Fetch video embed
     import("@/integrations/supabase/client").then(({ supabase }) => {
