@@ -1812,9 +1812,44 @@ export default function AdminDashboard() {
                   <Plus className="w-4 h-4 mr-1" /> {btnStatus["addArticle"] || "添加文章"}
                 </button>
               </div>
+
+              {/* Pinned announcement editor */}
+              <div className="border-2 border-red-500 bg-red-50 dark:bg-red-950/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-red-600 dark:text-red-400 flex items-center">
+                    📢 用户中心顶部公告栏（红色加粗，仅一篇）
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      const key = "saveAnnouncement";
+                      setBtnLoading(key, "保存中...");
+                      try {
+                        await saveAnnouncement();
+                        setBtnLoading(key, "✅ 已保存");
+                      } catch {
+                        setBtnLoading(key, "❌ 失败");
+                      }
+                      clearBtn(key);
+                    }}
+                    disabled={!!btnStatus["saveAnnouncement"]}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-70"
+                  >
+                    {btnStatus["saveAnnouncement"] || "保存公告"}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">在 /portal 登录页"充值续费自助服务中心"上方实时显示。留空则不显示公告栏。支持简单 HTML（如 &lt;br/&gt;、&lt;a&gt;）。</p>
+                <textarea
+                  value={announcementContent}
+                  onChange={(e) => setAnnouncementContent(e.target.value)}
+                  rows={4}
+                  placeholder="例如：本站近期升级维护，如有问题请联系客服。"
+                  className="w-full border border-red-300 dark:border-red-700 p-3 rounded-lg text-sm bg-background focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-600 dark:text-red-400"
+                />
+              </div>
+
               <p className="text-xs text-muted-foreground">💡 管理首页"常见疑问"板块的问答文章。标题为问题，内容为纯文本答案（换行会自动显示）。</p>
 
-              {articles.length === 0 ? (
+              {articles.filter(a => a.title !== ANNOUNCEMENT_MARKER).length === 0 ? (
                 <div className="text-center text-muted-foreground py-12 border border-dashed border-border rounded-xl">
                   <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p className="font-bold mb-1">暂无文章</p>
@@ -1822,7 +1857,7 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {articles.map((article) => (
+                  {articles.filter(a => a.title !== ANNOUNCEMENT_MARKER).map((article) => (
                     <div key={article.id} className="border border-border rounded-xl p-4 bg-muted/30 space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
                         <div className="md:col-span-5">
