@@ -34,7 +34,7 @@ import {
   lookupOrdersByEmail,
   getPlanRegions,
   getTutorials,
-  getArticles,
+  getAnnouncement,
   getRegionInbounds,
   getInboundPlans,
 } from "@/lib/api";
@@ -224,7 +224,7 @@ export default function ClientPortal() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [autoCheckCount, setAutoCheckCount] = useState(0);
   const [tutorials, setTutorials] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
-  const [announcements, setAnnouncements] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
+  const [announcement, setAnnouncement] = useState<string>("");
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
 
   const copyWithFeedback = (text: string, key: string) => {
@@ -259,8 +259,8 @@ export default function ClientPortal() {
     getTutorials()
       .then(setTutorials)
       .catch(() => {});
-    getArticles()
-      .then((data) => setAnnouncements(data || []))
+    getAnnouncement()
+      .then((data: any) => setAnnouncement(data?.content || ""))
       .catch(() => {});
     // Fetch video embed
     import("@/integrations/supabase/client").then(({ supabase }) => {
@@ -749,17 +749,12 @@ export default function ClientPortal() {
           className={`flex flex-col items-stretch gap-4 w-full ${videoHtml ? "max-w-4xl" : "max-w-md"}`}
         >
           {/* Announcement bar */}
-          {announcements.length > 0 && (
+          {announcement.trim() && (
             <div className="w-full bg-red-50 dark:bg-red-950/30 border-2 border-red-500 rounded-2xl p-4 shadow-lg">
-              {announcements.map((a) => (
-                <div key={a.id} className="text-red-600 dark:text-red-400 font-bold text-base leading-relaxed">
-                  {a.title && <div className="mb-1">📢 {a.title}</div>}
-                  <div
-                    className="announcement-content [&_*]:!text-red-600 dark:[&_*]:!text-red-400 [&_*]:!font-bold"
-                    dangerouslySetInnerHTML={{ __html: a.content }}
-                  />
-                </div>
-              ))}
+              <div
+                className="text-red-600 dark:text-red-400 font-bold text-base leading-relaxed [&_*]:!text-red-600 dark:[&_*]:!text-red-400 [&_*]:!font-bold"
+                dangerouslySetInnerHTML={{ __html: announcement }}
+              />
             </div>
           )}
           <div className={`flex items-stretch gap-6 w-full ${videoHtml ? "flex-col md:flex-row" : "flex-col"}`}>

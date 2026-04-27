@@ -224,6 +224,20 @@ export async function getArticles() {
   return data || [];
 }
 
+// Announcement bar (single, pinned article with special marker title)
+export const ANNOUNCEMENT_MARKER = "__announcement_bar__";
+export async function getAnnouncement() {
+  const { data, error } = await (supabase as any)
+    .from("articles")
+    .select("*")
+    .eq("title", ANNOUNCEMENT_MARKER)
+    .eq("enabled", true)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data;
+}
+
 // Tutorials APIs
 export async function getTutorials() {
   const { data, error } = await (supabase as any)
