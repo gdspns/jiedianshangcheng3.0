@@ -746,8 +746,23 @@ export default function ClientPortal() {
           <ThemeToggle />
         </div>
         <div
-          className={`flex items-stretch gap-6 w-full ${videoHtml ? "max-w-4xl flex-col md:flex-row" : "max-w-md flex-col"}`}
+          className={`flex flex-col items-stretch gap-4 w-full ${videoHtml ? "max-w-4xl" : "max-w-md"}`}
         >
+          {/* Announcement bar */}
+          {announcements.length > 0 && (
+            <div className="w-full bg-red-50 dark:bg-red-950/30 border-2 border-red-500 rounded-2xl p-4 shadow-lg">
+              {announcements.map((a) => (
+                <div key={a.id} className="text-red-600 dark:text-red-400 font-bold text-base leading-relaxed">
+                  {a.title && <div className="mb-1">📢 {a.title}</div>}
+                  <div
+                    className="announcement-content [&_*]:!text-red-600 dark:[&_*]:!text-red-400 [&_*]:!font-bold"
+                    dangerouslySetInnerHTML={{ __html: a.content }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={`flex items-stretch gap-6 w-full ${videoHtml ? "flex-col md:flex-row" : "flex-col"}`}>
           {/* Login card */}
           <div className={`bg-card rounded-2xl shadow-xl overflow-hidden ${videoHtml ? "md:w-1/2 w-full" : "w-full"}`}>
             <div className="bg-client-primary p-8 text-center">
