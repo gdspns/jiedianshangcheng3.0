@@ -543,6 +543,41 @@ export default function ClientPortal() {
                 setNewClientCredentials(createRes.credentials || null);
                 setNewClientConnectionInfo(createRes.connectionInfo || null);
                 setNewClientRemark(createRes.remark || "");
+                // Auto-login with the newly created client identifier so "我的状态" works immediately
+                const newId = createRes.credentials?.uuid || createRes.credentials?.username || createRes.credentials?.password;
+                if (newId) {
+                  setUuid(newId);
+                  setLoginInput(newId);
+                  setLogged(true);
+                  // Try to populate clientData from panel; fall back to local computation if lookup hasn't synced yet
+                  try {
+                    const lookupRes = await lookupClient(newId);
+                    if (lookupRes?.success) {
+                      setClientData({
+                        expiryDate: lookupRes.expiryDate ?? 0,
+                        trafficUsed: lookupRes.trafficUsed ?? 0,
+                        trafficTotal: lookupRes.trafficTotal ?? 100,
+                        email: lookupRes.email || createRes.remark || "",
+                      });
+                    } else {
+                      const days = checkoutData?.durationDays || 30;
+                      setClientData({
+                        expiryDate: Date.now() + days * 86400000,
+                        trafficUsed: 0,
+                        trafficTotal: 100,
+                        email: createRes.remark || "",
+                      });
+                    }
+                  } catch {
+                    const days = checkoutData?.durationDays || 30;
+                    setClientData({
+                      expiryDate: Date.now() + days * 86400000,
+                      trafficUsed: 0,
+                      trafficTotal: 100,
+                      email: createRes.remark || "",
+                    });
+                  }
+                }
                 setPayStatus("buy_success");
                 setTab("buy_new");
               } else {
