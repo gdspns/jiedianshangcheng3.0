@@ -735,14 +735,14 @@ export default function ClientPortal() {
 
   if (!logged) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-muted p-4 relative">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted p-4 pt-20 sm:pt-4 relative">
         <Link
           to="/"
-          className="absolute top-4 left-4 text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors"
+          className="absolute top-4 left-4 text-xl sm:text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors z-20"
         >
           首页
         </Link>
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 z-20">
           <ThemeToggle />
         </div>
         <div
