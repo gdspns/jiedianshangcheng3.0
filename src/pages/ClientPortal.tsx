@@ -34,7 +34,7 @@ import {
   lookupOrdersByEmail,
   getPlanRegions,
   getTutorials,
-  getArticles,
+  getAnnouncement,
   getRegionInbounds,
   getInboundPlans,
 } from "@/lib/api";
