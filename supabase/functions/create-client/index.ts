@@ -430,7 +430,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        const shouldNotify = config.resend_api_key && config.notify_email && config.notify_stock_out;
+        const shouldNotify = config.resend_api_key && config.notify_email;
         const isStockOut = totalRemaining === 0;
         const isLastOne = totalRemaining === 1;
 
@@ -447,24 +447,7 @@ Deno.serve(async (req) => {
                 <p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p>
                 <p>请及时补货以避免售罄。</p>
                 <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
-          try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${config.resend_api_key}`,
-              },
-              body: JSON.stringify({
-                from: `系统通知 <onboarding@resend.dev>`,
-                to: [config.notify_email],
-                subject,
-                html: body,
-              }),
-            });
-            console.log(`Stock notification email sent: ${subject}`);
-          } catch (emailErr) {
-            console.error("Failed to send stock notification:", emailErr);
-          }
+          await sendAdminEmail(config, subject, body);
         }
       }
     } else if (regionId) {
