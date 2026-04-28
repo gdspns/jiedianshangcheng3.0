@@ -420,7 +420,7 @@ export default function ClientPortal() {
 
   const getDaysLeft = () => {
     if (clientData.expiryDate === 0) return -1; // unlimited
-    return Math.max(0, Math.ceil((clientData.expiryDate - Date.now()) / 86400000));
+    return Math.ceil((clientData.expiryDate - Date.now()) / 86400000);
   };
 
   const cleanupPolling = () => {
@@ -596,14 +596,16 @@ export default function ClientPortal() {
           } else {
             setPayStatus("success");
             if (checkoutData) {
-              const baseExpiry = clientData.expiryDate === 0 ? Date.now() : clientData.expiryDate;
+              const baseExpiry = clientData.expiryDate === 0 || clientData.expiryDate < Date.now() ? Date.now() : clientData.expiryDate;
               const newExpiry = new Date(baseExpiry);
               newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
-              // Update email remark with new expiry date
+              // Update email remark with new expiry date — supports 日/号 with or without 自助 prefix
               let updatedEmail = clientData.email || "";
-              if (updatedEmail.includes("自助")) {
-                const newLabel = `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}日到期`;
-                updatedEmail = updatedEmail.replace(/\d+月\d+日到期/, newLabel);
+              const dateRegex = /(\d+)月(\d+)[日号]到期/;
+              const matched = updatedEmail.match(dateRegex);
+              if (matched) {
+                const suffix = matched[0].includes("号") ? "号" : "日";
+                updatedEmail = updatedEmail.replace(dateRegex, `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}${suffix}到期`);
               }
               setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
             }
@@ -684,13 +686,15 @@ export default function ClientPortal() {
         cleanupPolling();
         setPayStatus("success");
         if (checkoutData) {
-          const baseExpiry = clientData.expiryDate === 0 ? Date.now() : clientData.expiryDate;
+          const baseExpiry = clientData.expiryDate === 0 || clientData.expiryDate < Date.now() ? Date.now() : clientData.expiryDate;
           const newExpiry = new Date(baseExpiry);
           newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
           let updatedEmail = clientData.email || "";
-          if (updatedEmail.includes("自助")) {
-            const newLabel = `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}日到期`;
-            updatedEmail = updatedEmail.replace(/\d+月\d+日到期/, newLabel);
+          const dateRegex = /(\d+)月(\d+)[日号]到期/;
+          const matched = updatedEmail.match(dateRegex);
+          if (matched) {
+            const suffix = matched[0].includes("号") ? "号" : "日";
+            updatedEmail = updatedEmail.replace(dateRegex, `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}${suffix}到期`);
           }
           setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
         }
@@ -959,10 +963,20 @@ export default function ClientPortal() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                   <div className="text-client-primary font-bold mb-2">剩余时间</div>
-                  {getDaysLeft() < 0 ? (
+                  {getDaysLeft() < 0 && clientData.expiryDate === 0 ? (
                     <div className="flex items-end">
                       <span className="text-3xl font-extrabold text-foreground">无限期</span>
                     </div>
+                  ) : getDaysLeft() < 0 ? (
+                    <>
+                      <div className="flex items-end">
+                        <span className="text-5xl font-extrabold text-destructive">已过期</span>
+                        <span className="text-destructive font-bold mb-1 ml-2">{Math.abs(getDaysLeft())} 天</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3 font-medium">
+                        到期日: {new Date(clientData.expiryDate).toLocaleDateString()}
+                      </p>
+                    </>
                   ) : (
                     <>
                       <div className="flex items-end">

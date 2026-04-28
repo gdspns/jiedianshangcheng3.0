@@ -340,14 +340,21 @@ async function extendExpiry(
   let found = false;
   // Build updated remark with new expiry date
   const newExpiryDate = new Date(newExpiry);
-  const newExpiryLabel = `${newExpiryDate.getMonth() + 1}月${newExpiryDate.getDate()}日到期`;
+  const month = newExpiryDate.getMonth() + 1;
+  const day = newExpiryDate.getDate();
+  // Match patterns like "4月24日到期" or "4月24号到期" (with either 日 or 号)
+  const dateRegex = /(\d+)月(\d+)[日号]到期/;
   for (const entry of settings.clients || []) {
     const entryEmail = entry.email || "";
     if (entryEmail === email) {
       entry.expiryTime = newExpiry;
-      // Update remark to reflect new expiry date (format: 自助X月X日到期_xxx)
-      if (entryEmail.includes("自助")) {
-        entry.email = entryEmail.replace(/\d+月\d+日到期/, newExpiryLabel);
+      // Update remark to reflect new expiry date — works for both 自助 prefixed
+      // and manually-added clients (e.g. "独享4月24号到期哇哈哈哈哈")
+      if (dateRegex.test(entryEmail)) {
+        // Preserve the original 日/号 character used
+        const matched = entryEmail.match(dateRegex);
+        const suffix = matched && matched[0].includes("号") ? "号" : "日";
+        entry.email = entryEmail.replace(dateRegex, `${month}月${day}${suffix}到期`);
       }
       found = true;
       break;
