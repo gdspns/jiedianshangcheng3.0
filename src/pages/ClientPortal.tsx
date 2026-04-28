@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { BookOpen } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   User,
   CreditCard,
@@ -237,6 +238,23 @@ export default function ClientPortal() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const refreshStockData = async () => {
+    try {
+      const [plans, regions, planRegions, inbounds, inboundPlans] = await Promise.all([
+        getPlans(),
+        getRegions(),
+        getPlanRegions(),
+        getRegionInbounds(),
+        getInboundPlans(),
+      ]);
+      setDynamicPlans(plans || []);
+      setDynamicRegions(regions || []);
+      setDynamicPlanRegions(planRegions || []);
+      setRegionInbounds(inbounds || []);
+      setInboundPlansData(inboundPlans || []);
+    } catch {}
+  };
+
   useEffect(() => {
     getPublicConfig()
       .then(setConfig)
@@ -280,6 +298,21 @@ export default function ClientPortal() {
       s.async = true;
       document.body.appendChild(s);
     }
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => refreshStockData();
+    const channel = supabase
+      .channel("portal-stock-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "region_inbounds" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inbound_plans" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "regions" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "plan_regions" }, refresh)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Merge plan_regions + inbound_plans into a combined plan-region mapping
