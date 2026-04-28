@@ -63,6 +63,35 @@ function randomUUID(): string {
   return crypto.randomUUID();
 }
 
+async function sendAdminEmail(config: any, subject: string, html: string): Promise<boolean> {
+  if (!config.resend_api_key || !config.notify_email) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.resend_api_key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "系统通知 <onboarding@resend.dev>",
+        to: [config.notify_email],
+        subject,
+        html,
+      }),
+    });
+    const body = await safeJson(res);
+    if (!res.ok) {
+      console.error("Admin email send failed:", { status: res.status, body, subject });
+      return false;
+    }
+    console.log("Admin email sent:", { subject, id: body?.id || null });
+    return true;
+  } catch (emailErr) {
+    console.error("Admin email send error:", emailErr);
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
