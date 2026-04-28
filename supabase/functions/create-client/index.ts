@@ -63,6 +63,77 @@ function randomUUID(): string {
   return crypto.randomUUID();
 }
 
+async function notifyStockIfNeeded(supabase: any, config: any, regionId: string | null, scopeInboundIds: string[] = []) {
+  if (!regionId || !config.resend_api_key || !config.notify_email) return;
+
+  let stockRegionName = "未知地区";
+  const { data: rn } = await supabase.from("regions").select("name").eq("id", regionId).single();
+  if (rn?.name) stockRegionName = rn.name;
+
+  let query = supabase.from("region_inbounds").select("current_clients, max_clients").eq("region_id", regionId);
+  if (scopeInboundIds.length > 0) query = query.in("id", scopeInboundIds);
+  const { data: inbounds } = await query;
+  if (!inbounds || inbounds.length === 0) {
+    const { data: regionStock } = await supabase.from("regions").select("current_clients, max_clients").eq("id", regionId).single();
+    if (!regionStock || !regionStock.max_clients || regionStock.max_clients <= 0) return;
+    const remaining = Math.max(0, (regionStock.max_clients || 0) - (regionStock.current_clients || 0));
+    if (remaining !== 0 && remaining !== 1) return;
+    const subject = remaining === 0 ? `🚨 地区【${stockRegionName}】库存已耗尽` : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
+    const body = remaining === 0
+      ? `<h2>库存耗尽通知</h2><p>地区 <strong>${stockRegionName}</strong> 所有名额已全部售罄。</p><p>前端商品已自动置灰，无法继续购买。请尽快补货！</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
+      : `<h2>库存即将耗尽提醒</h2><p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p><p>请及时补货以避免售罄。</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
+    await sendAdminEmail(config, subject, body);
+    return;
+  }
+
+  let unlimited = false;
+  let totalRemaining = 0;
+  for (const r of inbounds) {
+    const max = r.max_clients || 0;
+    const cur = r.current_clients || 0;
+    if (max <= 0) { unlimited = true; break; }
+    totalRemaining += Math.max(0, max - cur);
+  }
+  if (unlimited || (totalRemaining !== 0 && totalRemaining !== 1)) return;
+
+  const subject = totalRemaining === 0
+    ? `🚨 地区【${stockRegionName}】库存已耗尽`
+    : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
+  const body = totalRemaining === 0
+    ? `<h2>库存耗尽通知</h2><p>地区 <strong>${stockRegionName}</strong> 所有入站名额已全部售罄。</p><p>前端商品已自动置灰，无法继续购买。请尽快补货！</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
+    : `<h2>库存即将耗尽提醒</h2><p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p><p>请及时补货以避免售罄。</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
+  await sendAdminEmail(config, subject, body);
+}
+
+async function sendAdminEmail(config: any, subject: string, html: string): Promise<boolean> {
+  if (!config.resend_api_key || !config.notify_email) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.resend_api_key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "系统通知 <onboarding@resend.dev>",
+        to: [config.notify_email],
+        subject,
+        html,
+      }),
+    });
+    const body = await safeJson(res);
+    if (!res.ok) {
+      console.error("Admin email send failed:", { status: res.status, body, subject });
+      return false;
+    }
+    console.log("Admin email sent:", { subject, id: body?.id || null });
+    return true;
+  } catch (emailErr) {
+    console.error("Admin email send error:", emailErr);
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -126,6 +197,7 @@ Deno.serve(async (req) => {
     
     let foundViaInboundPlans = false;
     let targetRegionInboundId: string | null = null;
+    let stockPoolIds: string[] = [];
     
     if (matchedPlans && matchedPlans.length > 0) {
       const planIds = matchedPlans.map((p: any) => p.id);
@@ -152,6 +224,7 @@ Deno.serve(async (req) => {
             ? candidateInbounds.filter((ri: any) => ri.region_id === regionId)
             : candidateInbounds;
           if (pool.length === 0) pool = candidateInbounds;
+          stockPoolIds = pool.map((ri: any) => ri.id);
           
           // Pick first inbound with available stock (max_clients=0 means unlimited)
           const available = pool.find((ri: any) =>
@@ -336,18 +409,10 @@ Deno.serve(async (req) => {
 
     // Send email notification for new purchase
     if (config.resend_api_key && config.notify_email) {
-      try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.resend_api_key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "通知 <onboarding@resend.dev>",
-            to: [config.notify_email],
-            subject: `🎉 新用户开通成功 - ${order.plan_name}`,
-            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      await sendAdminEmail(
+        config,
+        `🎉 新用户开通成功 - ${order.plan_name}`,
+        `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
               <h2 style="color:#10b981;">🎉 新用户开通成功</h2>
               <table style="width:100%;border-collapse:collapse;margin-top:16px;">
                 <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">订单号</td><td style="padding:8px;border-bottom:1px solid #eee;font-weight:bold;">${order.trade_no || order.id}</td></tr>
@@ -362,13 +427,8 @@ Deno.serve(async (req) => {
                 <tr><td style="padding:8px;color:#666;">时间</td><td style="padding:8px;">${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</td></tr>
               </table>
               <p style="color:#999;font-size:12px;margin-top:16px;">此邮件由系统自动发送</p>
-            </div>`,
-          }),
-        });
-        console.log("New purchase notification email sent");
-      } catch (emailErr) {
-        console.error("Failed to send new purchase notification:", emailErr);
-      }
+            </div>`
+      );
     }
 
     // Increment current_clients on the region_inbound and check stock
@@ -390,66 +450,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Compute total remaining capacity across all inbounds in this region
-        let stockRegionName = "未知地区";
-        let totalRemaining = -1; // -1 means at least one unlimited inbound exists
-        if (riStockData.region_id) {
-          const { data: rn } = await supabase.from("regions").select("name").eq("id", riStockData.region_id).single();
-          if (rn) stockRegionName = rn.name;
-          const { data: allRis } = await supabase
-            .from("region_inbounds")
-            .select("current_clients, max_clients")
-            .eq("region_id", riStockData.region_id);
-          if (allRis) {
-            let unlimited = false;
-            let sum = 0;
-            for (const r of allRis) {
-              const max = r.max_clients || 0;
-              const cur = r.current_clients || 0;
-              if (max <= 0) { unlimited = true; break; }
-              sum += Math.max(0, max - cur);
-            }
-            totalRemaining = unlimited ? -1 : sum;
-            // Account for the increment we just made (already updated row above)
-          }
-        }
-
-        const shouldNotify = config.resend_api_key && config.notify_email && config.notify_stock_out;
-        const isStockOut = totalRemaining === 0;
-        const isLastOne = totalRemaining === 1;
-
-        if (shouldNotify && (isStockOut || isLastOne)) {
-          const subject = isStockOut
-            ? `🚨 地区【${stockRegionName}】库存已耗尽`
-            : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
-          const body = isStockOut
-            ? `<h2>库存耗尽通知</h2>
-                <p>地区 <strong>${stockRegionName}</strong> 所有入站名额已全部售罄。</p>
-                <p>前端商品已自动置灰，无法继续购买。请尽快补货！</p>
-                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
-            : `<h2>库存即将耗尽提醒</h2>
-                <p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p>
-                <p>请及时补货以避免售罄。</p>
-                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
-          try {
-            await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${config.resend_api_key}`,
-              },
-              body: JSON.stringify({
-                from: `系统通知 <onboarding@resend.dev>`,
-                to: [config.notify_email],
-                subject,
-                html: body,
-              }),
-            });
-            console.log(`Stock notification email sent: ${subject}`);
-          } catch (emailErr) {
-            console.error("Failed to send stock notification:", emailErr);
-          }
-        }
+        await notifyStockIfNeeded(supabase, config, riStockData.region_id, stockPoolIds.length > 0 ? stockPoolIds : [targetRegionInboundId]);
       }
     } else if (regionId) {
       // Fallback: increment on regions table
@@ -457,6 +458,7 @@ Deno.serve(async (req) => {
       if (regionData) {
         const newCount = (regionData.current_clients || 0) + 1;
         await supabase.from("regions").update({ current_clients: newCount }).eq("id", regionId);
+        await notifyStockIfNeeded(supabase, config, regionId);
       }
     }
 
