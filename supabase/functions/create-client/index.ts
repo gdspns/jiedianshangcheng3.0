@@ -365,18 +365,10 @@ Deno.serve(async (req) => {
 
     // Send email notification for new purchase
     if (config.resend_api_key && config.notify_email) {
-      try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.resend_api_key}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "通知 <onboarding@resend.dev>",
-            to: [config.notify_email],
-            subject: `🎉 新用户开通成功 - ${order.plan_name}`,
-            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+      await sendAdminEmail(
+        config,
+        `🎉 新用户开通成功 - ${order.plan_name}`,
+        `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
               <h2 style="color:#10b981;">🎉 新用户开通成功</h2>
               <table style="width:100%;border-collapse:collapse;margin-top:16px;">
                 <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">订单号</td><td style="padding:8px;border-bottom:1px solid #eee;font-weight:bold;">${order.trade_no || order.id}</td></tr>
@@ -391,13 +383,8 @@ Deno.serve(async (req) => {
                 <tr><td style="padding:8px;color:#666;">时间</td><td style="padding:8px;">${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</td></tr>
               </table>
               <p style="color:#999;font-size:12px;margin-top:16px;">此邮件由系统自动发送</p>
-            </div>`,
-          }),
-        });
-        console.log("New purchase notification email sent");
-      } catch (emailErr) {
-        console.error("Failed to send new purchase notification:", emailErr);
-      }
+            </div>`
+      );
     }
 
     // Increment current_clients on the region_inbound and check stock
