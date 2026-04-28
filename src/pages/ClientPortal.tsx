@@ -420,7 +420,7 @@ export default function ClientPortal() {
 
   const getDaysLeft = () => {
     if (clientData.expiryDate === 0) return -1; // unlimited
-    return Math.max(0, Math.ceil((clientData.expiryDate - Date.now()) / 86400000));
+    return Math.ceil((clientData.expiryDate - Date.now()) / 86400000);
   };
 
   const cleanupPolling = () => {
