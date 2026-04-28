@@ -450,50 +450,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Compute remaining capacity across the exact plan+region inbound pool
-        let stockRegionName = "未知地区";
-        let totalRemaining = -1; // -1 means at least one unlimited inbound exists
-        if (riStockData.region_id) {
-          const { data: rn } = await supabase.from("regions").select("name").eq("id", riStockData.region_id).single();
-          if (rn) stockRegionName = rn.name;
-          const scopeIds = stockPoolIds.length > 0 ? stockPoolIds : [targetRegionInboundId];
-          const { data: allRis } = await supabase
-            .from("region_inbounds")
-            .select("current_clients, max_clients")
-            .in("id", scopeIds);
-          if (allRis) {
-            let unlimited = false;
-            let sum = 0;
-            for (const r of allRis) {
-              const max = r.max_clients || 0;
-              const cur = r.current_clients || 0;
-              if (max <= 0) { unlimited = true; break; }
-              sum += Math.max(0, max - cur);
-            }
-            totalRemaining = unlimited ? -1 : sum;
-            // Account for the increment we just made (already updated row above)
-          }
-        }
-
-        const shouldNotify = config.resend_api_key && config.notify_email;
-        const isStockOut = totalRemaining === 0;
-        const isLastOne = totalRemaining === 1;
-
-        if (shouldNotify && (isStockOut || isLastOne)) {
-          const subject = isStockOut
-            ? `🚨 地区【${stockRegionName}】库存已耗尽`
-            : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
-          const body = isStockOut
-            ? `<h2>库存耗尽通知</h2>
-                <p>地区 <strong>${stockRegionName}</strong> 所有入站名额已全部售罄。</p>
-                <p>前端商品已自动置灰，无法继续购买。请尽快补货！</p>
-                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
-            : `<h2>库存即将耗尽提醒</h2>
-                <p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p>
-                <p>请及时补货以避免售罄。</p>
-                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
-          await sendAdminEmail(config, subject, body);
-        }
+        await notifyStockIfNeeded(supabase, config, riStockData.region_id, stockPoolIds.length > 0 ? stockPoolIds : [targetRegionInboundId]);
       }
     } else if (regionId) {
       // Fallback: increment on regions table
@@ -501,6 +458,7 @@ Deno.serve(async (req) => {
       if (regionData) {
         const newCount = (regionData.current_clients || 0) + 1;
         await supabase.from("regions").update({ current_clients: newCount }).eq("id", regionId);
+        await notifyStockIfNeeded(supabase, config, regionId);
       }
     }
 
