@@ -1487,7 +1487,7 @@ export default function ClientPortal() {
                                   <h4 className="text-lg font-bold text-foreground">共享套餐</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                  {regionShared.map((plan) => (
+                                  {regionShared.map((plan) => { const isSoldOut = isPlanSoldOut[`${plan.id}_${region.id}`] ?? false; return (
                                     <div key={plan.id}
                                       className={`rounded-2xl p-6 relative transition-colors ${isSoldOut ? "opacity-50 grayscale" : ""} ${plan.featured ? "border-2 border-success shadow-xl transform md:-translate-y-2 bg-card" : "border border-border hover:border-success bg-card"}`}>
                                       {isSoldOut && (
