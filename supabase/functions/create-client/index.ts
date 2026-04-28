@@ -390,14 +390,47 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Send stock-out notification if max_clients reached
-        if (riStockData.max_clients > 0 && newCount >= riStockData.max_clients && config.resend_api_key && config.notify_email && config.notify_stock_out) {
-          // Get region name for notification
-          let stockRegionName = "未知地区";
-          if (riStockData.region_id) {
-            const { data: rn } = await supabase.from("regions").select("name").eq("id", riStockData.region_id).single();
-            if (rn) stockRegionName = rn.name;
+        // Compute total remaining capacity across all inbounds in this region
+        let stockRegionName = "未知地区";
+        let totalRemaining = -1; // -1 means at least one unlimited inbound exists
+        if (riStockData.region_id) {
+          const { data: rn } = await supabase.from("regions").select("name").eq("id", riStockData.region_id).single();
+          if (rn) stockRegionName = rn.name;
+          const { data: allRis } = await supabase
+            .from("region_inbounds")
+            .select("current_clients, max_clients")
+            .eq("region_id", riStockData.region_id);
+          if (allRis) {
+            let unlimited = false;
+            let sum = 0;
+            for (const r of allRis) {
+              const max = r.max_clients || 0;
+              const cur = r.current_clients || 0;
+              if (max <= 0) { unlimited = true; break; }
+              sum += Math.max(0, max - cur);
+            }
+            totalRemaining = unlimited ? -1 : sum;
+            // Account for the increment we just made (already updated row above)
           }
+        }
+
+        const shouldNotify = config.resend_api_key && config.notify_email && config.notify_stock_out;
+        const isStockOut = totalRemaining === 0;
+        const isLastOne = totalRemaining === 1;
+
+        if (shouldNotify && (isStockOut || isLastOne)) {
+          const subject = isStockOut
+            ? `🚨 地区【${stockRegionName}】库存已耗尽`
+            : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
+          const body = isStockOut
+            ? `<h2>库存耗尽通知</h2>
+                <p>地区 <strong>${stockRegionName}</strong> 所有入站名额已全部售罄。</p>
+                <p>前端商品已自动置灰，无法继续购买。请尽快补货！</p>
+                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
+            : `<h2>库存即将耗尽提醒</h2>
+                <p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p>
+                <p>请及时补货以避免售罄。</p>
+                <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
           try {
             await fetch("https://api.resend.com/emails", {
               method: "POST",
@@ -408,17 +441,13 @@ Deno.serve(async (req) => {
               body: JSON.stringify({
                 from: `系统通知 <onboarding@resend.dev>`,
                 to: [config.notify_email],
-                subject: `⚠️ 入站 #${salesInboundId}（${stockRegionName}）库存已用完`,
-                html: `<h2>库存耗尽通知</h2>
-                  <p>地区 <strong>${stockRegionName}</strong> 的入站 #${salesInboundId} 名额已全部用完。</p>
-                  <p>已用: <strong>${newCount}/${riStockData.max_clients}</strong></p>
-                  <p>请及时补充库存或调整最大客户端数量。</p>
-                  <hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`,
+                subject,
+                html: body,
               }),
             });
-            console.log("Stock-out notification email sent");
+            console.log(`Stock notification email sent: ${subject}`);
           } catch (emailErr) {
-            console.error("Failed to send stock-out notification:", emailErr);
+            console.error("Failed to send stock notification:", emailErr);
           }
         }
       }
