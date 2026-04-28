@@ -1451,7 +1451,7 @@ export default function ClientPortal() {
                                   <h4 className="text-lg font-bold text-foreground">独享套餐</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                  {regionExclusive.map((plan) => (
+                                  {regionExclusive.map((plan) => { const isSoldOut = isPlanSoldOut[`${plan.id}_${region.id}`] ?? false; return (
                                     <div key={plan.id}
                                       className={`rounded-2xl p-6 relative transition-colors ${isSoldOut ? "opacity-50 grayscale" : ""} ${plan.featured ? "border-2 border-client-primary shadow-xl transform md:-translate-y-2 bg-card" : "border border-border hover:border-client-primary bg-card"}`}>
                                       {isSoldOut && (
