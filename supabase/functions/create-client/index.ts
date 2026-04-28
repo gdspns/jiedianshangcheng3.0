@@ -63,6 +63,48 @@ function randomUUID(): string {
   return crypto.randomUUID();
 }
 
+async function notifyStockIfNeeded(supabase: any, config: any, regionId: string | null, scopeInboundIds: string[] = []) {
+  if (!regionId || !config.resend_api_key || !config.notify_email) return;
+
+  let stockRegionName = "未知地区";
+  const { data: rn } = await supabase.from("regions").select("name").eq("id", regionId).single();
+  if (rn?.name) stockRegionName = rn.name;
+
+  let query = supabase.from("region_inbounds").select("current_clients, max_clients").eq("region_id", regionId);
+  if (scopeInboundIds.length > 0) query = query.in("id", scopeInboundIds);
+  const { data: inbounds } = await query;
+  if (!inbounds || inbounds.length === 0) {
+    const { data: regionStock } = await supabase.from("regions").select("current_clients, max_clients").eq("id", regionId).single();
+    if (!regionStock || !regionStock.max_clients || regionStock.max_clients <= 0) return;
+    const remaining = Math.max(0, (regionStock.max_clients || 0) - (regionStock.current_clients || 0));
+    if (remaining !== 0 && remaining !== 1) return;
+    const subject = remaining === 0 ? `🚨 地区【${stockRegionName}】库存已耗尽` : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
+    const body = remaining === 0
+      ? `<h2>库存耗尽通知</h2><p>地区 <strong>${stockRegionName}</strong> 所有名额已全部售罄。</p><p>前端商品已自动置灰，无法继续购买。请尽快补货！</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
+      : `<h2>库存即将耗尽提醒</h2><p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p><p>请及时补货以避免售罄。</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
+    await sendAdminEmail(config, subject, body);
+    return;
+  }
+
+  let unlimited = false;
+  let totalRemaining = 0;
+  for (const r of inbounds) {
+    const max = r.max_clients || 0;
+    const cur = r.current_clients || 0;
+    if (max <= 0) { unlimited = true; break; }
+    totalRemaining += Math.max(0, max - cur);
+  }
+  if (unlimited || (totalRemaining !== 0 && totalRemaining !== 1)) return;
+
+  const subject = totalRemaining === 0
+    ? `🚨 地区【${stockRegionName}】库存已耗尽`
+    : `⚠️ 地区【${stockRegionName}】库存仅剩最后 1 个`;
+  const body = totalRemaining === 0
+    ? `<h2>库存耗尽通知</h2><p>地区 <strong>${stockRegionName}</strong> 所有入站名额已全部售罄。</p><p>前端商品已自动置灰，无法继续购买。请尽快补货！</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`
+    : `<h2>库存即将耗尽提醒</h2><p>地区 <strong>${stockRegionName}</strong> 仅剩最后 <strong>1</strong> 个名额可售。</p><p>请及时补货以避免售罄。</p><hr><p style="color:#999;font-size:12px;">此邮件由系统自动发送</p>`;
+  await sendAdminEmail(config, subject, body);
+}
+
 async function sendAdminEmail(config: any, subject: string, html: string): Promise<boolean> {
   if (!config.resend_api_key || !config.notify_email) return false;
   try {
