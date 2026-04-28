@@ -83,13 +83,17 @@ async function extendExpiry(panelUrl: string, cookie: string, inboundId: number,
   const settings = JSON.parse(inbound.settings || "{}");
   let found = false;
   const newExpiryDate = new Date(newExpiry);
-  const newExpiryLabel = `${newExpiryDate.getMonth() + 1}月${newExpiryDate.getDate()}日到期`;
+  const month = newExpiryDate.getMonth() + 1;
+  const day = newExpiryDate.getDate();
+  // Match "X月X日到期" or "X月X号到期" — works for 自助 prefix and manually-added clients
+  const dateRegex = /(\d+)月(\d+)[日号]到期/;
   for (const c of settings.clients || []) {
     if (c.email === email) {
       c.expiryTime = newExpiry;
-      // Update remark to reflect new expiry date
-      if (c.email.includes("自助")) {
-        c.email = c.email.replace(/\d+月\d+日到期/, newExpiryLabel);
+      const matched = (c.email || "").match(dateRegex);
+      if (matched) {
+        const suffix = matched[0].includes("号") ? "号" : "日";
+        c.email = c.email.replace(dateRegex, `${month}月${day}${suffix}到期`);
       }
       found = true;
       break;
