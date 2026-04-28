@@ -137,35 +137,39 @@ Deno.serve(async (req) => {
         .in("plan_id", planIds);
       
       if (inboundPlanRows && inboundPlanRows.length > 0) {
-        // If regionId is provided, prefer inbound from that region
-        targetRegionInboundId = inboundPlanRows[0].region_inbound_id;
+        const candidateIds = inboundPlanRows.map((ip: any) => ip.region_inbound_id);
         
-        if (regionId) {
-          const { data: regionInbounds } = await supabase
-            .from("region_inbounds")
-            .select("id, inbound_id")
-            .eq("region_id", regionId);
-          
-          if (regionInbounds) {
-            const riIds = regionInbounds.map((ri: any) => ri.id);
-            const match = inboundPlanRows.find((ip: any) => riIds.includes(ip.region_inbound_id));
-            if (match) targetRegionInboundId = match.region_inbound_id;
-          }
-        }
-        
-        // 3. Get the actual inbound_id and protocol from region_inbounds
-        const { data: riData } = await supabase
+        // 3. Fetch all candidate region_inbounds, sorted by sort_order
+        const { data: candidateInbounds } = await supabase
           .from("region_inbounds")
-          .select("inbound_id, region_id, protocol")
-          .eq("id", targetRegionInboundId)
-          .single();
+          .select("id, inbound_id, region_id, protocol, current_clients, max_clients, sort_order")
+          .in("id", candidateIds)
+          .order("sort_order", { ascending: true });
         
-        if (riData) {
-          salesInboundId = riData.inbound_id;
-          foundViaInboundPlans = true;
+        if (candidateInbounds && candidateInbounds.length > 0) {
+          // Restrict to region if provided
+          let pool = regionId
+            ? candidateInbounds.filter((ri: any) => ri.region_id === regionId)
+            : candidateInbounds;
+          if (pool.length === 0) pool = candidateInbounds;
           
-          // Use protocol from region_inbounds (per-inbound setting)
-          if (riData.protocol) salesProtocol = riData.protocol;
+          // Pick first inbound with available stock (max_clients=0 means unlimited)
+          const available = pool.find((ri: any) =>
+            !ri.max_clients || ri.max_clients <= 0 || (ri.current_clients || 0) < ri.max_clients
+          );
+          
+          if (!available) {
+            // All inbounds for this plan are full — block purchase
+            return new Response(JSON.stringify({ error: "该套餐已售罄，请联系客服补货" }), {
+              status: 409,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          targetRegionInboundId = available.id;
+          salesInboundId = available.inbound_id;
+          foundViaInboundPlans = true;
+          if (available.protocol) salesProtocol = available.protocol;
         }
       }
     }
