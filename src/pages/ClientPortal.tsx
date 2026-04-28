@@ -596,14 +596,16 @@ export default function ClientPortal() {
           } else {
             setPayStatus("success");
             if (checkoutData) {
-              const baseExpiry = clientData.expiryDate === 0 ? Date.now() : clientData.expiryDate;
+              const baseExpiry = clientData.expiryDate === 0 || clientData.expiryDate < Date.now() ? Date.now() : clientData.expiryDate;
               const newExpiry = new Date(baseExpiry);
               newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
-              // Update email remark with new expiry date
+              // Update email remark with new expiry date — supports 日/号 with or without 自助 prefix
               let updatedEmail = clientData.email || "";
-              if (updatedEmail.includes("自助")) {
-                const newLabel = `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}日到期`;
-                updatedEmail = updatedEmail.replace(/\d+月\d+日到期/, newLabel);
+              const dateRegex = /(\d+)月(\d+)[日号]到期/;
+              const matched = updatedEmail.match(dateRegex);
+              if (matched) {
+                const suffix = matched[0].includes("号") ? "号" : "日";
+                updatedEmail = updatedEmail.replace(dateRegex, `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}${suffix}到期`);
               }
               setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
             }
