@@ -1511,7 +1511,7 @@ export default function ClientPortal() {
                                         {isSoldOut ? "暂无库存，等待客服添加" : "购买开通"}
                                       </button>
                                     </div>
-                                  ))}
+                                  ); })}
                                 </div>
                               </div>
                             )}
