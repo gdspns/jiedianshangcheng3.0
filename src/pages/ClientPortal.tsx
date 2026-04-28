@@ -603,6 +603,7 @@ export default function ClientPortal() {
             try {
               const createRes = await createClientOnPanel(oid, checkoutData?.regionId);
               if (createRes?.success) {
+                refreshStockData();
                 setNewClientCredentials(createRes.credentials || null);
                 setNewClientConnectionInfo(createRes.connectionInfo || null);
                 setNewClientRemark(createRes.remark || "");
