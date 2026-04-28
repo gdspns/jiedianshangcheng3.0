@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
     
     let foundViaInboundPlans = false;
     let targetRegionInboundId: string | null = null;
+    let stockPoolIds: string[] = [];
     
     if (matchedPlans && matchedPlans.length > 0) {
       const planIds = matchedPlans.map((p: any) => p.id);
@@ -181,6 +182,7 @@ Deno.serve(async (req) => {
             ? candidateInbounds.filter((ri: any) => ri.region_id === regionId)
             : candidateInbounds;
           if (pool.length === 0) pool = candidateInbounds;
+          stockPoolIds = pool.map((ri: any) => ri.id);
           
           // Pick first inbound with available stock (max_clients=0 means unlimited)
           const available = pool.find((ri: any) =>
@@ -406,16 +408,17 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Compute total remaining capacity across all inbounds in this region
+        // Compute remaining capacity across the exact plan+region inbound pool
         let stockRegionName = "未知地区";
         let totalRemaining = -1; // -1 means at least one unlimited inbound exists
         if (riStockData.region_id) {
           const { data: rn } = await supabase.from("regions").select("name").eq("id", riStockData.region_id).single();
           if (rn) stockRegionName = rn.name;
+          const scopeIds = stockPoolIds.length > 0 ? stockPoolIds : [targetRegionInboundId];
           const { data: allRis } = await supabase
             .from("region_inbounds")
             .select("current_clients, max_clients")
-            .eq("region_id", riStockData.region_id);
+            .in("id", scopeIds);
           if (allRis) {
             let unlimited = false;
             let sum = 0;
