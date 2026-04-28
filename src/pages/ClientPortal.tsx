@@ -1441,7 +1441,6 @@ export default function ClientPortal() {
                         const regionPlanIds = mergedPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
                         const regionExclusive = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_exclusive");
                         const regionShared = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_shared");
-                        const isSoldOut = isRegionSoldOut[region.id] || false;
 
                         return (
                           <div>
