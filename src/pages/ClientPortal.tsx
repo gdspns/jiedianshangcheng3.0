@@ -306,7 +306,7 @@ export default function ClientPortal() {
     for (const region of dynamicRegions) {
       const rInbounds = regionInbounds.filter(ri => ri.region_id === region.id);
       if (rInbounds.length > 0) {
-        // Sold out if ALL inbounds for this region are full
+        // Sold out if ALL inbounds for this region are full (max_clients=0 means unlimited)
         const allFull = rInbounds.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
         map[region.id] = allFull;
       } else {
@@ -316,6 +316,31 @@ export default function ClientPortal() {
     }
     return map;
   }, [dynamicRegions, regionInbounds]);
+
+  // Compute sold-out per (plan, region): a plan is sold out in a region if every
+  // region_inbound mapped to that plan in that region has reached max_clients.
+  const isPlanSoldOut = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const plan of dynamicPlans) {
+      // region_inbounds mapped to this plan via inbound_plans
+      const mappedRiIds = inboundPlansData
+        .filter(ip => ip.plan_id === plan.id)
+        .map(ip => ip.region_inbound_id);
+      const mappedRis = regionInbounds.filter(ri => mappedRiIds.includes(ri.id));
+      for (const region of dynamicRegions) {
+        const inRegion = mappedRis.filter(ri => ri.region_id === region.id);
+        let soldOut: boolean;
+        if (inRegion.length > 0) {
+          soldOut = inRegion.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
+        } else {
+          // No specific mapping in this region: fall back to region-level check
+          soldOut = isRegionSoldOut[region.id] || false;
+        }
+        map[`${plan.id}_${region.id}`] = soldOut;
+      }
+    }
+    return map;
+  }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
 
   const extractIdentifier = (input: string): string | null => {
     const trimmed = input.trim();
@@ -1416,7 +1441,6 @@ export default function ClientPortal() {
                         const regionPlanIds = mergedPlanRegions.filter(pr => pr.region_id === region.id).map(pr => pr.plan_id);
                         const regionExclusive = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_exclusive");
                         const regionShared = dynamicPlans.filter(p => regionPlanIds.includes(p.id) && p.category === "new_shared");
-                        const isSoldOut = isRegionSoldOut[region.id] || false;
 
                         return (
                           <div>
@@ -1427,7 +1451,7 @@ export default function ClientPortal() {
                                   <h4 className="text-lg font-bold text-foreground">独享套餐</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                  {regionExclusive.map((plan) => (
+                                  {regionExclusive.map((plan) => { const isSoldOut = isPlanSoldOut[`${plan.id}_${region.id}`] ?? false; return (
                                     <div key={plan.id}
                                       className={`rounded-2xl p-6 relative transition-colors ${isSoldOut ? "opacity-50 grayscale" : ""} ${plan.featured ? "border-2 border-client-primary shadow-xl transform md:-translate-y-2 bg-card" : "border border-border hover:border-client-primary bg-card"}`}>
                                       {isSoldOut && (
@@ -1451,7 +1475,7 @@ export default function ClientPortal() {
                                         {isSoldOut ? "暂无库存，等待客服添加" : "购买开通"}
                                       </button>
                                     </div>
-                                  ))}
+                                  ); })}
                                 </div>
                               </div>
                             )}
@@ -1463,7 +1487,7 @@ export default function ClientPortal() {
                                   <h4 className="text-lg font-bold text-foreground">共享套餐</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                  {regionShared.map((plan) => (
+                                  {regionShared.map((plan) => { const isSoldOut = isPlanSoldOut[`${plan.id}_${region.id}`] ?? false; return (
                                     <div key={plan.id}
                                       className={`rounded-2xl p-6 relative transition-colors ${isSoldOut ? "opacity-50 grayscale" : ""} ${plan.featured ? "border-2 border-success shadow-xl transform md:-translate-y-2 bg-card" : "border border-border hover:border-success bg-card"}`}>
                                       {isSoldOut && (
@@ -1487,7 +1511,7 @@ export default function ClientPortal() {
                                         {isSoldOut ? "暂无库存，等待客服添加" : "购买开通"}
                                       </button>
                                     </div>
-                                  ))}
+                                  ); })}
                                 </div>
                               </div>
                             )}
