@@ -1120,7 +1120,7 @@ export default function ClientPortal() {
                     return null;
                   })()}
                   {/* 独享分组 */}
-                  {dynamicPlans.filter((p) => p.category === "renew_exclusive").length > 0 && (
+                  {dynamicPlans.filter((p) => p.category === "renew_exclusive" && filterRenewByRegion(p)).length > 0 && (
                     <div
                       className={`${(clientData?.email || "").includes("共享") ? "opacity-50 grayscale pointer-events-none" : ""}`}
                     >
