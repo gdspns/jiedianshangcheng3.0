@@ -629,6 +629,46 @@ export default function AdminDashboard() {
           ))}
         </div>
       )}
+      {/* Region linking for renew plans: pick which regions can see this renewal price */}
+      {(plan.category === "renew_exclusive" || plan.category === "renew_shared") && !contextRegionId && (
+        <div className="mt-2 pt-2 border-t border-border">
+          <div className="flex items-start gap-2 flex-wrap">
+            <span className="text-[15px] text-muted-foreground mt-1.5 shrink-0">关联地区(留空则所有地区可见):</span>
+            <div className="flex items-center gap-1.5 flex-wrap flex-1">
+              {regions.map(region => {
+                const linked = planRegions.some(pr => pr.plan_id === plan.id && pr.region_id === region.id);
+                const key = `region-toggle-${plan.id}-${region.id}`;
+                return (
+                  <button
+                    key={region.id}
+                    disabled={!!btnStatus[key]}
+                    onClick={async () => {
+                      setBtnLoading(key, "...");
+                      try {
+                        if (linked) {
+                          await adminUnassignPlanRegion(token, plan.id, region.id);
+                        } else {
+                          await adminAssignPlanRegion(token, plan.id, region.id);
+                        }
+                        await loadPlans();
+                        setBtnLoading(key, "✅");
+                      } catch { setBtnLoading(key, "❌"); }
+                      clearBtn(key);
+                    }}
+                    className={`text-[15px] px-2 py-1 rounded font-bold transition-colors disabled:opacity-70 ${linked ? "bg-client-primary text-client-primary-foreground" : "bg-muted text-muted-foreground border border-border hover:border-client-primary"}`}
+                    title={linked ? "点击取消关联" : "点击关联"}
+                  >
+                    {btnStatus[key] || `${linked ? "✓ " : "+ "}${region.name}`}
+                  </button>
+                );
+              })}
+              {regions.length === 0 && (
+                <span className="text-[15px] text-muted-foreground italic">请先在"地区管理"中添加地区</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
   };

@@ -62,6 +62,7 @@ interface ClientData {
   trafficUsed: number;
   trafficTotal: number;
   email?: string;
+  inboundId?: number;
 }
 
 interface PlanItem {
@@ -375,6 +376,25 @@ export default function ClientPortal() {
     return map;
   }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
 
+  // Determine the user's region from their inbound id (parsed at login).
+  const userRegionId = useMemo<string | null>(() => {
+    const iid = clientData?.inboundId;
+    if (!iid) return null;
+    const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
+    return ri?.region_id || null;
+  }, [clientData?.inboundId, regionInbounds]);
+
+  // Filter renew plans by user's region. A plan with any region linkage is only
+  // visible when linked to the user's region. Plans with no linkage show to all.
+  const filterRenewByRegion = (plan: PlanItem): boolean => {
+    const linkedRegionIds = mergedPlanRegions
+      .filter(pr => pr.plan_id === plan.id)
+      .map(pr => pr.region_id);
+    if (linkedRegionIds.length === 0) return true;
+    if (!userRegionId) return false;
+    return linkedRegionIds.includes(userRegionId);
+  };
+
   const extractIdentifier = (input: string): string | null => {
     const trimmed = input.trim();
     if (!trimmed) return null;
@@ -464,6 +484,7 @@ export default function ClientPortal() {
           trafficUsed: res.trafficUsed ?? 0,
           trafficTotal: res.trafficTotal ?? 100,
           email: res.email || "",
+          inboundId: res.inboundId,
         });
         setLogged(true);
       } else {
@@ -1099,7 +1120,7 @@ export default function ClientPortal() {
                     return null;
                   })()}
                   {/* 独享分组 */}
-                  {dynamicPlans.filter((p) => p.category === "renew_exclusive").length > 0 && (
+                  {dynamicPlans.filter((p) => p.category === "renew_exclusive" && filterRenewByRegion(p)).length > 0 && (
                     <div
                       className={`${(clientData?.email || "").includes("共享") ? "opacity-50 grayscale pointer-events-none" : ""}`}
                     >
@@ -1117,7 +1138,7 @@ export default function ClientPortal() {
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                         {dynamicPlans
-                          .filter((p) => p.category === "renew_exclusive")
+                          .filter((p) => p.category === "renew_exclusive" && filterRenewByRegion(p))
                           .map((plan) => (
                             <div
                               key={plan.id}
@@ -1163,7 +1184,7 @@ export default function ClientPortal() {
                   )}
 
                   {/* 共享分组 */}
-                  {dynamicPlans.filter((p) => p.category === "renew_shared").length > 0 && (
+                  {dynamicPlans.filter((p) => p.category === "renew_shared" && filterRenewByRegion(p)).length > 0 && (
                     <div
                       className={`${(clientData?.email || "").includes("独享") ? "opacity-50 grayscale pointer-events-none" : ""}`}
                     >
@@ -1181,7 +1202,7 @@ export default function ClientPortal() {
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                         {dynamicPlans
-                          .filter((p) => p.category === "renew_shared")
+                          .filter((p) => p.category === "renew_shared" && filterRenewByRegion(p))
                           .map((plan) => (
                             <div
                               key={plan.id}
@@ -1226,8 +1247,10 @@ export default function ClientPortal() {
                     </div>
                   )}
 
-                  {dynamicPlans.length === 0 && (
-                    <div className="text-center text-muted-foreground py-12">暂无可用套餐</div>
+                  {dynamicPlans.filter(p => (p.category === "renew_exclusive" || p.category === "renew_shared") && filterRenewByRegion(p)).length === 0 && (
+                    <div className="text-center text-muted-foreground py-12">
+                      {userRegionId ? "您所在的地区暂无可用续费套餐" : "暂无可用套餐"}
+                    </div>
                   )}
                 </div>
               )}
