@@ -1247,8 +1247,10 @@ export default function ClientPortal() {
                     </div>
                   )}
 
-                  {dynamicPlans.length === 0 && (
-                    <div className="text-center text-muted-foreground py-12">暂无可用套餐</div>
+                  {dynamicPlans.filter(p => (p.category === "renew_exclusive" || p.category === "renew_shared") && filterRenewByRegion(p)).length === 0 && (
+                    <div className="text-center text-muted-foreground py-12">
+                      {userRegionId ? "您所在的地区暂无可用续费套餐" : "暂无可用套餐"}
+                    </div>
                   )}
                 </div>
               )}
