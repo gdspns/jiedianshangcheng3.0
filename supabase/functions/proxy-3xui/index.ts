@@ -313,6 +313,7 @@ Deno.serve(async (req) => {
         success: true,
         email: displayRemark,
         remark: client.email,
+        inboundId: client.inboundId,
         expiryDate: finalExpiryTime,
         trafficUsed: Math.round(trafficUsedGB * 100) / 100,
         trafficTotal: Math.round(trafficTotalGB * 100) / 100,
