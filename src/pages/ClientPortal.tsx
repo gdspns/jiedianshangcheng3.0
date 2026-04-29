@@ -376,6 +376,25 @@ export default function ClientPortal() {
     return map;
   }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
 
+  // Determine the user's region from their inbound id (parsed at login).
+  const userRegionId = useMemo<string | null>(() => {
+    const iid = clientData?.inboundId;
+    if (!iid) return null;
+    const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
+    return ri?.region_id || null;
+  }, [clientData?.inboundId, regionInbounds]);
+
+  // Filter renew plans by user's region. A plan with any region linkage is only
+  // visible when linked to the user's region. Plans with no linkage show to all.
+  const filterRenewByRegion = (plan: PlanItem): boolean => {
+    const linkedRegionIds = mergedPlanRegions
+      .filter(pr => pr.plan_id === plan.id)
+      .map(pr => pr.region_id);
+    if (linkedRegionIds.length === 0) return true;
+    if (!userRegionId) return false;
+    return linkedRegionIds.includes(userRegionId);
+  };
+
   const extractIdentifier = (input: string): string | null => {
     const trimmed = input.trim();
     if (!trimmed) return null;
