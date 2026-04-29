@@ -2173,9 +2173,22 @@ export default function ClientPortal() {
                             {order.order_type === "buy_new" ? "购买开通" : "在线续费"}
                           </span>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full ${order.status === "fulfilled" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
-                            {order.status === "fulfilled" ? "已完成" : "已支付"}
+                            {order.status === "fulfilled" ? "已完成" : "已支付待开通"}
                           </span>
                         </div>
+                        {order.status === "paid" && order.order_type === "buy_new" && (
+                          <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl mb-3 flex items-center justify-between gap-3">
+                            <p className="text-xs text-warning-foreground">
+                              ⚠️ 此订单已付款但节点尚未生成，请点击右侧按钮补发节点
+                            </p>
+                            <button
+                              onClick={() => handleRetryFulfill(order.id)}
+                              className="bg-warning text-warning-foreground px-3 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-colors whitespace-nowrap"
+                            >
+                              补发节点
+                            </button>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground mb-3">
                           <div>
                             <span className="block text-xs">金额</span>
