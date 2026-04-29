@@ -796,8 +796,27 @@ export default function ClientPortal() {
     setLookupError("");
     setLookupOrders([]);
     try {
-      const results = await lookupOrdersByEmail(lookupEmail.trim());
+      let results = await lookupOrdersByEmail(lookupEmail.trim());
       if (results && results.length > 0) {
+        // Auto-fulfill any "paid" buy_new orders that never got their client created
+        // (e.g. user closed the page before polling triggered create-client)
+        const pendingBuyNew = results.filter(
+          (o: any) => o.order_type === "buy_new" && o.status === "paid"
+        );
+        if (pendingBuyNew.length > 0) {
+          await Promise.all(
+            pendingBuyNew.map(async (o: any) => {
+              try {
+                await createClientOnPanel(o.id);
+              } catch (e) {
+                console.error("auto create-client failed for order", o.id, e);
+              }
+            })
+          );
+          // Re-fetch with updated status / uuid
+          results = await lookupOrdersByEmail(lookupEmail.trim());
+          refreshStockData();
+        }
         setLookupOrders(results);
       } else {
         setLookupError("未找到相关订单，请确认输入是否正确");
@@ -806,6 +825,22 @@ export default function ClientPortal() {
       setLookupError("查询失败，请稍后重试");
     } finally {
       setLookupLoading(false);
+    }
+  };
+
+  // Manually re-trigger client creation for a single paid buy_new order
+  const handleRetryFulfill = async (orderId: string) => {
+    try {
+      const res = await createClientOnPanel(orderId);
+      if (res?.success) {
+        refreshStockData();
+        const refreshed = await lookupOrdersByEmail(lookupEmail.trim());
+        setLookupOrders(refreshed || []);
+      } else {
+        alert("补发失败：" + (res?.error || "请稍后重试或联系站长"));
+      }
+    } catch {
+      alert("补发失败，请稍后重试或联系站长");
     }
   };
 
