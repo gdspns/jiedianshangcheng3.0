@@ -62,6 +62,7 @@ interface ClientData {
   trafficUsed: number;
   trafficTotal: number;
   email?: string;
+  inboundId?: number;
 }
 
 interface PlanItem {
