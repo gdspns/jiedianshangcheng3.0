@@ -1184,7 +1184,7 @@ export default function ClientPortal() {
                   )}
 
                   {/* 共享分组 */}
-                  {dynamicPlans.filter((p) => p.category === "renew_shared").length > 0 && (
+                  {dynamicPlans.filter((p) => p.category === "renew_shared" && filterRenewByRegion(p)).length > 0 && (
                     <div
                       className={`${(clientData?.email || "").includes("独享") ? "opacity-50 grayscale pointer-events-none" : ""}`}
                     >
