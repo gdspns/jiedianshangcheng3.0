@@ -68,7 +68,7 @@ export async function lookupOrdersByEmail(email: string) {
     .from("orders")
     .select("*")
     .eq("email", email)
-    .in("status", ["fulfilled", "paid"])
+    .in("status", ["fulfilled", "paid", "processing"])
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw error;

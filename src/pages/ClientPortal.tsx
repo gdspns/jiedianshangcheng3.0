@@ -238,6 +238,8 @@ export default function ClientPortal() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track orders currently being fulfilled to prevent duplicate create-client calls
+  const inFlightCreateRef = useRef<Set<string>>(new Set());
 
   const refreshStockData = async () => {
     try {
@@ -621,6 +623,11 @@ export default function ClientPortal() {
           // If this is a "buy_new" order, auto-create client on panel
           if (checkoutData?.type === "buy_new") {
             setPayStatus("creating_client");
+            // Skip if another caller is already fulfilling this order
+            if (inFlightCreateRef.current.has(oid)) {
+              return;
+            }
+            inFlightCreateRef.current.add(oid);
             try {
               const createRes = await createClientOnPanel(oid, checkoutData?.regionId);
               if (createRes?.success) {
@@ -672,6 +679,8 @@ export default function ClientPortal() {
             } catch {
               setPayStatus("buy_success");
               setTab("buy_new");
+            } finally {
+              inFlightCreateRef.current.delete(oid);
             }
           } else {
             setPayStatus("success");
@@ -801,18 +810,21 @@ export default function ClientPortal() {
         // Auto-fulfill any "paid" buy_new orders that never got their client created
         // (e.g. user closed the page before polling triggered create-client)
         const pendingBuyNew = results.filter(
-          (o: any) => o.order_type === "buy_new" && o.status === "paid"
+          (o: any) => o.order_type === "buy_new" && (o.status === "paid" || o.status === "processing")
         );
         if (pendingBuyNew.length > 0) {
-          await Promise.all(
-            pendingBuyNew.map(async (o: any) => {
-              try {
-                await createClientOnPanel(o.id);
-              } catch (e) {
-                console.error("auto create-client failed for order", o.id, e);
-              }
-            })
-          );
+          // Serial — avoid hammering the panel and cooperate with backend lock
+          for (const o of pendingBuyNew) {
+            if (inFlightCreateRef.current.has(o.id)) continue;
+            inFlightCreateRef.current.add(o.id);
+            try {
+              await createClientOnPanel(o.id);
+            } catch (e) {
+              console.error("auto create-client failed for order", o.id, e);
+            } finally {
+              inFlightCreateRef.current.delete(o.id);
+            }
+          }
           // Re-fetch with updated status / uuid
           results = await lookupOrdersByEmail(lookupEmail.trim());
           refreshStockData();
@@ -830,6 +842,11 @@ export default function ClientPortal() {
 
   // Manually re-trigger client creation for a single paid buy_new order
   const handleRetryFulfill = async (orderId: string) => {
+    if (inFlightCreateRef.current.has(orderId)) {
+      alert("订单正在开通中，请稍候刷新查看");
+      return;
+    }
+    inFlightCreateRef.current.add(orderId);
     try {
       const res = await createClientOnPanel(orderId);
       if (res?.success) {
@@ -839,8 +856,15 @@ export default function ClientPortal() {
       } else {
         alert("补发失败：" + (res?.error || "请稍后重试或联系站长"));
       }
-    } catch {
-      alert("补发失败，请稍后重试或联系站长");
+    } catch (e: any) {
+      const msg = e?.message || "";
+      if (msg.includes("正在开通中") || msg.includes("409")) {
+        alert("订单正在开通中，请 5 秒后刷新查看");
+      } else {
+        alert("补发失败，请稍后重试或联系站长");
+      }
+    } finally {
+      inFlightCreateRef.current.delete(orderId);
     }
   };
 
@@ -2173,9 +2197,16 @@ export default function ClientPortal() {
                             {order.order_type === "buy_new" ? "购买开通" : "在线续费"}
                           </span>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full ${order.status === "fulfilled" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
-                            {order.status === "fulfilled" ? "已完成" : "已支付待开通"}
+                            {order.status === "fulfilled" ? "已完成" : order.status === "processing" ? "开通中…" : "已支付待开通"}
                           </span>
                         </div>
+                        {order.status === "processing" && order.order_type === "buy_new" && (
+                          <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl mb-3">
+                            <p className="text-xs text-warning-foreground">
+                              ⏳ 系统正在为该订单开通节点，请 5-10 秒后刷新页面查看
+                            </p>
+                          </div>
+                        )}
                         {order.status === "paid" && order.order_type === "buy_new" && (
                           <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl mb-3 flex items-center justify-between gap-3">
                             <p className="text-xs text-warning-foreground">

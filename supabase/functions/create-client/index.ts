@@ -139,8 +139,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let parsedOrderId: string | null = null;
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
   try {
     const { orderId, regionId } = await req.json();
+    parsedOrderId = orderId || null;
 
     if (!orderId) {
       return new Response(JSON.stringify({ error: "缺少 orderId" }), {
@@ -149,10 +156,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     // Get order - must be paid/fulfilled and type "new"
     const { data: order, error: orderErr } = await supabase
@@ -168,14 +171,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!["paid", "fulfilled"].includes(order.status)) {
+    if (!["paid", "fulfilled", "processing"].includes(order.status)) {
       return new Response(JSON.stringify({ error: "订单未支付" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get admin config
+    // Get admin config (needed for both fulfilled-reuse path and create path)
     const { data: config } = await supabase.from("admin_config").select("*").limit(1).single();
     if (!config) {
       return new Response(JSON.stringify({ error: "系统配置未初始化" }), {
@@ -183,6 +186,110 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ============ IDEMPOTENCY ============
+    // Helper: reuse already-fulfilled order — fetch existing client from panel and rebuild credentials/connectionInfo
+    const buildResponseForFulfilledOrder = async (existingOrder: any) => {
+      const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
+      if (!cookie || !existingOrder.inbound_id) {
+        return new Response(JSON.stringify({ error: "无法读取已开通的客户端，请联系站长" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const baseUrl = config.panel_url.replace(/\/+$/, "");
+      const inbRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${existingOrder.inbound_id}`, {
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+      const inbData = await safeJson(inbRes);
+      if (!inbData?.success || !inbData?.obj) {
+        return new Response(JSON.stringify({ error: "无法读取入站信息" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const inb = inbData.obj;
+      const proto = inb.protocol;
+      const settings = JSON.parse(inb.settings || "{}");
+      let creds: Record<string, string> = {};
+      if (proto === "socks" || proto === "mixed") {
+        const acc = (settings.accounts || []).find((a: any) => a.user === existingOrder.uuid);
+        if (acc) creds = { protocol: "socks", username: acc.user, password: acc.pass };
+      } else {
+        const c = (settings.clients || []).find((cl: any) => cl.id === existingOrder.uuid || cl.password === existingOrder.uuid);
+        if (c) creds = { protocol: proto, uuid: existingOrder.uuid };
+      }
+      let stream: any = {};
+      try { stream = JSON.parse(inb.streamSettings || "{}"); } catch {}
+      const conn: Record<string, any> = {
+        address: config.panel_url.replace(/^https?:\/\//, "").replace(/:\d+.*$/, ""),
+        port: inb.port,
+        streamSettings: stream,
+        remark: inb.remark || "",
+        regionName: "",
+      };
+      // best-effort region name lookup
+      try {
+        const { data: ri } = await supabase.from("region_inbounds").select("region_id").eq("inbound_id", existingOrder.inbound_id).limit(1).maybeSingle();
+        if (ri?.region_id) {
+          const { data: rg } = await supabase.from("regions").select("name").eq("id", ri.region_id).single();
+          if (rg?.name) conn.regionName = rg.name;
+        }
+      } catch {}
+      return new Response(JSON.stringify({
+        success: true,
+        credentials: creds,
+        remark: existingOrder.client_remark || "",
+        expiryTime: existingOrder.fulfilled_at ? new Date(existingOrder.fulfilled_at).getTime() + (existingOrder.duration_days || existingOrder.months * 30) * 86400000 : 0,
+        connectionInfo: conn,
+        reused: true,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    };
+
+    // If already fulfilled — return existing client (no duplicate creation)
+    if (order.status === "fulfilled" && order.uuid && order.inbound_id) {
+      return await buildResponseForFulfilledOrder(order);
+    }
+
+    // CAS lock: only proceed if we can move paid -> processing
+    if (order.status === "paid") {
+      const { data: locked } = await supabase
+        .from("orders")
+        .update({ status: "processing" })
+        .eq("id", orderId)
+        .eq("status", "paid")
+        .select("id");
+      if (!locked || locked.length === 0) {
+        // Someone else got the lock — wait briefly then re-check
+        await new Promise((r) => setTimeout(r, 1500));
+        const { data: refreshed } = await supabase.from("orders").select("*").eq("id", orderId).single();
+        if (refreshed?.status === "fulfilled" && refreshed.uuid && refreshed.inbound_id) {
+          return await buildResponseForFulfilledOrder(refreshed);
+        }
+        return new Response(JSON.stringify({ error: "订单正在开通中，请稍后刷新查看" }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else if (order.status === "processing") {
+      // Concurrent caller — wait & re-check
+      await new Promise((r) => setTimeout(r, 1500));
+      const { data: refreshed } = await supabase.from("orders").select("*").eq("id", orderId).single();
+      if (refreshed?.status === "fulfilled" && refreshed.uuid && refreshed.inbound_id) {
+        return await buildResponseForFulfilledOrder(refreshed);
+      }
+      return new Response(JSON.stringify({ error: "订单正在开通中，请稍后刷新查看" }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Helper to roll back the lock on any failure path below
+    const rollbackLock = async () => {
+      try {
+        await supabase.from("orders").update({ status: "paid" }).eq("id", orderId).eq("status", "processing");
+      } catch (e) { console.error("rollback lock failed", e); }
+    };
 
     // Determine inbound_id and protocol
     let salesInboundId = (config as any).sales_inbound_id ?? 1;
@@ -233,6 +340,7 @@ Deno.serve(async (req) => {
           
           if (!available) {
             // All inbounds for this plan are full — block purchase
+            await rollbackLock();
             return new Response(JSON.stringify({ error: "该套餐已售罄，请联系客服补货" }), {
               status: 409,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -263,6 +371,7 @@ Deno.serve(async (req) => {
     // Login to 3x-ui
     const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
     if (!cookie) {
+      await rollbackLock();
       return new Response(JSON.stringify({ error: "无法连接到面板" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -277,6 +386,7 @@ Deno.serve(async (req) => {
     });
     const inboundData = await safeJson(inboundRes);
     if (!inboundData?.success || !inboundData?.obj) {
+      await rollbackLock();
       return new Response(JSON.stringify({ error: `入站 #${salesInboundId} 不存在` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -336,6 +446,7 @@ Deno.serve(async (req) => {
       console.log("SOCKS5 add account result:", updateBody);
 
       if (!updateBody?.success) {
+        await rollbackLock();
         return new Response(JSON.stringify({ error: "添加用户到面板失败" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -386,6 +497,7 @@ Deno.serve(async (req) => {
       console.log("addClient result:", addBody);
 
       if (!addBody?.success) {
+        await rollbackLock();
         return new Response(JSON.stringify({ error: "添加客户端到面板失败: " + (addBody?.msg || "") }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -495,6 +607,14 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("create-client error:", err);
+    // Best-effort: roll back any 'processing' lock for this order so it can be retried
+    if (parsedOrderId) {
+      try {
+        await supabase.from("orders").update({ status: "paid" }).eq("id", parsedOrderId).eq("status", "processing");
+      } catch (rbErr) {
+        console.error("outer rollback failed", rbErr);
+      }
+    }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
