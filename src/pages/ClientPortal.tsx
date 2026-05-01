@@ -810,18 +810,21 @@ export default function ClientPortal() {
         // Auto-fulfill any "paid" buy_new orders that never got their client created
         // (e.g. user closed the page before polling triggered create-client)
         const pendingBuyNew = results.filter(
-          (o: any) => o.order_type === "buy_new" && o.status === "paid"
+          (o: any) => o.order_type === "buy_new" && (o.status === "paid" || o.status === "processing")
         );
         if (pendingBuyNew.length > 0) {
-          await Promise.all(
-            pendingBuyNew.map(async (o: any) => {
-              try {
-                await createClientOnPanel(o.id);
-              } catch (e) {
-                console.error("auto create-client failed for order", o.id, e);
-              }
-            })
-          );
+          // Serial — avoid hammering the panel and cooperate with backend lock
+          for (const o of pendingBuyNew) {
+            if (inFlightCreateRef.current.has(o.id)) continue;
+            inFlightCreateRef.current.add(o.id);
+            try {
+              await createClientOnPanel(o.id);
+            } catch (e) {
+              console.error("auto create-client failed for order", o.id, e);
+            } finally {
+              inFlightCreateRef.current.delete(o.id);
+            }
+          }
           // Re-fetch with updated status / uuid
           results = await lookupOrdersByEmail(lookupEmail.trim());
           refreshStockData();
