@@ -238,6 +238,8 @@ export default function ClientPortal() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track orders currently being fulfilled to prevent duplicate create-client calls
+  const inFlightCreateRef = useRef<Set<string>>(new Set());
 
   const refreshStockData = async () => {
     try {
