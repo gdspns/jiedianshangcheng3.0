@@ -443,6 +443,7 @@ Deno.serve(async (req) => {
       console.log("SOCKS5 add account result:", updateBody);
 
       if (!updateBody?.success) {
+        await rollbackLock();
         return new Response(JSON.stringify({ error: "添加用户到面板失败" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -493,6 +494,7 @@ Deno.serve(async (req) => {
       console.log("addClient result:", addBody);
 
       if (!addBody?.success) {
+        await rollbackLock();
         return new Response(JSON.stringify({ error: "添加客户端到面板失败: " + (addBody?.msg || "") }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
