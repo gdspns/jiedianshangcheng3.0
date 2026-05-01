@@ -2197,9 +2197,16 @@ export default function ClientPortal() {
                             {order.order_type === "buy_new" ? "购买开通" : "在线续费"}
                           </span>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full ${order.status === "fulfilled" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
-                            {order.status === "fulfilled" ? "已完成" : "已支付待开通"}
+                            {order.status === "fulfilled" ? "已完成" : order.status === "processing" ? "开通中…" : "已支付待开通"}
                           </span>
                         </div>
+                        {order.status === "processing" && order.order_type === "buy_new" && (
+                          <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl mb-3">
+                            <p className="text-xs text-warning-foreground">
+                              ⏳ 系统正在为该订单开通节点，请 5-10 秒后刷新页面查看
+                            </p>
+                          </div>
+                        )}
                         {order.status === "paid" && order.order_type === "buy_new" && (
                           <div className="bg-warning/10 border border-warning/20 p-3 rounded-xl mb-3 flex items-center justify-between gap-3">
                             <p className="text-xs text-warning-foreground">
