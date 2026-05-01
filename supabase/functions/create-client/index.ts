@@ -608,14 +608,12 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("create-client error:", err);
     // Best-effort: roll back any 'processing' lock for this order so it can be retried
-    try {
-      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const body = await (req.clone()).json().catch(() => ({}));
-      if (body?.orderId) {
-        await sb.from("orders").update({ status: "paid" }).eq("id", body.orderId).eq("status", "processing");
+    if (parsedOrderId) {
+      try {
+        await supabase.from("orders").update({ status: "paid" }).eq("id", parsedOrderId).eq("status", "processing");
+      } catch (rbErr) {
+        console.error("outer rollback failed", rbErr);
       }
-    } catch (rbErr) {
-      console.error("outer rollback failed", rbErr);
     }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
