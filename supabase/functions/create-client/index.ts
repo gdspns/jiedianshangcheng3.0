@@ -139,8 +139,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let parsedOrderId: string | null = null;
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
   try {
     const { orderId, regionId } = await req.json();
+    parsedOrderId = orderId || null;
 
     if (!orderId) {
       return new Response(JSON.stringify({ error: "缺少 orderId" }), {
@@ -149,10 +156,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     // Get order - must be paid/fulfilled and type "new"
     const { data: order, error: orderErr } = await supabase
