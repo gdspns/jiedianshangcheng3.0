@@ -623,6 +623,11 @@ export default function ClientPortal() {
           // If this is a "buy_new" order, auto-create client on panel
           if (checkoutData?.type === "buy_new") {
             setPayStatus("creating_client");
+            // Skip if another caller is already fulfilling this order
+            if (inFlightCreateRef.current.has(oid)) {
+              return;
+            }
+            inFlightCreateRef.current.add(oid);
             try {
               const createRes = await createClientOnPanel(oid, checkoutData?.regionId);
               if (createRes?.success) {
@@ -674,6 +679,8 @@ export default function ClientPortal() {
             } catch {
               setPayStatus("buy_success");
               setTab("buy_new");
+            } finally {
+              inFlightCreateRef.current.delete(oid);
             }
           } else {
             setPayStatus("success");
