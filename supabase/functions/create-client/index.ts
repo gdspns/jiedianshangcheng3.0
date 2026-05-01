@@ -337,6 +337,7 @@ Deno.serve(async (req) => {
           
           if (!available) {
             // All inbounds for this plan are full — block purchase
+            await rollbackLock();
             return new Response(JSON.stringify({ error: "该套餐已售罄，请联系客服补货" }), {
               status: 409,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -367,6 +368,7 @@ Deno.serve(async (req) => {
     // Login to 3x-ui
     const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
     if (!cookie) {
+      await rollbackLock();
       return new Response(JSON.stringify({ error: "无法连接到面板" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -381,6 +383,7 @@ Deno.serve(async (req) => {
     });
     const inboundData = await safeJson(inboundRes);
     if (!inboundData?.success || !inboundData?.obj) {
+      await rollbackLock();
       return new Response(JSON.stringify({ error: `入站 #${salesInboundId} 不存在` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
