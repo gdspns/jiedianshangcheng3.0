@@ -287,12 +287,6 @@ Deno.serve(async (req) => {
         await supabase.from("orders").update({ status: "paid" }).eq("id", orderId).eq("status", "processing");
       } catch (e) { console.error("rollback lock failed", e); }
     };
-    if (!config) {
-      return new Response(JSON.stringify({ error: "系统配置未初始化" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // Determine inbound_id and protocol
     let salesInboundId = (config as any).sales_inbound_id ?? 1;
