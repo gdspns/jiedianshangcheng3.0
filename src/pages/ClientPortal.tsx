@@ -842,6 +842,11 @@ export default function ClientPortal() {
 
   // Manually re-trigger client creation for a single paid buy_new order
   const handleRetryFulfill = async (orderId: string) => {
+    if (inFlightCreateRef.current.has(orderId)) {
+      alert("订单正在开通中，请稍候刷新查看");
+      return;
+    }
+    inFlightCreateRef.current.add(orderId);
     try {
       const res = await createClientOnPanel(orderId);
       if (res?.success) {
@@ -851,8 +856,15 @@ export default function ClientPortal() {
       } else {
         alert("补发失败：" + (res?.error || "请稍后重试或联系站长"));
       }
-    } catch {
-      alert("补发失败，请稍后重试或联系站长");
+    } catch (e: any) {
+      const msg = e?.message || "";
+      if (msg.includes("正在开通中") || msg.includes("409")) {
+        alert("订单正在开通中，请 5 秒后刷新查看");
+      } else {
+        alert("补发失败，请稍后重试或联系站长");
+      }
+    } finally {
+      inFlightCreateRef.current.delete(orderId);
     }
   };
 
