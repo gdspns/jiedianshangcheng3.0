@@ -380,12 +380,25 @@ export default function ClientPortal() {
   }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
 
   // Determine the user's region from their inbound id (parsed at login).
+  // Strategy: 1) match by inbound_id in region_inbounds; 2) fallback by inbound remark
+  // containing the region name (case-insensitive substring match).
   const userRegionId = useMemo<string | null>(() => {
     const iid = clientData?.inboundId;
-    if (!iid) return null;
-    const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
-    return ri?.region_id || null;
-  }, [clientData?.inboundId, regionInbounds]);
+    if (iid) {
+      const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
+      if (ri?.region_id) return ri.region_id;
+    }
+    const remark = (clientData?.inboundRemark || "").toLowerCase();
+    if (remark) {
+      // Prefer the longest region name that is contained in the remark to avoid
+      // accidentally matching shorter, ambiguous names.
+      const matched = [...dynamicRegions]
+        .filter(r => r.name && remark.includes(r.name.toLowerCase()))
+        .sort((a, b) => b.name.length - a.name.length)[0];
+      if (matched) return matched.id;
+    }
+    return null;
+  }, [clientData?.inboundId, clientData?.inboundRemark, regionInbounds, dynamicRegions]);
 
   // Filter renew plans by user's region. A plan with any region linkage is only
   // visible when linked to the user's region. Plans with no linkage show to all.
