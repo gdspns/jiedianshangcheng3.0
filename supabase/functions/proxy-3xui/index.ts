@@ -314,6 +314,7 @@ Deno.serve(async (req) => {
         email: displayRemark,
         remark: client.email,
         inboundId: client.inboundId,
+        inboundRemark: client.inboundRemark || "",
         expiryDate: finalExpiryTime,
         trafficUsed: Math.round(trafficUsedGB * 100) / 100,
         trafficTotal: Math.round(trafficTotalGB * 100) / 100,
