@@ -501,6 +501,7 @@ export default function ClientPortal() {
           trafficTotal: res.trafficTotal ?? 100,
           email: res.email || "",
           inboundId: res.inboundId,
+          inboundRemark: res.inboundRemark || "",
         });
         setLogged(true);
       } else {
