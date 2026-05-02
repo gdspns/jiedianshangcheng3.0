@@ -1772,6 +1772,8 @@ export default function ClientPortal() {
                             trafficUsed: res.trafficUsed ?? 0,
                             trafficTotal: res.trafficTotal ?? 100,
                             email: res.email || "",
+                            inboundId: res.inboundId,
+                            inboundRemark: res.inboundRemark || "",
                           });
                           setLogged(true);
                           setPayStatus(null);
