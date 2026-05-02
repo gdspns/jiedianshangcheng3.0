@@ -129,6 +129,9 @@ function fixMobileVideo(html: string): string {
   const iframeAllow = 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"';
 
   let result = html
+    // Convert iframes pointing to direct video files into <video> tags (mobile browsers can't play mp4 inside iframe)
+    .replace(/<iframe\b[^>]*\bsrc=["']([^"']+\.(?:mp4|webm|ogg|mov|m4v))(\?[^"']*)?["'][^>]*><\/iframe>/gi,
+      (_m, url, qs) => `<video src="${url}${qs || ""}" controls playsinline webkit-playsinline preload="metadata" style="width:100%;border-radius:8px;margin:8px 0;background:#000;"></video>`)
     // Add allow attribute to iframes missing it
     .replace(/<iframe(?=[^>]*>)((?:(?!allow=")[^>])*)>/gi, (match) => {
       if (/\ballow="/.test(match)) return match;
