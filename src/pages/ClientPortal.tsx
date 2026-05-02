@@ -63,6 +63,7 @@ interface ClientData {
   trafficTotal: number;
   email?: string;
   inboundId?: number;
+  inboundRemark?: string;
 }
 
 interface PlanItem {
@@ -379,12 +380,25 @@ export default function ClientPortal() {
   }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
 
   // Determine the user's region from their inbound id (parsed at login).
+  // Strategy: 1) match by inbound_id in region_inbounds; 2) fallback by inbound remark
+  // containing the region name (case-insensitive substring match).
   const userRegionId = useMemo<string | null>(() => {
     const iid = clientData?.inboundId;
-    if (!iid) return null;
-    const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
-    return ri?.region_id || null;
-  }, [clientData?.inboundId, regionInbounds]);
+    if (iid) {
+      const ri = regionInbounds.find(r => Number(r.inbound_id) === Number(iid));
+      if (ri?.region_id) return ri.region_id;
+    }
+    const remark = (clientData?.inboundRemark || "").toLowerCase();
+    if (remark) {
+      // Prefer the longest region name that is contained in the remark to avoid
+      // accidentally matching shorter, ambiguous names.
+      const matched = [...dynamicRegions]
+        .filter(r => r.name && remark.includes(r.name.toLowerCase()))
+        .sort((a, b) => b.name.length - a.name.length)[0];
+      if (matched) return matched.id;
+    }
+    return null;
+  }, [clientData?.inboundId, clientData?.inboundRemark, regionInbounds, dynamicRegions]);
 
   // Filter renew plans by user's region. A plan with any region linkage is only
   // visible when linked to the user's region. Plans with no linkage show to all.
@@ -487,6 +501,7 @@ export default function ClientPortal() {
           trafficTotal: res.trafficTotal ?? 100,
           email: res.email || "",
           inboundId: res.inboundId,
+          inboundRemark: res.inboundRemark || "",
         });
         setLogged(true);
       } else {
@@ -650,6 +665,8 @@ export default function ClientPortal() {
                         trafficUsed: lookupRes.trafficUsed ?? 0,
                         trafficTotal: lookupRes.trafficTotal ?? 100,
                         email: lookupRes.email || createRes.remark || "",
+                        inboundId: lookupRes.inboundId,
+                        inboundRemark: lookupRes.inboundRemark || "",
                       });
                     } else {
                       const days = checkoutData?.durationDays || 30;
@@ -1755,6 +1772,8 @@ export default function ClientPortal() {
                             trafficUsed: res.trafficUsed ?? 0,
                             trafficTotal: res.trafficTotal ?? 100,
                             email: res.email || "",
+                            inboundId: res.inboundId,
+                            inboundRemark: res.inboundRemark || "",
                           });
                           setLogged(true);
                           setPayStatus(null);
@@ -2269,6 +2288,8 @@ export default function ClientPortal() {
                                           trafficUsed: res.trafficUsed ?? 0,
                                           trafficTotal: res.trafficTotal ?? 0,
                                           email: res.email || "",
+                                          inboundId: res.inboundId,
+                                          inboundRemark: res.inboundRemark || "",
                                         });
                                         setLogged(true);
 
