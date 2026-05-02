@@ -665,6 +665,8 @@ export default function ClientPortal() {
                         trafficUsed: lookupRes.trafficUsed ?? 0,
                         trafficTotal: lookupRes.trafficTotal ?? 100,
                         email: lookupRes.email || createRes.remark || "",
+                        inboundId: lookupRes.inboundId,
+                        inboundRemark: lookupRes.inboundRemark || "",
                       });
                     } else {
                       const days = checkoutData?.durationDays || 30;
