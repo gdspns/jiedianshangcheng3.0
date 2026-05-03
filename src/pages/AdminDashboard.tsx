@@ -165,6 +165,8 @@ export default function AdminDashboard() {
   const [regionInbounds, setRegionInbounds] = useState<{ id: string; region_id: string; inbound_id: number; sort_order: number; max_clients: number; current_clients: number; protocol: string }[]>([]);
   const [inboundPlans, setInboundPlans] = useState<{ id: string; region_inbound_id: string; plan_id: string }[]>([]);
   const [assignInboundId, setAssignInboundId] = useState<string | null>(null);
+  const [productGroupTab, setProductGroupTab] = useState<"new" | "renew">("new");
+  const [productSubTab, setProductSubTab] = useState<"all" | "exclusive" | "shared">("all");
   const navigate = useNavigate();
   const token = sessionStorage.getItem("admin_token") || "";
 
