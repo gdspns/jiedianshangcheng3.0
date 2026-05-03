@@ -165,6 +165,8 @@ export default function AdminDashboard() {
   const [regionInbounds, setRegionInbounds] = useState<{ id: string; region_id: string; inbound_id: number; sort_order: number; max_clients: number; current_clients: number; protocol: string }[]>([]);
   const [inboundPlans, setInboundPlans] = useState<{ id: string; region_inbound_id: string; plan_id: string }[]>([]);
   const [assignInboundId, setAssignInboundId] = useState<string | null>(null);
+  const [productGroupTab, setProductGroupTab] = useState<"new" | "renew">("new");
+  const [productSubTab, setProductSubTab] = useState<"all" | "exclusive" | "shared">("all");
   const navigate = useNavigate();
   const token = sessionStorage.getItem("admin_token") || "";
 
@@ -1135,17 +1137,62 @@ export default function AdminDashboard() {
                 <p className="text-xs text-muted-foreground mt-2">💡 修改后请点击每行右侧的"保存"按钮。商品按分组管理，支持独享/共享子分类。</p>
               </div>
 
-              {/* 购买开通分组 */}
-              {renderPlanGroup("购买开通", "new", ["new_exclusive", "new_shared"], {
-                "new_exclusive": "🔒 独享",
-                "new_shared": "👥 共享",
-              })}
+              {/* 顶部分组切换 */}
+              <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+                {([
+                  { key: "new", label: "🛒 购买开通", icon: ShoppingCart },
+                  { key: "renew", label: "💳 续费商品", icon: CreditCard },
+                ] as const).map(g => (
+                  <button
+                    key={g.key}
+                    onClick={() => { setProductGroupTab(g.key); setProductSubTab("all"); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                      productGroupTab === g.key
+                        ? "bg-client-primary text-client-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-muted/70"
+                    }`}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
 
-              {/* 续费分组 */}
-              {renderPlanGroup("续费商品", "renew", ["renew_exclusive", "renew_shared"], {
-                "renew_exclusive": "🔒 独享",
-                "renew_shared": "👥 共享",
-              })}
+              {/* 子分组切换 */}
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: "all", label: "全部" },
+                  { key: "exclusive", label: "🔒 独享商品" },
+                  { key: "shared", label: "👥 共享商品" },
+                ] as const).map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => setProductSubTab(s.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      productSubTab === s.key
+                        ? "bg-accent text-accent-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground hover:bg-muted/70"
+                    }`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 当前分组内容 */}
+              {(() => {
+                const groupTitle = productGroupTab === "new" ? "购买开通" : "续费商品";
+                const allCats = productGroupTab === "new"
+                  ? ["new_exclusive", "new_shared"]
+                  : ["renew_exclusive", "renew_shared"];
+                const cats = productSubTab === "all"
+                  ? allCats
+                  : allCats.filter(c => c.endsWith(productSubTab));
+                const subLabels: Record<string, string> = {
+                  "new_exclusive": "🔒 独享",
+                  "new_shared": "👥 共享",
+                  "renew_exclusive": "🔒 独享",
+                  "renew_shared": "👥 共享",
+                };
+                return renderPlanGroup(groupTitle, productGroupTab, cats, subLabels);
+              })()}
             </div>
           </TabsContent>
 
