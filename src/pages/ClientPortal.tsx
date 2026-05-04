@@ -307,6 +307,26 @@ export default function ClientPortal() {
     }
   }, []);
 
+  // Restore session: re-fetch client data if uuid persisted in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("portal_uuid");
+    if (!saved || saved === "游客_未登录") return;
+    lookupClient(saved)
+      .then((res: any) => {
+        if (res?.success) {
+          setClientData({
+            expiryDate: res.expiryDate ?? 0,
+            trafficUsed: res.trafficUsed ?? 0,
+            trafficTotal: res.trafficTotal ?? 100,
+            email: res.email || "",
+            inboundId: res.inboundId,
+            inboundRemark: res.inboundRemark || "",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const refresh = () => refreshStockData();
     const channel = supabase
