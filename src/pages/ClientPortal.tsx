@@ -2299,6 +2299,7 @@ export default function ClientPortal() {
                                           inboundRemark: res.inboundRemark || "",
                                         });
                                         setLogged(true);
+                                        try { localStorage.setItem("portal_uuid", order.uuid); } catch {}
 
                                         if (res.credentials && res.connectionInfo) {
                                           setNewClientCredentials(res.credentials || null);
