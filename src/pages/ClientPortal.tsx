@@ -538,9 +538,27 @@ export default function ClientPortal() {
     }
   };
 
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const getDaysLeft = () => {
     if (clientData.expiryDate === 0) return -1; // unlimited
-    return Math.ceil((clientData.expiryDate - Date.now()) / 86400000);
+    return Math.ceil((clientData.expiryDate - nowTick) / 86400000);
+  };
+
+  // Returns hh:mm:ss countdown when less than 24 hours remaining, else null
+  const getHmsCountdown = () => {
+    if (!clientData.expiryDate || clientData.expiryDate === 0) return null;
+    const diff = clientData.expiryDate - nowTick;
+    if (diff <= 0 || diff > 86400000) return null;
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
   const cleanupPolling = () => {
@@ -1167,6 +1185,11 @@ export default function ClientPortal() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-3 font-medium">
                         到期日: {new Date(clientData.expiryDate).toLocaleDateString()}
+                        {getHmsCountdown() && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
+                            {getHmsCountdown()}
+                          </span>
+                        )}
                       </p>
                     </>
                   )}
