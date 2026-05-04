@@ -507,6 +507,7 @@ export default function ClientPortal() {
           inboundRemark: res.inboundRemark || "",
         });
         setLogged(true);
+        try { localStorage.setItem("portal_uuid", extracted); } catch {}
       } else {
         setError(res?.error || "未找到该 UUID 对应的ID");
       }
