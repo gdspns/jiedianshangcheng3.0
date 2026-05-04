@@ -561,6 +561,26 @@ export default function ClientPortal() {
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
+  const getExpiryFullText = () => {
+    if (!clientData.expiryDate || clientData.expiryDate === 0) return "";
+    const d = new Date(clientData.expiryDate);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    let tz = "";
+    try {
+      const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(d);
+      tz = parts.find((p) => p.type === "timeZoneName")?.value || "";
+    } catch {}
+    if (!tz) {
+      const offset = -d.getTimezoneOffset();
+      const sign = offset >= 0 ? "+" : "-";
+      const oh = pad(Math.floor(Math.abs(offset) / 60));
+      const om = pad(Math.abs(offset) % 60);
+      tz = `UTC${sign}${oh}:${om}`;
+    }
+    return `${dateStr} (${tz})`;
+  };
+
   const cleanupPolling = () => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
