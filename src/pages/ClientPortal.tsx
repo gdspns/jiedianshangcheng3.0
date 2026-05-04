@@ -1194,7 +1194,7 @@ export default function ClientPortal() {
                         <span className="text-destructive font-bold mb-1 ml-2">{Math.abs(getDaysLeft())} 天</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-3 font-medium">
-                        到期日: {new Date(clientData.expiryDate).toLocaleDateString()}
+                        到期日: {getExpiryFullText()}
                       </p>
                     </>
                   ) : (
@@ -1203,10 +1203,10 @@ export default function ClientPortal() {
                         <span className="text-5xl font-extrabold text-foreground">{getDaysLeft()}</span>
                         <span className="text-client-primary font-bold mb-1 ml-2">天</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-3 font-medium">
-                        到期日: {new Date(clientData.expiryDate).toLocaleDateString()}
+                      <p className="text-sm text-muted-foreground mt-3 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>到期日: {getExpiryFullText()}</span>
                         {getHmsCountdown() && (
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
                             {getHmsCountdown()}
                           </span>
                         )}
