@@ -1021,7 +1021,7 @@ export default function ClientPortal() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setLogged(false)}
+            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
             className="text-muted-foreground hover:text-foreground flex items-center text-sm font-medium"
           >
             <LogOut className="w-4 h-4 mr-1" /> 退出
