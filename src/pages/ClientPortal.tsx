@@ -660,6 +660,7 @@ export default function ClientPortal() {
                   setUuid(newId);
                   setLoginInput(newId);
                   setLogged(true);
+                  try { localStorage.setItem("portal_uuid", newId); } catch {}
                   // Try to populate clientData from panel; fall back to local computation if lookup hasn't synced yet
                   try {
                     const lookupRes = await lookupClient(newId);
