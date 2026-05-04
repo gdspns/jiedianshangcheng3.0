@@ -1185,6 +1185,11 @@ export default function ClientPortal() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-3 font-medium">
                         到期日: {new Date(clientData.expiryDate).toLocaleDateString()}
+                        {getHmsCountdown() && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
+                            {getHmsCountdown()}
+                          </span>
+                        )}
                       </p>
                     </>
                   )}
