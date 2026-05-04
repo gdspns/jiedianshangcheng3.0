@@ -983,6 +983,7 @@ export default function ClientPortal() {
                       setLogged(true);
                       setTab("buy_new");
                       setUuid("游客_未登录");
+                      try { localStorage.setItem("portal_uuid", "游客_未登录"); } catch {}
                     }}
                     className="flex-1 bg-accent text-accent-foreground hover:opacity-90 font-bold py-3 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2"
                   >
