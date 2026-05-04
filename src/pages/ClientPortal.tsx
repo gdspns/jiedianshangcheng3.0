@@ -187,8 +187,8 @@ function fixMobileVideo(html: string): string {
 }
 
 export default function ClientPortal() {
-  const [logged, setLogged] = useState(false);
-  const [uuid, setUuid] = useState("");
+  const [logged, setLogged] = useState(() => !!localStorage.getItem("portal_uuid"));
+  const [uuid, setUuid] = useState(() => localStorage.getItem("portal_uuid") || "");
   const [loginInput, setLoginInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -305,6 +305,26 @@ export default function ClientPortal() {
       s.async = true;
       document.body.appendChild(s);
     }
+  }, []);
+
+  // Restore session: re-fetch client data if uuid persisted in localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("portal_uuid");
+    if (!saved || saved === "游客_未登录") return;
+    lookupClient(saved)
+      .then((res: any) => {
+        if (res?.success) {
+          setClientData({
+            expiryDate: res.expiryDate ?? 0,
+            trafficUsed: res.trafficUsed ?? 0,
+            trafficTotal: res.trafficTotal ?? 100,
+            email: res.email || "",
+            inboundId: res.inboundId,
+            inboundRemark: res.inboundRemark || "",
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -507,6 +527,7 @@ export default function ClientPortal() {
           inboundRemark: res.inboundRemark || "",
         });
         setLogged(true);
+        try { localStorage.setItem("portal_uuid", extracted); } catch {}
       } else {
         setError(res?.error || "未找到该 UUID 对应的ID");
       }
@@ -659,6 +680,7 @@ export default function ClientPortal() {
                   setUuid(newId);
                   setLoginInput(newId);
                   setLogged(true);
+                  try { localStorage.setItem("portal_uuid", newId); } catch {}
                   // Try to populate clientData from panel; fall back to local computation if lookup hasn't synced yet
                   try {
                     const lookupRes = await lookupClient(newId);
@@ -981,6 +1003,7 @@ export default function ClientPortal() {
                       setLogged(true);
                       setTab("buy_new");
                       setUuid("游客_未登录");
+                      try { localStorage.setItem("portal_uuid", "游客_未登录"); } catch {}
                     }}
                     className="flex-1 bg-accent text-accent-foreground hover:opacity-90 font-bold py-3 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2"
                   >
@@ -1021,7 +1044,7 @@ export default function ClientPortal() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setLogged(false)}
+            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
             className="text-muted-foreground hover:text-foreground flex items-center text-sm font-medium"
           >
             <LogOut className="w-4 h-4 mr-1" /> 退出
@@ -1779,6 +1802,7 @@ export default function ClientPortal() {
                             inboundRemark: res.inboundRemark || "",
                           });
                           setLogged(true);
+                          try { localStorage.setItem("portal_uuid", identifier); } catch {}
                           setPayStatus(null);
                           setTab("dashboard");
                         } else {
@@ -2295,6 +2319,7 @@ export default function ClientPortal() {
                                           inboundRemark: res.inboundRemark || "",
                                         });
                                         setLogged(true);
+                                        try { localStorage.setItem("portal_uuid", order.uuid); } catch {}
 
                                         if (res.credentials && res.connectionInfo) {
                                           setNewClientCredentials(res.credentials || null);
