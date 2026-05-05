@@ -22,7 +22,7 @@ export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [landingImages, setLandingImages] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [faqs, setFaqs] = useState<{ q: string; a: string }[]>(defaultFaqs);
+  const [faqs] = useState<{ q: string; a: string }[]>(defaultFaqs);
 
   useEffect(() => {
     (supabase as any)
@@ -36,17 +36,6 @@ export default function LandingPage() {
         }
       });
 
-    (supabase as any)
-      .from("articles")
-      .select("title, content, sort_order")
-      .eq("enabled", true)
-      .order("sort_order", { ascending: true })
-      .then(({ data }: any) => {
-        if (data && data.length > 0) {
-          const filtered = data.filter((a: any) => a.title?.trim() && !a.title.startsWith("__"));
-          if (filtered.length > 0) setFaqs(filtered.map((a: any) => ({ q: a.title, a: a.content })));
-        }
-      });
   }, []);
 
   // Auto-rotate carousel
