@@ -1212,17 +1212,17 @@ export default function ClientPortal() {
                     </>
                   ) : (
                     <>
-                      <div className="flex items-end">
+                      <div className="flex items-end flex-wrap gap-x-2">
                         <span className="text-5xl font-extrabold text-foreground">{getDaysLeft()}</span>
-                        <span className="text-client-primary font-bold mb-1 ml-2">天</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-3 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span>到期日: {getExpiryFullText()}</span>
+                        <span className="text-client-primary font-bold mb-1">天</span>
                         {getHmsCountdown() && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
+                          <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums text-sm">
                             {getHmsCountdown()}
                           </span>
                         )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3 font-medium">
+                        到期日: {getExpiryFullText()}
                       </p>
                     </>
                   )}
