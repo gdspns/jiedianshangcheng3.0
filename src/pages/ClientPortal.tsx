@@ -566,7 +566,9 @@ export default function ClientPortal() {
     if (!clientData.expiryDate || clientData.expiryDate === 0) return "";
     const d = new Date(clientData.expiryDate);
     const pad = (n: number) => String(n).padStart(2, "0");
-    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    // 本地时区显示（与用户系统时区一致）
+    const localStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    // 时区名（如 GMT+8 / CST）
     let tz = "";
     try {
       const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(d);
@@ -579,7 +581,9 @@ export default function ClientPortal() {
       const om = pad(Math.abs(offset) % 60);
       tz = `UTC${sign}${oh}:${om}`;
     }
-    return `${dateStr} (${tz})`;
+    // 同时显示 UTC（后端基准时间），便于核对
+    const utcStr = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+    return `${localStr} (${tz}) · UTC ${utcStr}`;
   };
 
   const cleanupPolling = () => {
