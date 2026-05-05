@@ -553,45 +553,32 @@ export default function ClientPortal() {
   const getHmsCountdown = () => {
     if (!clientData.expiryDate || clientData.expiryDate === 0) return null;
     const diff = clientData.expiryDate - nowTick;
-    if (diff <= 0) return "已到期";
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
+    if (diff <= 0 || diff > 86400000) return null;
+    const h = Math.floor(diff / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
     const s = Math.floor((diff % 60000) / 1000);
     const pad = (n: number) => String(n).padStart(2, "0");
-    return d > 0 ? `${d}天 ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
   const getExpiryFullText = () => {
     if (!clientData.expiryDate || clientData.expiryDate === 0) return "";
     const d = new Date(clientData.expiryDate);
     const pad = (n: number) => String(n).padStart(2, "0");
-
-    // 使用用户的 IANA 时区，由 ICU 数据库按到期日当天的 DST 规则自动换算
-    const userTz =
-      (Intl.DateTimeFormat().resolvedOptions().timeZone as string) || "UTC";
-
-    // 把目标时刻按 userTz 拆出 y/M/d/H/m/s（自动含 DST 校正）
-    const fmtParts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: userTz,
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-      hour12: false,
-      timeZoneName: "shortOffset",
-    }).formatToParts(d);
-    const get = (t: string) => fmtParts.find((p) => p.type === t)?.value || "";
-    const localStr = `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
-    let tz = get("timeZoneName"); // e.g. "GMT+8"
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    let tz = "";
+    try {
+      const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(d);
+      tz = parts.find((p) => p.type === "timeZoneName")?.value || "";
+    } catch {}
     if (!tz) {
-      // 回退：用当天偏移量（已含 DST）
       const offset = -d.getTimezoneOffset();
       const sign = offset >= 0 ? "+" : "-";
-      tz = `UTC${sign}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
+      const oh = pad(Math.floor(Math.abs(offset) / 60));
+      const om = pad(Math.abs(offset) % 60);
+      tz = `UTC${sign}${oh}:${om}`;
     }
-
-    // 同时显示 UTC（后端基准），便于跨时区核对
-    const utcStr = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-    return `${localStr} (${userTz} ${tz}) · UTC ${utcStr}`;
+    return `${dateStr} (${tz})`;
   };
 
   const cleanupPolling = () => {
@@ -1212,17 +1199,17 @@ export default function ClientPortal() {
                     </>
                   ) : (
                     <>
-                      <div className="flex items-end flex-wrap gap-x-2">
+                      <div className="flex items-end">
                         <span className="text-5xl font-extrabold text-foreground">{getDaysLeft()}</span>
-                        <span className="text-client-primary font-bold mb-1">天</span>
+                        <span className="text-client-primary font-bold mb-1 ml-2">天</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3 font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>到期日: {getExpiryFullText()}</span>
                         {getHmsCountdown() && (
-                          <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums text-sm">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-destructive/10 text-destructive font-mono font-bold tabular-nums">
                             {getHmsCountdown()}
                           </span>
                         )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-3 font-medium">
-                        到期日: {getExpiryFullText()}
                       </p>
                     </>
                   )}
