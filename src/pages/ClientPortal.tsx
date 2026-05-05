@@ -553,12 +553,13 @@ export default function ClientPortal() {
   const getHmsCountdown = () => {
     if (!clientData.expiryDate || clientData.expiryDate === 0) return null;
     const diff = clientData.expiryDate - nowTick;
-    if (diff <= 0 || diff > 86400000) return null;
-    const h = Math.floor(diff / 3600000);
+    if (diff <= 0) return "已到期";
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
     const m = Math.floor((diff % 3600000) / 60000);
     const s = Math.floor((diff % 60000) / 1000);
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+    return d > 0 ? `${d}天 ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
 
   const getExpiryFullText = () => {
