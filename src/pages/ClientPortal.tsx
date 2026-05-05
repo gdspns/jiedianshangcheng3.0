@@ -566,24 +566,32 @@ export default function ClientPortal() {
     if (!clientData.expiryDate || clientData.expiryDate === 0) return "";
     const d = new Date(clientData.expiryDate);
     const pad = (n: number) => String(n).padStart(2, "0");
-    // 本地时区显示（与用户系统时区一致）
-    const localStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    // 时区名（如 GMT+8 / CST）
-    let tz = "";
-    try {
-      const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(d);
-      tz = parts.find((p) => p.type === "timeZoneName")?.value || "";
-    } catch {}
+
+    // 使用用户的 IANA 时区，由 ICU 数据库按到期日当天的 DST 规则自动换算
+    const userTz =
+      (Intl.DateTimeFormat().resolvedOptions().timeZone as string) || "UTC";
+
+    // 把目标时刻按 userTz 拆出 y/M/d/H/m/s（自动含 DST 校正）
+    const fmtParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: userTz,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false,
+      timeZoneName: "shortOffset",
+    }).formatToParts(d);
+    const get = (t: string) => fmtParts.find((p) => p.type === t)?.value || "";
+    const localStr = `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+    let tz = get("timeZoneName"); // e.g. "GMT+8"
     if (!tz) {
+      // 回退：用当天偏移量（已含 DST）
       const offset = -d.getTimezoneOffset();
       const sign = offset >= 0 ? "+" : "-";
-      const oh = pad(Math.floor(Math.abs(offset) / 60));
-      const om = pad(Math.abs(offset) % 60);
-      tz = `UTC${sign}${oh}:${om}`;
+      tz = `UTC${sign}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
     }
-    // 同时显示 UTC（后端基准时间），便于核对
+
+    // 同时显示 UTC（后端基准），便于跨时区核对
     const utcStr = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-    return `${localStr} (${tz}) · UTC ${utcStr}`;
+    return `${localStr} (${userTz} ${tz}) · UTC ${utcStr}`;
   };
 
   const cleanupPolling = () => {
