@@ -181,7 +181,86 @@ export default function AdminDashboard() {
     loadRegions();
     loadTutorials();
     loadArticles();
+    loadPanels();
   }, []);
+
+  const loadPanels = async () => {
+    try {
+      const res = await adminListPanels(token);
+      if (res?.panels) setPanels(res.panels);
+    } catch {}
+  };
+
+  const handleAddPanel = async () => {
+    setBtnLoading("addPanel", "添加中...");
+    try {
+      const maxSort = panels.length > 0 ? Math.max(...panels.map(p => p.sort_order)) : 0;
+      await adminCreatePanel(token, {
+        name: `面板 ${panels.length + 1}`,
+        panel_url: "http://127.0.0.1:2053",
+        panel_user: "admin",
+        panel_pass: "",
+        enabled: true,
+        sort_order: maxSort + 1,
+      });
+      await loadPanels();
+      setBtnLoading("addPanel", "✅ 已添加");
+    } catch {
+      setBtnLoading("addPanel", "❌ 失败");
+    }
+    clearBtn("addPanel");
+  };
+
+  const handleUpdatePanel = async (id: string, patch: Partial<{ name: string; panel_url: string; panel_user: string; panel_pass: string; enabled: boolean; sort_order: number }>) => {
+    setPanels(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  };
+
+  const handleSavePanel = async (id: string) => {
+    const p = panels.find(x => x.id === id);
+    if (!p) return;
+    setBtnLoading(`savePanel-${id}`, "保存中...");
+    try {
+      await adminUpdatePanel(token, p);
+      setBtnLoading(`savePanel-${id}`, "✅ 已保存");
+    } catch {
+      setBtnLoading(`savePanel-${id}`, "❌ 失败");
+    }
+    clearBtn(`savePanel-${id}`);
+  };
+
+  const handleTestPanel = async (id: string) => {
+    const p = panels.find(x => x.id === id);
+    if (!p) return;
+    setBtnLoading(`testPanel-${id}`, "连接中...");
+    try {
+      const res = await testPanelConnection(token, p.panel_url, p.panel_user, p.panel_pass);
+      setBtnLoading(`testPanel-${id}`, res?.success ? "✅ 连接成功" : `❌ ${res?.error || "连接失败"}`);
+    } catch {
+      setBtnLoading(`testPanel-${id}`, "❌ 失败");
+    }
+    clearBtn(`testPanel-${id}`, 3000);
+  };
+
+  const handleSetPrimary = async (id: string) => {
+    setBtnLoading(`primary-${id}`, "设置中...");
+    try {
+      await adminSetPrimaryPanel(token, id);
+      await loadPanels();
+      setBtnLoading(`primary-${id}`, "✅ 已设为主面板");
+    } catch {
+      setBtnLoading(`primary-${id}`, "❌ 失败");
+    }
+    clearBtn(`primary-${id}`);
+  };
+
+  const handleDeletePanel = async (id: string) => {
+    if (!confirm("确定删除该面板？")) return;
+    try {
+      await adminDeletePanel(token, id);
+      await loadPanels();
+    } catch {}
+  };
+
 
   const loadConfig = async () => {
     try {
