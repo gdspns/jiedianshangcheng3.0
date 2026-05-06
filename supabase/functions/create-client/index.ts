@@ -179,13 +179,23 @@ Deno.serve(async (req) => {
     }
 
     // Get admin config (needed for both fulfilled-reuse path and create path)
-    const { data: config } = await supabase.from("admin_config").select("*").limit(1).single();
-    if (!config) {
+    const { data: configRaw } = await supabase.from("admin_config").select("*").limit(1).single();
+    if (!configRaw) {
       return new Response(JSON.stringify({ error: "系统配置未初始化" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // Override panel credentials with the primary panel from `panels` table (multi-panel support)
+    const { data: primaryPanel } = await supabase
+      .from("panels")
+      .select("panel_url, panel_user, panel_pass")
+      .eq("is_primary", true)
+      .eq("enabled", true)
+      .maybeSingle();
+    const config: any = primaryPanel
+      ? { ...configRaw, panel_url: primaryPanel.panel_url, panel_user: primaryPanel.panel_user, panel_pass: primaryPanel.panel_pass }
+      : configRaw;
 
     // ============ IDEMPOTENCY ============
     // Helper: reuse already-fulfilled order — fetch existing client from panel and rebuild credentials/connectionInfo
