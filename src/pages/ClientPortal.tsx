@@ -1189,7 +1189,11 @@ export default function ClientPortal() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                   <div className="text-client-primary font-bold mb-2">剩余时间</div>
-                  {getDaysLeft() < 0 && clientData.expiryDate === 0 ? (
+                  {!clientDataLoaded && uuid && uuid !== "游客_未登录" ? (
+                    <div className="flex items-end">
+                      <span className="text-3xl font-extrabold text-muted-foreground animate-pulse">加载中…</span>
+                    </div>
+                  ) : getDaysLeft() < 0 && clientData.expiryDate === 0 ? (
                     <div className="flex items-end">
                       <span className="text-3xl font-extrabold text-foreground">无限期</span>
                     </div>
