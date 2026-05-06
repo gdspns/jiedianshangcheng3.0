@@ -323,6 +323,7 @@ export default function ClientPortal() {
             inboundId: res.inboundId,
             inboundRemark: res.inboundRemark || "",
           });
+          setClientDataLoaded(true);
         }
       })
       .catch(() => {});
