@@ -1072,9 +1072,12 @@ export default function ClientPortal() {
     <div className="bg-muted min-h-screen text-foreground">
       <nav className="bg-card shadow-sm px-6 py-4 flex justify-between items-center border-b border-border">
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors">
-            首页
-          </Link>
+          <button
+            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
+            className="text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors"
+          >
+            返回
+          </button>
           <span className="text-border">|</span>
           <div className="flex items-center text-client-primary font-bold text-xl">
             <Activity className="mr-2" /> 自助服务中心
