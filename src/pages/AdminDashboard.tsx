@@ -850,36 +850,89 @@ export default function AdminDashboard() {
             {/* 第一行：面板对接 + 悬浮按钮 并排 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
-                <h2 className="text-xl font-bold mb-6 flex items-center text-admin-primary border-b border-border pb-3">
-                  <Server className="w-5 h-5 mr-2" /> 3x-ui 面板对接配置
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">面板 URL 地址 (需带端口)</label>
-                    <input type="text" value={config.panelUrl} onChange={e => setConfig({ ...config, panelUrl: e.target.value })}
-                      className="w-full border border-input p-2.5 rounded-lg focus:ring-2 focus:ring-admin-primary outline-none bg-background" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">后台账号</label>
-                    <input type="text" value={config.panelUser} onChange={e => setConfig({ ...config, panelUser: e.target.value })}
-                      className="w-full border border-input p-2.5 rounded-lg focus:ring-2 focus:ring-admin-primary outline-none bg-background" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1">后台密码</label>
-                    <input type="password" value={config.panelPass} onChange={e => setConfig({ ...config, panelPass: e.target.value })}
-                      className="w-full border border-input p-2.5 rounded-lg focus:ring-2 focus:ring-admin-primary outline-none bg-background" />
-                  </div>
-                  <div className="flex space-x-3 pt-4">
-                    <button onClick={handleTest} disabled={!!btnStatus["test"]}
-                      className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-lg font-bold hover:opacity-90 transition-colors border border-border disabled:opacity-70">
-                      {btnStatus["test"] || "测试连接"}
-                    </button>
-                    <button onClick={() => handleSave("panel")} disabled={!!btnStatus["panel"]}
-                      className="flex-1 bg-admin-primary text-admin-primary-foreground py-2.5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-md disabled:opacity-70">
-                      {btnStatus["panel"] || "保存配置"}
-                    </button>
-                  </div>
+                <div className="flex items-center justify-between mb-6 border-b border-border pb-3">
+                  <h2 className="text-xl font-bold flex items-center text-admin-primary">
+                    <Server className="w-5 h-5 mr-2" /> 3x-ui 面板对接配置
+                  </h2>
+                  <button onClick={handleAddPanel} disabled={!!btnStatus["addPanel"]}
+                    className="bg-admin-primary text-admin-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-70 flex items-center">
+                    <Plus className="w-4 h-4 mr-1" />{btnStatus["addPanel"] || "新增面板"}
+                  </button>
                 </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  支持配置多个 3x-ui 面板。<span className="text-admin-primary font-semibold">主面板</span>用于新购开通；所有<span className="text-green-600 font-semibold">已启用</span>的面板都会被遍历用于续费查找。
+                </p>
+
+                {panels.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-8">暂无面板，点击「新增面板」开始配置</div>
+                ) : (
+                  <div className="space-y-4">
+                    {panels.map(p => (
+                      <div key={p.id} className={`border rounded-xl p-4 ${p.is_primary ? "border-admin-primary bg-admin-primary/5" : "border-border bg-background/50"}`}>
+                        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                          <input
+                            type="text"
+                            value={p.name}
+                            onChange={e => handleUpdatePanel(p.id, { name: e.target.value })}
+                            className="flex-1 min-w-[120px] border border-input p-1.5 rounded-md text-sm font-bold bg-background"
+                          />
+                          <div className="flex items-center gap-2 text-xs">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={p.enabled}
+                                onChange={e => handleUpdatePanel(p.id, { enabled: e.target.checked })}
+                              />
+                              启用
+                            </label>
+                            {p.is_primary ? (
+                              <span className="bg-admin-primary text-admin-primary-foreground px-2 py-1 rounded font-bold flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" />新购主面板</span>
+                            ) : (
+                              <button onClick={() => handleSetPrimary(p.id)} disabled={!!btnStatus[`primary-${p.id}`]}
+                                className="border border-admin-primary text-admin-primary px-2 py-1 rounded font-bold hover:bg-admin-primary/10 disabled:opacity-70">
+                                {btnStatus[`primary-${p.id}`] || "设为新购主面板"}
+                              </button>
+                            )}
+                            {!p.is_primary && (
+                              <button onClick={() => handleDeletePanel(p.id)} className="text-destructive hover:bg-destructive/10 p-1 rounded">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-xs font-semibold mb-1">面板 URL (需带端口)</label>
+                            <input type="text" value={p.panel_url} onChange={e => handleUpdatePanel(p.id, { panel_url: e.target.value })}
+                              className="w-full border border-input p-2 rounded-md text-sm bg-background" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-semibold mb-1">账号</label>
+                              <input type="text" value={p.panel_user} onChange={e => handleUpdatePanel(p.id, { panel_user: e.target.value })}
+                                className="w-full border border-input p-2 rounded-md text-sm bg-background" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold mb-1">密码</label>
+                              <input type="password" value={p.panel_pass} onChange={e => handleUpdatePanel(p.id, { panel_pass: e.target.value })}
+                                className="w-full border border-input p-2 rounded-md text-sm bg-background" />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <button onClick={() => handleTestPanel(p.id)} disabled={!!btnStatus[`testPanel-${p.id}`]}
+                              className="flex-1 bg-secondary text-secondary-foreground py-2 rounded-md text-sm font-bold border border-border disabled:opacity-70">
+                              {btnStatus[`testPanel-${p.id}`] || "测试连接"}
+                            </button>
+                            <button onClick={() => handleSavePanel(p.id)} disabled={!!btnStatus[`savePanel-${p.id}`]}
+                              className="flex-1 bg-admin-primary text-admin-primary-foreground py-2 rounded-md text-sm font-bold disabled:opacity-70">
+                              {btnStatus[`savePanel-${p.id}`] || "保存配置"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
