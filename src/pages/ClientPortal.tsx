@@ -528,6 +528,7 @@ export default function ClientPortal() {
           inboundId: res.inboundId,
           inboundRemark: res.inboundRemark || "",
         });
+        setClientDataLoaded(true);
         setLogged(true);
         try { localStorage.setItem("portal_uuid", extracted); } catch {}
       } else {
