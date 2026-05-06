@@ -240,22 +240,32 @@ Deno.serve(async (req) => {
       let clientRemark = "";
       let fulfilled = false;
       if (!isBuyNewOrder) {
-        const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
-        if (cookie) {
-          const client = await findClient(config.panel_url, cookie, order.uuid);
-          if (client) {
-            clientRemark = client.email || "";
-            const durationDays = order.duration_days || (order.months * 30);
-            const success = await extendExpiry(config.panel_url, cookie, client.inboundId, client.email, client.expiryTime, durationDays);
-            if (success) {
-              await supabase.from("orders").update({
-                status: "fulfilled",
-                fulfilled_at: new Date().toISOString(),
-                ...(clientRemark && !order.email ? { email: clientRemark } : {}),
-              }).eq("id", order.id);
-              fulfilled = true;
-            }
+        const { data: panelsList } = await supabase
+          .from("panels")
+          .select("*")
+          .eq("enabled", true)
+          .order("is_primary", { ascending: false })
+          .order("sort_order", { ascending: true });
+        const fallbackPanel = { panel_url: config.panel_url, panel_user: config.panel_user, panel_pass: config.panel_pass };
+        const panelsToTry = (panelsList && panelsList.length > 0) ? panelsList : [fallbackPanel];
+
+        for (const p of panelsToTry) {
+          const cookie = await login3xui(p.panel_url, p.panel_user, p.panel_pass);
+          if (!cookie) continue;
+          const client = await findClient(p.panel_url, cookie, order.uuid);
+          if (!client) continue;
+          clientRemark = client.email || "";
+          const durationDays = order.duration_days || (order.months * 30);
+          const success = await extendExpiry(p.panel_url, cookie, client.inboundId, client.email, client.expiryTime, durationDays);
+          if (success) {
+            await supabase.from("orders").update({
+              status: "fulfilled",
+              fulfilled_at: new Date().toISOString(),
+              ...(clientRemark && !order.email ? { email: clientRemark } : {}),
+            }).eq("id", order.id);
+            fulfilled = true;
           }
+          break;
         }
 
         // Send email notification only for renewal orders

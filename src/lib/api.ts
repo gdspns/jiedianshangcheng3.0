@@ -31,6 +31,23 @@ export async function testPanelConnection(token: string, panelUrl: string, panel
   return callEdgeFunction("proxy-3xui", { action: "test", token, panelUrl, panelUser, panelPass });
 }
 
+// Multi-panel APIs
+export async function adminListPanels(token: string) {
+  return callEdgeFunction("admin-panels", { action: "list", token });
+}
+export async function adminCreatePanel(token: string, panel: object) {
+  return callEdgeFunction("admin-panels", { action: "create", token, panel });
+}
+export async function adminUpdatePanel(token: string, panel: object) {
+  return callEdgeFunction("admin-panels", { action: "update", token, panel });
+}
+export async function adminSetPrimaryPanel(token: string, panelId: string) {
+  return callEdgeFunction("admin-panels", { action: "set-primary", token, panel: { id: panelId } });
+}
+export async function adminDeletePanel(token: string, panelId: string) {
+  return callEdgeFunction("admin-panels", { action: "delete", token, panel: { id: panelId } });
+}
+
 // Client APIs
 export async function getPublicConfig() {
   const { data, error } = await (supabase as any)

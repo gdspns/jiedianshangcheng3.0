@@ -29,7 +29,7 @@ async function fetchUnsafe(url: string, init?: RequestInit): Promise<Response> {
 }
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function verifyToken(token: string): string | null {
@@ -231,32 +231,41 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get config from DB for lookup
-      const { data: configData, error: configError } = await supabase.from("admin_config").select("*").limit(1).single();
-      if (configError || !configData) {
-        return new Response(JSON.stringify({ error: "系统配置未初始化" }), {
+      // Iterate over all enabled panels to find the user (multi-panel support)
+      const { data: panelsList } = await supabase
+        .from("panels")
+        .select("*")
+        .eq("enabled", true)
+        .order("is_primary", { ascending: false })
+        .order("sort_order", { ascending: true });
+
+      if (!panelsList || panelsList.length === 0) {
+        return new Response(JSON.stringify({ error: "未配置任何 3x-ui 面板" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const { panel_url, panel_user, panel_pass } = configData;
-
-      // Login to 3x-ui
-      const loginResult = await login3xui(panel_url, panel_user, panel_pass);
-      if (!loginResult.cookie) {
-        return new Response(JSON.stringify({ success: false, error: loginResult.error || "无法连接到 3x-ui 面板" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      let panel_url = "";
+      let client: any = null;
+      let lastError = "";
+      for (const p of panelsList) {
+        const lr = await login3xui(p.panel_url, p.panel_user, p.panel_pass);
+        if (!lr.cookie) {
+          lastError = lr.error || "面板登录失败";
+          continue;
+        }
+        const inboundsData = await getInbounds(p.panel_url, lr.cookie);
+        const found = findClientByIdentifier(inboundsData, uuid);
+        if (found) {
+          client = found;
+          panel_url = p.panel_url;
+          break;
+        }
       }
-      const cookie = loginResult.cookie;
-
-      // Get inbounds and search for UUID
-      const inboundsData = await getInbounds(panel_url, cookie);
-      const client = findClientByIdentifier(inboundsData, uuid);
 
       if (!client) {
-        return new Response(JSON.stringify({ success: false, error: "未找到该标识符对应的节点用户" }), {
+        return new Response(JSON.stringify({ success: false, error: lastError || "未找到该标识符对应的节点用户" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

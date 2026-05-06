@@ -116,20 +116,23 @@ Deno.serve(async (req) => {
 
       query = query.range(from, to);
 
-      const [ordersResult, configResult] = await Promise.all([
+      const [ordersResult, panelsResult] = await Promise.all([
         query,
-        supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single(),
+        supabase.from("panels").select("panel_url, panel_user, panel_pass").eq("enabled", true),
       ]);
 
       if (ordersResult.error) throw ordersResult.error;
 
       let remarkMap: Record<string, string> = {};
-      if (configResult.data) {
-        remarkMap = await getUuidRemarkMap(
-          configResult.data.panel_url,
-          configResult.data.panel_user,
-          configResult.data.panel_pass
-        );
+      const panelList = panelsResult.data || [];
+      // Fallback to admin_config if panels table is empty
+      if (panelList.length === 0) {
+        const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
+        if (cfg) panelList.push(cfg);
+      }
+      for (const p of panelList) {
+        const m = await getUuidRemarkMap(p.panel_url, p.panel_user, p.panel_pass);
+        Object.assign(remarkMap, m);
       }
 
       const enrichedOrders = (ordersResult.data || []).map((order: any) => ({
