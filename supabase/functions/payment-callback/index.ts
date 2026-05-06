@@ -468,45 +468,60 @@ Deno.serve(async (req) => {
       let clientRemark = "";
 
       if (!isBuyNewOrder) {
-        // Extend expiry via 3x-ui (renewal flow)
-        const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
-        if (cookie) {
-          const client = await findClient(config.panel_url, cookie, order.uuid);
-          if (client) {
-            clientRemark = client.email || "";
-            const durationDays = order.duration_days || (order.months * 30);
-            const success = await extendExpiry(
-              config.panel_url,
-              cookie,
-              client.inboundId,
-              client.email,
-              client.expiryTime,
-              durationDays,
-              client.isSocks5,
-            );
-            if (success) {
-              await supabase
-                .from("orders")
-                .update({
-                  status: "fulfilled",
-                  fulfilled_at: new Date().toISOString(),
-                  inbound_id: client.inboundId,
-                  inbound_remark: client.inboundRemark || "",
-                  client_remark: clientRemark || "",
-                  ...(clientRemark && !order.email ? { email: clientRemark } : {}),
-                })
-                .eq("id", order.id);
-              finalStatus = "fulfilled";
-            } else {
-              await supabase.from("orders").update({
-                status: "paid_unfulfilled",
-                inbound_id: client.inboundId,
-                inbound_remark: client.inboundRemark || "",
+        // Iterate over enabled panels to locate this user (multi-panel support)
+        const { data: panelsList } = await supabase
+          .from("panels")
+          .select("*")
+          .eq("enabled", true)
+          .order("is_primary", { ascending: false })
+          .order("sort_order", { ascending: true });
+        const fallbackPanel = { panel_url: config.panel_url, panel_user: config.panel_user, panel_pass: config.panel_pass };
+        const panelsToTry = (panelsList && panelsList.length > 0) ? panelsList : [fallbackPanel];
+
+        let foundClient: any = null;
+        let foundPanel: any = null;
+        let foundCookie = "";
+        for (const p of panelsToTry) {
+          const c = await login3xui(p.panel_url, p.panel_user, p.panel_pass);
+          if (!c) continue;
+          const cl = await findClient(p.panel_url, c, order.uuid);
+          if (cl) { foundClient = cl; foundPanel = p; foundCookie = c; break; }
+        }
+
+        if (foundClient && foundPanel) {
+          clientRemark = foundClient.email || "";
+          const durationDays = order.duration_days || (order.months * 30);
+          const success = await extendExpiry(
+            foundPanel.panel_url,
+            foundCookie,
+            foundClient.inboundId,
+            foundClient.email,
+            foundClient.expiryTime,
+            durationDays,
+            foundClient.isSocks5,
+          );
+          if (success) {
+            await supabase
+              .from("orders")
+              .update({
+                status: "fulfilled",
+                fulfilled_at: new Date().toISOString(),
+                inbound_id: foundClient.inboundId,
+                inbound_remark: foundClient.inboundRemark || "",
                 client_remark: clientRemark || "",
                 ...(clientRemark && !order.email ? { email: clientRemark } : {}),
-              }).eq("id", order.id);
-              finalStatus = "paid_unfulfilled";
-            }
+              })
+              .eq("id", order.id);
+            finalStatus = "fulfilled";
+          } else {
+            await supabase.from("orders").update({
+              status: "paid_unfulfilled",
+              inbound_id: foundClient.inboundId,
+              inbound_remark: foundClient.inboundRemark || "",
+              client_remark: clientRemark || "",
+              ...(clientRemark && !order.email ? { email: clientRemark } : {}),
+            }).eq("id", order.id);
+            finalStatus = "paid_unfulfilled";
           }
         }
       } else {
