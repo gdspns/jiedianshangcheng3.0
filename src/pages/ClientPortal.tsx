@@ -195,8 +195,9 @@ export default function ClientPortal() {
   const [tab, setTab] = useState("dashboard");
   const [payStatus, setPayStatus] = useState<string | null>(null);
   const [config, setConfig] = useState<PublicConfig | null>(null);
+  const [clientDataLoaded, setClientDataLoaded] = useState(false);
   const [clientData, setClientData] = useState<ClientData>({
-    expiryDate: Date.now() + 5 * 86400000,
+    expiryDate: Date.now(),
     trafficUsed: 0,
     trafficTotal: 100,
   });
