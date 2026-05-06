@@ -275,6 +275,45 @@ export type Database = {
         }
         Relationships: []
       }
+      panels: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          is_primary: boolean
+          name: string
+          panel_pass: string
+          panel_url: string
+          panel_user: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_primary?: boolean
+          name?: string
+          panel_pass?: string
+          panel_url?: string
+          panel_user?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_primary?: boolean
+          name?: string
+          panel_pass?: string
+          panel_url?: string
+          panel_user?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       plan_regions: {
         Row: {
           created_at: string
