@@ -432,7 +432,9 @@ export default function ClientPortal() {
       .filter(pr => pr.plan_id === plan.id)
       .map(pr => pr.region_id);
     if (linkedRegionIds.length === 0) return true;
-    if (!userRegionId) return false;
+    // 如果无法识别用户所在地区（例如来自其他对接的 3x-ui 面板，inbound_id 不在本系统配置中），
+    // 则显示全部续费套餐，避免用户看不到任何商品。
+    if (!userRegionId) return true;
     return linkedRegionIds.includes(userRegionId);
   };
 
