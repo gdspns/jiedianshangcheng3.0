@@ -1245,7 +1245,7 @@ export default function ClientPortal() {
                 <div className="bg-success/5 p-6 rounded-2xl border border-success/20">
                   <div className="text-success font-bold mb-2">本月流量使用情况</div>
                   <div className="flex items-end mb-3">
-                    <span className="text-5xl font-extrabold text-foreground">{clientData.trafficUsed.toFixed(1)}</span>
+                    <span className="text-5xl font-extrabold text-foreground">{clientData.trafficUsed.toFixed(2)}</span>
                     <span className="text-success font-bold mb-1 ml-2">/ {clientData.trafficTotal} GB</span>
                   </div>
                   <div className="w-full bg-success/20 rounded-full h-2.5">
