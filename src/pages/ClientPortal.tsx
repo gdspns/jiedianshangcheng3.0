@@ -46,6 +46,7 @@ function normalizeTrafficGB(value: any): number {
   let n = Number(value || 0);
   if (!Number.isFinite(n) || n <= 0) return 0;
 
+  // 后端如果还是错误的超大数字，这里再兜底处理
   if (n > GB * GB) {
     n = n / GB / GB;
   } else if (n > 1024 * 1024) {
