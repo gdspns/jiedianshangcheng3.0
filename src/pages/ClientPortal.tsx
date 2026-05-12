@@ -40,6 +40,21 @@ import {
   getInboundPlans,
 } from "@/lib/api";
 
+const GB = 1073741824;
+
+function normalizeTrafficGB(value: any): number {
+  let n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+
+  if (n > GB * GB) {
+    n = n / GB / GB;
+  } else if (n > 1024 * 1024) {
+    n = n / GB;
+  }
+
+  return Math.round(n * 100) / 100;
+}
+
 interface PublicConfig {
   price_month: number;
   price_quarter: number;
@@ -317,8 +332,8 @@ export default function ClientPortal() {
         if (res?.success) {
           setClientData({
             expiryDate: res.expiryDate ?? 0,
-            trafficUsed: res.trafficUsed ?? 0,
-            trafficTotal: res.trafficTotal ?? 100,
+            trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+            trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
             email: res.email || "",
             inboundId: res.inboundId,
             inboundRemark: res.inboundRemark || "",
@@ -524,8 +539,8 @@ export default function ClientPortal() {
       if (res?.success) {
         setClientData({
           expiryDate: res.expiryDate ?? 0,
-          trafficUsed: res.trafficUsed ?? 0,
-          trafficTotal: res.trafficTotal ?? 100,
+          trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+          trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
           email: res.email || "",
           inboundId: res.inboundId,
           inboundRemark: res.inboundRemark || "",
@@ -730,8 +745,8 @@ export default function ClientPortal() {
                     if (lookupRes?.success) {
                       setClientData({
                         expiryDate: lookupRes.expiryDate ?? 0,
-                        trafficUsed: lookupRes.trafficUsed ?? 0,
-                        trafficTotal: lookupRes.trafficTotal ?? 100,
+                        trafficUsed: normalizeTrafficGB(lookupRes.trafficUsed ?? 0),
+                        trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? 100),
                         email: lookupRes.email || createRes.remark || "",
                         inboundId: lookupRes.inboundId,
                         inboundRemark: lookupRes.inboundRemark || "",
@@ -1850,8 +1865,8 @@ export default function ClientPortal() {
                         if (res?.success) {
                           setClientData({
                             expiryDate: res.expiryDate ?? 0,
-                            trafficUsed: res.trafficUsed ?? 0,
-                            trafficTotal: res.trafficTotal ?? 100,
+                            trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+                            trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
                             email: res.email || "",
                             inboundId: res.inboundId,
                             inboundRemark: res.inboundRemark || "",
@@ -2367,8 +2382,8 @@ export default function ClientPortal() {
                                       if (res?.success) {
                                         setClientData({
                                           expiryDate: res.expiryDate || Date.now() + 30 * 86400000,
-                                          trafficUsed: res.trafficUsed ?? 0,
-                                          trafficTotal: res.trafficTotal ?? 0,
+                                          trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+                                          trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 0),
                                           email: res.email || "",
                                           inboundId: res.inboundId,
                                           inboundRemark: res.inboundRemark || "",
