@@ -1,5 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const GB = 1073741824;
+
+function normalizeTrafficLimitBytes(value: any): number {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+
+  // 如果 3x-ui 返回的是 40、100 这种小数字，就按 GB 处理
+  // 如果返回的是 42949672960 这种大数字，说明已经是 bytes，直接使用
+  return n < 1024 * 1024 ? n * GB : n;
+}
+
 // Helper: fetch with automatic fallback strategies for problematic servers
 async function fetchUnsafe(url: string, init?: RequestInit): Promise<Response> {
   const attempts: Array<{ url: string; label: string }> = [];
