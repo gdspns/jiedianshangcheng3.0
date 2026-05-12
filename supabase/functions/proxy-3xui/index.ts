@@ -159,7 +159,7 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
           expiryTime: entry.expiryTime || clientStats?.expiryTime || 0,
           up: clientStats?.up || 0,
           down: clientStats?.down || 0,
-          total: entry.totalGB ? entry.totalGB * 1073741824 : clientStats?.total || 0,
+          total: entry.totalGB || clientStats?.total || 0,
           inboundId: inbound.id,
           enable: clientStats?.enable ?? entry.enable ?? true,
           protocol: inbound.protocol || "",
