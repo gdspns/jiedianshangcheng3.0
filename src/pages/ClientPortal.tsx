@@ -56,6 +56,29 @@ function normalizeTrafficGB(value: any): number {
   return Math.round(n * 100) / 100;
 }
 
+function formatUsedTraffic(data: any): string {
+  const bytes = Number(data.trafficUsedBytes || 0);
+
+  if (bytes > 0) {
+    const mb = bytes / 1024 / 1024;
+    const gb = bytes / 1024 / 1024 / 1024;
+
+    if (gb < 1) {
+      return `${mb.toFixed(2)} MB`;
+    }
+
+    return `${gb.toFixed(2)} GB`;
+  }
+
+  const gb = Number(data.trafficUsed || 0);
+
+  if (gb < 1) {
+    return `${(gb * 1024).toFixed(2)} MB`;
+  }
+
+  return `${gb.toFixed(2)} GB`;
+}
+
 interface PublicConfig {
   price_month: number;
   price_quarter: number;
@@ -76,6 +99,7 @@ interface PublicConfig {
 interface ClientData {
   expiryDate: number;
   trafficUsed: number;
+  trafficUsedBytes?: number;
   trafficTotal: number;
   email?: string;
   inboundId?: number;
@@ -334,6 +358,7 @@ export default function ClientPortal() {
           setClientData({
             expiryDate: res.expiryDate ?? 0,
             trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+            trafficUsedBytes: res.trafficUsedBytes ?? 0,
             trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
             email: res.email || "",
             inboundId: res.inboundId,
@@ -541,6 +566,7 @@ export default function ClientPortal() {
         setClientData({
           expiryDate: res.expiryDate ?? 0,
           trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+          trafficUsedBytes: res.trafficUsedBytes ?? 0,
           trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
           email: res.email || "",
           inboundId: res.inboundId,
@@ -747,6 +773,7 @@ export default function ClientPortal() {
                       setClientData({
                         expiryDate: lookupRes.expiryDate ?? 0,
                         trafficUsed: normalizeTrafficGB(lookupRes.trafficUsed ?? 0),
+                        trafficUsedBytes: res.trafficUsedBytes ?? 0,
                         trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? 100),
                         email: lookupRes.email || createRes.remark || "",
                         inboundId: lookupRes.inboundId,
@@ -1244,10 +1271,16 @@ export default function ClientPortal() {
                 </div>
                 <div className="bg-success/5 p-6 rounded-2xl border border-success/20">
                   <div className="text-success font-bold mb-2">本月流量使用情况</div>
+
                   <div className="flex items-end mb-3">
-                    <span className="text-5xl font-extrabold text-foreground">{clientData.trafficUsed.toFixed(2)}</span>
-                    <span className="text-success font-bold mb-1 ml-2">/ {clientData.trafficTotal} GB</span>
+                    <span className="text-5xl font-extrabold text-foreground">
+                      {formatUsedTraffic(clientData)}
+                    </span>
+                    <span className="text-success font-bold mb-1 ml-2">
+                      / {clientData.trafficTotal} GB
+                    </span>
                   </div>
+
                   <div className="w-full bg-success/20 rounded-full h-2.5">
                     <div
                       className="bg-success h-2.5 rounded-full"
@@ -1867,6 +1900,7 @@ export default function ClientPortal() {
                           setClientData({
                             expiryDate: res.expiryDate ?? 0,
                             trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+                            trafficUsedBytes: res.trafficUsedBytes ?? 0,
                             trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 100),
                             email: res.email || "",
                             inboundId: res.inboundId,
@@ -2384,6 +2418,7 @@ export default function ClientPortal() {
                                         setClientData({
                                           expiryDate: res.expiryDate || Date.now() + 30 * 86400000,
                                           trafficUsed: normalizeTrafficGB(res.trafficUsed ?? 0),
+                                          trafficUsedBytes: res.trafficUsedBytes ?? 0,
                                           trafficTotal: normalizeTrafficGB(res.trafficTotal ?? 0),
                                           email: res.email || "",
                                           inboundId: res.inboundId,
