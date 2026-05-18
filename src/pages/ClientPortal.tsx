@@ -773,7 +773,7 @@ export default function ClientPortal() {
                       setClientData({
                         expiryDate: lookupRes.expiryDate ?? 0,
                         trafficUsed: normalizeTrafficGB(lookupRes.trafficUsed ?? 0),
-                        trafficUsedBytes: res.trafficUsedBytes ?? 0,
+                        trafficUsedBytes: lookupRes.trafficUsedBytes ?? 0,
                         trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? 100),
                         email: lookupRes.email || createRes.remark || "",
                         inboundId: lookupRes.inboundId,
