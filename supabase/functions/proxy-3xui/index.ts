@@ -337,6 +337,7 @@ Deno.serve(async (req) => {
         inboundRemark: client.inboundRemark || "",
         expiryDate: finalExpiryTime,
         trafficUsed: Math.round(trafficUsedGB * 100) / 100,
+        trafficUsedBytes: (client.up || 0) + (client.down || 0),
         trafficTotal: Math.round(trafficTotalGB * 100) / 100,
         enable: client.enable,
         credentials,
