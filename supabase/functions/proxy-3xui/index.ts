@@ -113,32 +113,7 @@ async function getInbounds(panelUrl: string, cookie: string) {
   });
   return await res.json();
 }
-// Helper: Get accurate traffic for one client from 3x-ui
-async function getClientTrafficByEmail(panelUrl: string, cookie: string, email: string) {
-  if (!email) return null;
 
-  const baseUrl = panelUrl.replace(/\/+$/, "");
-  const url = `${baseUrl}/panel/api/inbounds/getClientTraffics/${encodeURIComponent(email)}`;
-
-  try {
-    const res = await fetchUnsafe(url, {
-      method: "GET",
-      headers: { Cookie: cookie, Accept: "application/json" },
-    });
-
-    const data = await res.json();
-    console.log("getClientTrafficByEmail result:", email, data);
-
-    if (data?.success && data?.obj) {
-      return data.obj;
-    }
-
-    return null;
-  } catch (err) {
-    console.warn("getClientTrafficByEmail failed:", email, err);
-    return null;
-  }
-}
 // Find client by UUID / SOCKS5 identifier in all inbounds
 function findClientByIdentifier(inboundsData: any, identifier: string) {
   if (!inboundsData?.success || !inboundsData?.obj) return null;
@@ -192,11 +167,10 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
         return {
           found: true,
           email: remark,
-          statsEmail: clientStats?.email || entry.email || entry.user || entry.username || identifier,
           expiryTime: entry.expiryTime || clientStats?.expiryTime || 0,
           up: clientStats?.up || 0,
           down: clientStats?.down || 0,
-          total: normalizeTrafficLimitBytes(entry.totalGB || clientStats?.total || 0),
+          total: entry.totalGB || clientStats?.total || 0,
           inboundId: inbound.id,
           enable: clientStats?.enable ?? entry.enable ?? true,
           protocol: inbound.protocol || "",
@@ -292,38 +266,13 @@ Deno.serve(async (req) => {
           lastError = lr.error || "面板登录失败";
           continue;
         }
-const inboundsData = await getInbounds(p.panel_url, lr.cookie);
-const found = findClientByIdentifier(inboundsData, uuid);
-
-if (found) {
-  // 3x-ui 的 /list 有时拿不到准确 up/down，这里再按 email 单独查真实流量
-  const realTraffic = await getClientTrafficByEmail(
-    p.panel_url,
-    lr.cookie,
-    found.statsEmail || found.email || uuid
-  );
-
-  if (realTraffic) {
-    found.up = Number(realTraffic.up || 0);
-    found.down = Number(realTraffic.down || 0);
-
-    if (realTraffic.total) {
-      found.total = normalizeTrafficLimitBytes(realTraffic.total);
-    }
-
-    if (realTraffic.expiryTime) {
-      found.expiryTime = realTraffic.expiryTime;
-    }
-
-    if (typeof realTraffic.enable !== "undefined") {
-      found.enable = realTraffic.enable;
-    }
-  }
-
-  client = found;
-  panel_url = p.panel_url;
-  break;
-}
+        const inboundsData = await getInbounds(p.panel_url, lr.cookie);
+        const found = findClientByIdentifier(inboundsData, uuid);
+        if (found) {
+          client = found;
+          panel_url = p.panel_url;
+          break;
+        }
       }
 
       if (!client) {
@@ -333,7 +282,6 @@ if (found) {
       }
 
       // Calculate traffic in GB
-      const trafficUsedBytes = Number(client.up || 0) + Number(client.down || 0);
       const trafficUsedGB = (client.up + client.down) / 1073741824;
       const trafficTotalGB = client.total > 0 ? client.total / 1073741824 : 999;
 
@@ -389,7 +337,6 @@ if (found) {
         inboundRemark: client.inboundRemark || "",
         expiryDate: finalExpiryTime,
         trafficUsed: Math.round(trafficUsedGB * 100) / 100,
-        trafficUsedBytes,
         trafficTotal: Math.round(trafficTotalGB * 100) / 100,
         enable: client.enable,
         credentials,
