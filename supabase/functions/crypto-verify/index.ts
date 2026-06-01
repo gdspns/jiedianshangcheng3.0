@@ -39,8 +39,8 @@ async function login3xui(panelUrl: string, username: string, password: string): 
   }
 }
 
-// Find client by UUID
-async function findClient(panelUrl: string, cookie: string, uuid: string) {
+// Find client by UUID/username/password (supports VMESS/VLESS/Trojan + SOCKS5)
+async function findClient(panelUrl: string, cookie: string, identifier: string) {
   const baseUrl = panelUrl.replace(/\/+$/, "");
   const res = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/list`, {
     headers: { Cookie: cookie, Accept: "application/json" },
@@ -50,14 +50,79 @@ async function findClient(panelUrl: string, cookie: string, uuid: string) {
   for (const inbound of data.obj) {
     try {
       const settings = JSON.parse(inbound.settings || "{}");
-      for (const client of settings.clients || []) {
-        if (client.id === uuid || client.password === uuid) {
-          return { inboundId: inbound.id, email: client.email, expiryTime: client.expiryTime || 0 };
+      const entries = [
+        ...(Array.isArray(settings.clients) ? settings.clients : []),
+        ...(Array.isArray(settings.accounts) ? settings.accounts : []),
+      ];
+      for (const entry of entries) {
+        const candidateKeys = [entry?.id, entry?.email, entry?.user, entry?.username, entry?.pass, entry?.password]
+          .filter((v: any): v is string => typeof v === "string" && v.length > 0);
+        if (candidateKeys.includes(identifier)) {
+          const isSocks5 = Array.isArray(settings.accounts) && settings.accounts.includes(entry);
+          const email = entry.email || inbound.remark || entry.user || entry.username || "";
+          const expiryTime = isSocks5 ? inbound.expiryTime || 0 : entry.expiryTime || 0;
+          return { inboundId: inbound.id, email, expiryTime, isSocks5 };
         }
       }
     } catch {}
   }
   return null;
+}
+
+// Add traffic quota to a client (does NOT reset used traffic or change expiry)
+async function addClientTraffic(
+  panelUrl: string,
+  cookie: string,
+  inboundId: number,
+  email: string,
+  addBytes: number,
+  isSocks5: boolean,
+): Promise<boolean> {
+  const baseUrl = panelUrl.replace(/\/+$/, "");
+  const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  const inboundData = await inboundRes.json();
+  if (!inboundData?.success || !inboundData?.obj) return false;
+  const inbound = inboundData.obj;
+  let newSettingsStr = inbound.settings || "{}";
+  let newTotal = Number(inbound.total) || 0;
+  if (isSocks5) {
+    newTotal = newTotal + addBytes;
+  } else {
+    const settings = JSON.parse(inbound.settings || "{}");
+    let found = false;
+    for (const entry of settings.clients || []) {
+      if (entry.email === email) {
+        entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+    newSettingsStr = JSON.stringify(settings);
+  }
+  const formData = new URLSearchParams();
+  formData.append("up", String(inbound.up));
+  formData.append("down", String(inbound.down));
+  formData.append("total", String(newTotal));
+  formData.append("remark", inbound.remark || "");
+  formData.append("enable", String(inbound.enable));
+  formData.append("expiryTime", String(inbound.expiryTime || 0));
+  formData.append("listen", inbound.listen || "");
+  formData.append("port", String(inbound.port));
+  formData.append("protocol", inbound.protocol);
+  formData.append("settings", newSettingsStr);
+  formData.append("streamSettings", inbound.streamSettings || "");
+  formData.append("sniffing", inbound.sniffing || "");
+  formData.append("allocate", inbound.allocate || "");
+  const updateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inboundId}`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
+  });
+  const updateBody = await updateRes.json();
+  return updateBody?.success === true;
 }
 
 // Extend client expiry
