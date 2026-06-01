@@ -386,6 +386,70 @@ async function extendExpiry(
   return updateBody?.success === true;
 }
 
+// Add traffic quota to a client (does NOT reset used traffic or change expiry)
+async function addClientTraffic(
+  panelUrl: string,
+  cookie: string,
+  inboundId: number,
+  email: string,
+  addBytes: number,
+  isSocks5: boolean,
+): Promise<boolean> {
+  const baseUrl = panelUrl.replace(/\/+$/, "");
+
+  const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  const inboundData = await inboundRes.json();
+  if (!inboundData?.success || !inboundData?.obj) return false;
+  const inbound = inboundData.obj;
+
+  let newSettingsStr = inbound.settings || "{}";
+  let newTotal = Number(inbound.total) || 0;
+
+  if (isSocks5) {
+    // SOCKS5: increase inbound-level total
+    newTotal = newTotal + addBytes;
+  } else {
+    // Standard protocol: increase per-client totalGB (which is stored in bytes)
+    const settings = JSON.parse(inbound.settings || "{}");
+    let found = false;
+    for (const entry of settings.clients || []) {
+      if (entry.email === email) {
+        entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+    newSettingsStr = JSON.stringify(settings);
+  }
+
+  const formData = new URLSearchParams();
+  formData.append("up", String(inbound.up));
+  formData.append("down", String(inbound.down));
+  formData.append("total", String(newTotal));
+  formData.append("remark", inbound.remark || "");
+  formData.append("enable", String(inbound.enable));
+  formData.append("expiryTime", String(inbound.expiryTime || 0));
+  formData.append("listen", inbound.listen || "");
+  formData.append("port", String(inbound.port));
+  formData.append("protocol", inbound.protocol);
+  formData.append("settings", newSettingsStr);
+  formData.append("streamSettings", inbound.streamSettings || "");
+  formData.append("sniffing", inbound.sniffing || "");
+  formData.append("allocate", inbound.allocate || "");
+
+  const updateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inboundId}`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
+  });
+  const updateBody = await updateRes.json();
+  console.log("Add traffic update result:", updateBody);
+  return updateBody?.success === true;
+}
+
 // Verify Hupi signature
 async function verifyHupiSign(params: Record<string, string>, appSecret: string): Promise<boolean> {
   const keys = Object.keys(params)
