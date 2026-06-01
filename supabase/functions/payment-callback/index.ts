@@ -386,6 +386,70 @@ async function extendExpiry(
   return updateBody?.success === true;
 }
 
+// Add traffic quota to a client (does NOT reset used traffic or change expiry)
+async function addClientTraffic(
+  panelUrl: string,
+  cookie: string,
+  inboundId: number,
+  email: string,
+  addBytes: number,
+  isSocks5: boolean,
+): Promise<boolean> {
+  const baseUrl = panelUrl.replace(/\/+$/, "");
+
+  const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
+    headers: { Cookie: cookie, Accept: "application/json" },
+  });
+  const inboundData = await inboundRes.json();
+  if (!inboundData?.success || !inboundData?.obj) return false;
+  const inbound = inboundData.obj;
+
+  let newSettingsStr = inbound.settings || "{}";
+  let newTotal = Number(inbound.total) || 0;
+
+  if (isSocks5) {
+    // SOCKS5: increase inbound-level total
+    newTotal = newTotal + addBytes;
+  } else {
+    // Standard protocol: increase per-client totalGB (which is stored in bytes)
+    const settings = JSON.parse(inbound.settings || "{}");
+    let found = false;
+    for (const entry of settings.clients || []) {
+      if (entry.email === email) {
+        entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+    newSettingsStr = JSON.stringify(settings);
+  }
+
+  const formData = new URLSearchParams();
+  formData.append("up", String(inbound.up));
+  formData.append("down", String(inbound.down));
+  formData.append("total", String(newTotal));
+  formData.append("remark", inbound.remark || "");
+  formData.append("enable", String(inbound.enable));
+  formData.append("expiryTime", String(inbound.expiryTime || 0));
+  formData.append("listen", inbound.listen || "");
+  formData.append("port", String(inbound.port));
+  formData.append("protocol", inbound.protocol);
+  formData.append("settings", newSettingsStr);
+  formData.append("streamSettings", inbound.streamSettings || "");
+  formData.append("sniffing", inbound.sniffing || "");
+  formData.append("allocate", inbound.allocate || "");
+
+  const updateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inboundId}`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
+  });
+  const updateBody = await updateRes.json();
+  console.log("Add traffic update result:", updateBody);
+  return updateBody?.success === true;
+}
+
 // Verify Hupi signature
 async function verifyHupiSign(params: Record<string, string>, appSecret: string): Promise<boolean> {
   const keys = Object.keys(params)
@@ -460,8 +524,9 @@ Deno.serve(async (req) => {
         })
         .eq("id", order.id);
 
-      // Use order_type field to determine if this is a new purchase or renewal
+      // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
+      const isTopupOrder = order.order_type === "topup_traffic";
 
       // For buy_new orders, skip renewal logic — client will call create-client after polling
       let finalStatus = "paid";
@@ -490,16 +555,30 @@ Deno.serve(async (req) => {
 
         if (foundClient && foundPanel) {
           clientRemark = foundClient.email || "";
-          const durationDays = order.duration_days || (order.months * 30);
-          const success = await extendExpiry(
-            foundPanel.panel_url,
-            foundCookie,
-            foundClient.inboundId,
-            foundClient.email,
-            foundClient.expiryTime,
-            durationDays,
-            foundClient.isSocks5,
-          );
+          let success = false;
+          if (isTopupOrder) {
+            // months stores 10GB multiplier; add bytes = months * 10 * 1GB
+            const addBytes = (Number(order.months) || 0) * 10 * 1073741824;
+            success = await addClientTraffic(
+              foundPanel.panel_url,
+              foundCookie,
+              foundClient.inboundId,
+              foundClient.email,
+              addBytes,
+              foundClient.isSocks5,
+            );
+          } else {
+            const durationDays = order.duration_days || (order.months * 30);
+            success = await extendExpiry(
+              foundPanel.panel_url,
+              foundCookie,
+              foundClient.inboundId,
+              foundClient.email,
+              foundClient.expiryTime,
+              durationDays,
+              foundClient.isSocks5,
+            );
+          }
           if (success) {
             await supabase
               .from("orders")
@@ -574,7 +653,7 @@ Deno.serve(async (req) => {
       const { action } = body;
 
       if (action === "create-order") {
-        const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email } = body;
+        const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email, gb } = body;
 
         if (!uuid || !planName || !months || !amount || !paymentMethod) {
           return new Response(JSON.stringify({ error: "缺少必要参数" }), {
@@ -583,20 +662,59 @@ Deno.serve(async (req) => {
           });
         }
 
+        // === SERVER-SIDE VALIDATION & PRICING FOR TOPUP_TRAFFIC ===
+        let finalAmount = amount;
+        let finalPlanName = planName;
+        let finalMonths = months;
+        let finalDurationDays = durationDays || (months * 30);
+        let finalCryptoAmount = cryptoAmount;
+        if (orderType === "topup_traffic") {
+          const gbNum = Number(gb);
+          if (!gbNum || !Number.isInteger(gbNum) || gbNum < 10 || gbNum % 10 !== 0) {
+            return new Response(JSON.stringify({ error: "购买流量必须为 10 的倍数，最小 10GB" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const { data: topupPlan } = await supabase
+            .from("plans")
+            .select("price, title")
+            .eq("category", "topup_traffic")
+            .eq("enabled", true)
+            .order("sort_order", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (!topupPlan || !topupPlan.price || topupPlan.price <= 0) {
+            return new Response(JSON.stringify({ error: "流量充值未配置，请联系管理员" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          // price is per 10GB; recompute server-side
+          finalAmount = Number((Number(topupPlan.price) * (gbNum / 10)).toFixed(2));
+          finalPlanName = `流量充值 ${gbNum}GB`;
+          finalMonths = gbNum / 10;
+          finalDurationDays = 0;
+          // Re-derive crypto amount proportionally if crypto path
+          if (cryptoAmount && Number(amount) > 0) {
+            finalCryptoAmount = Number((Number(cryptoAmount) * (finalAmount / Number(amount))).toFixed(6));
+          }
+        }
+
         const tradeNo = `ORD${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
         const { data: order, error } = await supabase
           .from("orders")
           .insert({
             uuid,
-            plan_name: planName,
-            months,
-            duration_days: durationDays || (months * 30),
-            amount,
+            plan_name: finalPlanName,
+            months: finalMonths,
+            duration_days: finalDurationDays,
+            amount: finalAmount,
             payment_method: paymentMethod,
             order_type: orderType || "renew",
             trade_no: tradeNo,
-            crypto_amount: cryptoAmount || null,
+            crypto_amount: finalCryptoAmount || null,
             crypto_currency: cryptoCurrency || null,
             email: email || null,
             status: "pending",
@@ -639,8 +757,8 @@ Deno.serve(async (req) => {
             version: "1.1",
             appid: appId,
             trade_order_id: tradeNo,
-            total_fee: String(amount),
-            title: planName,
+            total_fee: String(finalAmount),
+            title: finalPlanName,
             time: String(Math.floor(Date.now() / 1000)),
             notify_url: notifyUrl,
             nonce_str: Math.random().toString(36).substring(2, 15),

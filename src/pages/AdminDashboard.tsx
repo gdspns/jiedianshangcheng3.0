@@ -166,7 +166,7 @@ export default function AdminDashboard() {
   const [inboundPlans, setInboundPlans] = useState<{ id: string; region_inbound_id: string; plan_id: string }[]>([]);
   const [assignInboundId, setAssignInboundId] = useState<string | null>(null);
   const [panels, setPanels] = useState<{ id: string; name: string; panel_url: string; panel_user: string; panel_pass: string; is_primary: boolean; enabled: boolean; sort_order: number }[]>([]);
-  const [productGroupTab, setProductGroupTab] = useState<"new" | "renew">("new");
+  const [productGroupTab, setProductGroupTab] = useState<"new" | "renew" | "topup">("new");
   const [productSubTab, setProductSubTab] = useState<"all" | "exclusive" | "shared">("all");
   const navigate = useNavigate();
   const token = sessionStorage.getItem("admin_token") || "";
@@ -566,6 +566,7 @@ export default function AdminDashboard() {
     new_shared: "👥 购买开通·共享",
     renew_exclusive: "🔒 续费·独享",
     renew_shared: "👥 续费·共享",
+    topup_traffic: "📊 流量充值",
   };
 
   const togglePlanExpand = (id: string) => {
@@ -631,6 +632,7 @@ export default function AdminDashboard() {
             <option value="new_shared">👥 购买·共享</option>
             <option value="renew_exclusive">🔒 续费·独享</option>
             <option value="renew_shared">👥 续费·共享</option>
+            <option value="topup_traffic">📊 流量充值</option>
           </select>
         </div>
         <div className="md:col-span-1">
@@ -1275,6 +1277,7 @@ export default function AdminDashboard() {
                 {([
                   { key: "new", label: "🛒 购买开通", icon: ShoppingCart },
                   { key: "renew", label: "💳 续费商品", icon: CreditCard },
+                  { key: "topup", label: "📊 流量充值", icon: Package },
                 ] as const).map(g => (
                   <button
                     key={g.key}
@@ -1311,11 +1314,15 @@ export default function AdminDashboard() {
 
               {/* 当前分组内容 */}
               {(() => {
-                const groupTitle = productGroupTab === "new" ? "购买开通" : "续费商品";
+                const groupTitle = productGroupTab === "new" ? "购买开通" : productGroupTab === "renew" ? "续费商品" : "流量充值";
                 const allCats = productGroupTab === "new"
                   ? ["new_exclusive", "new_shared"]
-                  : ["renew_exclusive", "renew_shared"];
-                const cats = productSubTab === "all"
+                  : productGroupTab === "renew"
+                  ? ["renew_exclusive", "renew_shared"]
+                  : ["topup_traffic"];
+                const cats = productGroupTab === "topup"
+                  ? allCats
+                  : productSubTab === "all"
                   ? allCats
                   : allCats.filter(c => c.endsWith(productSubTab));
                 const subLabels: Record<string, string> = {
@@ -1323,6 +1330,7 @@ export default function AdminDashboard() {
                   "new_shared": "👥 共享",
                   "renew_exclusive": "🔒 独享",
                   "renew_shared": "👥 共享",
+                  "topup_traffic": "📊 10GB 单价（¥）— 建议仅保留 1 条",
                 };
                 return renderPlanGroup(groupTitle, productGroupTab, cats, subLabels);
               })()}

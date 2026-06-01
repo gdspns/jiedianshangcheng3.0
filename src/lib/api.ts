@@ -75,6 +75,7 @@ export async function createOrder(params: {
   cryptoAmount?: number;
   cryptoCurrency?: string;
   email?: string;
+  gb?: number;
 }) {
   return callEdgeFunction("payment-callback", { action: "create-order", ...params });
 }
