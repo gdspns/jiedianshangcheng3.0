@@ -902,7 +902,21 @@ export default function ClientPortal() {
       if (res?.success && (res.status === "fulfilled" || res.status === "paid_unfulfilled")) {
         cleanupPolling();
         setPayStatus("success");
-        if (checkoutData) {
+        if (checkoutData?.type === "topup_traffic") {
+          try {
+            const lookupRes = await lookupClient(uuid);
+            if (lookupRes?.success) {
+              setClientData((prev) => ({
+                ...prev,
+                trafficUsed: normalizeTrafficGB(lookupRes.trafficUsed ?? prev.trafficUsed),
+                trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? prev.trafficTotal),
+              }));
+            } else {
+              const addGb = (checkoutData.months || 0) * 10;
+              setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
+            }
+          } catch {}
+        } else if (checkoutData) {
           const baseExpiry = clientData.expiryDate === 0 || clientData.expiryDate < Date.now() ? Date.now() : clientData.expiryDate;
           const newExpiry = new Date(baseExpiry);
           newExpiry.setDate(newExpiry.getDate() + checkoutData.durationDays);
