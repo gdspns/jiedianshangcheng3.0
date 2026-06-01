@@ -785,6 +785,28 @@ export default function ClientPortal() {
             } finally {
               inFlightCreateRef.current.delete(oid);
             }
+          } else if (checkoutData?.type === "topup_traffic") {
+            // Traffic top-up: refresh client data from panel; do NOT reset used / change expiry
+            setPayStatus("success");
+            try {
+              const lookupRes = await lookupClient(uuid);
+              if (lookupRes?.success) {
+                setClientData((prev) => ({
+                  ...prev,
+                  trafficUsed: normalizeTrafficGB(lookupRes.trafficUsed ?? prev.trafficUsed),
+                  trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? prev.trafficTotal),
+                  email: lookupRes.email || prev.email,
+                  expiryDate: lookupRes.expiryDate ?? prev.expiryDate,
+                }));
+              } else if (checkoutData) {
+                // Optimistic update
+                const addGb = (checkoutData.months || 0) * 10;
+                setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
+              }
+            } catch {
+              const addGb = (checkoutData.months || 0) * 10;
+              setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
+            }
           } else {
             setPayStatus("success");
             if (checkoutData) {
