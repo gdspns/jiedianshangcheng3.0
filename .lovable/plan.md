@@ -1,72 +1,106 @@
-# 修复购买开通的重复开通 / 链接不一致问题
+## 目标
 
-## 问题根因
+在客户端门户"本月流量使用情况"下方新增"购买流量包"功能，并在管理后台新增"流量充值"商品分组，用于设置 10GB 的单价。
 
-用户扫码付款后，`create-client` Edge Function 会被多个入口同时触发，但函数本身**没有幂等性保护**：
+## 一、数据库变更
 
-1. 付款页轮询发现 `status=paid` → 调用 `create-client`（调用 A，正在 3x-ui addClient 中…）
-2. 用户没等开通完成就点击了其他页面 → `cleanupPolling()` 清理轮询，但 A 仍在后台执行
-3. 用户进入"查单"页 → `handleLookupOrders` 看到订单还是 `paid` → 再次调用 `create-client`（调用 B）
-4. A 和 B 都通过了 `status=paid` 检查，**各自生成了不同的 UUID**，分别向 3x-ui 同一个入站 addClient → 面板上同一个订单出现两个客户端
-5. 谁后写 `orders.uuid` 谁赢 → 自动刷新页面显示的链接（A 的 UUID）与查单显示的链接（B 的 UUID）不一致
+### `plans` 表
+- 新增分类（不改 schema，只用 `category` 字符串）：`topup_traffic`
+- 字段语义复用：
+  - `price` = 每 10GB 的价格（人民币）
+  - `duration_months` / `duration_days` / `featured` / `region_id` 不使用，可保持默认
+- 仅允许后台创建 1 条记录（前端只取第一条启用的 `topup_traffic` 套餐作为单价依据）
 
-`handleRetryFulfill`（手动"补发节点"按钮）有同样的问题。
+### `orders` 表
+- 复用现有表，新增 `order_type = "topup_traffic"`
+- 复用字段：
+  - `months` = 购买的 10GB 倍数（例：购买 50GB → `months=5`）
+  - `duration_days = 0`
+  - `plan_name` = `"流量充值 50GB"` 之类描述
+  - `amount` = 后端计算后的金额
+- 不需要新增列。
 
-## 修复方案
+> 不需要 schema migration —— `plans.category` 已是 text，`orders.order_type` 已是 text，直接复用。
 
-### 1. 后端 `create-client` 加入幂等锁（核心修复）
+## 二、后端 Edge Function
 
-在函数入口处用一次"原子性占位 update"作为分布式锁：
+### 1. `payment-callback` (`create-order` action)
+新增分支：当 `orderType === "topup_traffic"` 时：
+- 校验 `gb`（来自 body）：必须为正整数，且 `gb % 10 === 0`，`gb >= 10`
+- 后端从 `plans` 表读取启用中的 `topup_traffic` 套餐单价 `unitPrice`（每 10GB）
+- 后端重新计算金额：`amount = unitPrice * (gb / 10)`，忽略前端传入的 amount
+- 写入 order：`order_type="topup_traffic"`, `months = gb/10`, `duration_days = 0`, `plan_name = "流量充值 {gb}GB"`
 
-- 进入函数 → 立即尝试把订单从 `status='paid'` 更新为 `status='processing'`（同时用 `.eq('status','paid')` 作为 CAS 条件）
-- 如果 update 影响行数 = 0：
-  - 如果订单已经是 `fulfilled`，直接读出已有的 `uuid / inbound_id / client_remark`，重新拼装 `credentials + connectionInfo` 返回给前端（让重复调用拿到**同一份**链接，而不是再开一个）
-  - 如果订单是 `processing`（说明已有另一个调用在跑）→ 轮询等待 1-2 秒，再读一次订单；若 `fulfilled` 则返回已有数据，否则返回 `409 处理中，请稍后重试`
-- 如果 update 成功（拿到锁）→ 正常走原来的 addClient 流程；流程末尾把 `status` 写为 `fulfilled`
-- 任何错误分支（addClient 失败、面板登录失败）→ **必须把 `status` 回滚到 `paid`**，否则订单会卡死在 `processing`
+### 2. `payment-callback` 微信/支付宝回调 & `crypto-verify` 加密回调
+在 paid 后判断 `order.order_type === "topup_traffic"`：
+- 跳过续费 `extendExpiry` 分支
+- 调用新函数 `addClientTraffic(panelUrl, cookie, inboundId, email, addBytes, isSocks5)`：
+  - 通过遍历启用 panels 找到 client
+  - 读取当前 inbound `settings.clients[*]` 找到目标 client（或 SOCKS5 inbound）
+  - `addBytes = gb * 1073741824`（`gb = order.months * 10`）
+  - **标准协议**：将该 client 的 `totalGB`（字节）改为 `currentTotal + addBytes`，调用 `/panel/api/inbounds/updateClient/{id}`（或现有 update inbound full settings 路径，保持与现有续费逻辑一致即可）
+  - **SOCKS5**：将 inbound `total` 改为 `currentTotal + addBytes`，调用 `/panel/api/inbounds/update/{id}`
+  - **绝对不要**：
+    - 不调用 `resetClientTraffic`
+    - 不修改 `up`/`down`（已用流量）
+    - 不修改 `expiryTime`
+    - 不修改 client `email`（备注）
+- 成功后 `status="fulfilled"`，失败 `status="paid_unfulfilled"`
 
-需要新增数据库迁移：把 `orders.status` 允许的取值扩展支持 `'processing'`（当前是 text 字段无 CHECK 约束，无需迁移，仅文档化即可）。
+### 3. 安全防护
+- 所有校验（10 倍数、最低 10GB、金额重算）必须在 Edge Function 服务端完成
+- 前端 amount 字段会被后端覆盖，前端不能绕过价格
+- 增加流量只在支付回调中触发，前端无路径直接调用增加流量接口
 
-### 2. 后端读取已存在客户端的辅助函数
+## 三、前端
 
-为了让"重复调用"能返回与首次调用一致的链接，新增 `findClientOnPanel(panelUrl, cookie, inboundId, uuidOrUsername)`：
-- 拉 `/panel/api/inbounds/get/{id}`
-- 在 settings.clients / settings.accounts 里按 uuid / password / user 找到现有客户端
-- 拼装 `credentials + connectionInfo` 返回
-
-订单 `fulfilled` 时直接走这条路径返回，不再 addClient。
-
-### 3. 前端去重保护
-
-`src/pages/ClientPortal.tsx`：
-
-- 新增 `useRef<Set<string>>(new Set())` 记录"正在 create-client 的 orderId"
-- `handlePaymentSuccess`、`handleLookupOrders`（其中的 `pendingBuyNew` 批量调用）、`handleRetryFulfill` 都先检查这个 Set，订单 id 已在集合里就 skip；`finally` 里删除
-- `handleLookupOrders` 中：把对每个 paid buy_new 订单的并发调用改为**串行**（避免同一邮箱多订单同时触发面板压力，并配合后端锁更稳）
-
-### 4. UI 文案
-
-- 付款成功页若用户已切走，再次回查单时如果订单已自动开通，正常显示链接即可（无需新增提示）
-- `paid_unfulfilled` 状态保留现有"补发节点"按钮，但点击后若后端返回 `processing`，提示"系统正在开通中，请 5 秒后刷新"
-
-## 涉及文件
-
-- `supabase/functions/create-client/index.ts`：加入 CAS 锁、`findClientOnPanel`、错误分支回滚 status
-- `src/pages/ClientPortal.tsx`：前端 in-flight Set、串行化 lookup 中的批量补单
-- `src/lib/api.ts`：无需改动（只透传响应）
-
-## 流程示意
-
-```text
-付款页轮询A          查单页调用B
-     |                    |
-     v                    v
-  CAS: paid -> processing  (A 拿到锁)
-     |                    |
-   addClient              CAS 失败 -> 读订单
-     |                    |
-  status=fulfilled        若 fulfilled: 用现有 uuid
-  返回 credentials A      返回 credentials A (一致!)
+### 1. `ClientPortal.tsx` 仪表盘
+在第 1257 行 "本月流量使用情况" 卡片下方新增一个卡片：
 ```
+┌─ 购买流量包 ──────────────┐
+│ 单价：¥X / 10GB           │
+│ [输入框: 购买流量 GB]      │
+│ 必须为 10 的倍数，最小 10  │
+│ 应付：¥XX                  │
+│ [购买流量] 按钮            │
+└──────────────────────────┘
+```
+- 实时显示：`金额 = unitPrice * (gb / 10)`（前端仅展示）
+- 输入校验：`gb >= 10 && gb % 10 === 0`，不满足按钮禁用
+- 点击 → `AlertDialog` 确认：「确认购买 {gb}GB 流量包？应付 ¥{amount}」
+- 确认后调用 `createOrder({ uuid, planName: "流量充值 {gb}GB", months: gb/10, durationDays: 0, amount, paymentMethod, orderType: "topup_traffic", gb })`
+- 复用现有支付弹窗 / 二维码 / 轮询逻辑（与续费完全一致）
+- 支付轮询到 `fulfilled` 后，重新调用 `lookupClient(uuid)` 刷新 `trafficTotal`，进度条与 `4.41 / 60 GB` 文案实时更新
 
-3x-ui 面板上只会出现一个客户端，A 与 B 拿到完全相同的 UUID/链接。
+### 2. `lib/api.ts`
+`createOrder` 增加 `gb?: number` 参数透传给 edge function。
+
+### 3. 公共 config / plans
+`getPlans()` 已会返回所有启用 plans；前端 dashboard 用 `plans.find(p => p.category === "topup_traffic" && p.enabled)` 拿到单价。如果不存在则隐藏整个"购买流量包"卡片。
+
+## 四、管理后台
+
+### `AdminDashboard.tsx` 商品管理
+- 在 `categoryLabels` 加入：`topup_traffic: "📊 流量充值"`
+- 在商品分组渲染处增加"流量充值"分组（与现有 4 个分组并列）
+- 该分组下只允许 1 条 plan（UI 上"添加"按钮在已有 1 条时禁用）
+- 编辑表单只显示：
+  - `title`（如 "10GB 流量包"）
+  - `price`（每 10GB 单价，单位元）
+  - `enabled` 开关
+  - 隐藏：duration、region、featured 等不相关字段
+- 不需要走 region / inbound 绑定流程
+
+## 五、不破坏现有功能
+
+- 续费逻辑（`order_type="renew"`）走原 `extendExpiry`，重置流量+延期
+- 新购逻辑（`order_type="buy_new"`）走 `create-client`，新建客户端
+- 新增的 topup_traffic 是独立第三分支，互不干扰
+- 3x-ui 登录解析、流量显示、套餐购买/续费均不动
+
+## 技术细节（开发参考）
+
+- `addClientTraffic` 与 `extendExpiry` 共用 panel 遍历逻辑（已封装在 payment-callback 内），可抽出一个 `findClientAcrossPanels(supabase, uuid)` helper
+- 流量字节单位：1GB = 1073741824
+- `totalGB` 字段在 3x-ui 中实际存的是字节数（不是 GB），命名是历史遗留
+- 客户端 `clientData.trafficTotal` 字段已经过 `normalizeTrafficGB` 处理为 GB 数字，无需额外转换
