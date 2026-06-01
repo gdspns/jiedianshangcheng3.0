@@ -524,8 +524,9 @@ Deno.serve(async (req) => {
         })
         .eq("id", order.id);
 
-      // Use order_type field to determine if this is a new purchase or renewal
+      // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
+      const isTopupOrder = order.order_type === "topup_traffic";
 
       // For buy_new orders, skip renewal logic — client will call create-client after polling
       let finalStatus = "paid";
@@ -554,16 +555,30 @@ Deno.serve(async (req) => {
 
         if (foundClient && foundPanel) {
           clientRemark = foundClient.email || "";
-          const durationDays = order.duration_days || (order.months * 30);
-          const success = await extendExpiry(
-            foundPanel.panel_url,
-            foundCookie,
-            foundClient.inboundId,
-            foundClient.email,
-            foundClient.expiryTime,
-            durationDays,
-            foundClient.isSocks5,
-          );
+          let success = false;
+          if (isTopupOrder) {
+            // months stores 10GB multiplier; add bytes = months * 10 * 1GB
+            const addBytes = (Number(order.months) || 0) * 10 * 1073741824;
+            success = await addClientTraffic(
+              foundPanel.panel_url,
+              foundCookie,
+              foundClient.inboundId,
+              foundClient.email,
+              addBytes,
+              foundClient.isSocks5,
+            );
+          } else {
+            const durationDays = order.duration_days || (order.months * 30);
+            success = await extendExpiry(
+              foundPanel.panel_url,
+              foundCookie,
+              foundClient.inboundId,
+              foundClient.email,
+              foundClient.expiryTime,
+              durationDays,
+              foundClient.isSocks5,
+            );
+          }
           if (success) {
             await supabase
               .from("orders")
