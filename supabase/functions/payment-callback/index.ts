@@ -653,7 +653,7 @@ Deno.serve(async (req) => {
       const { action } = body;
 
       if (action === "create-order") {
-        const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email } = body;
+        const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email, gb } = body;
 
         if (!uuid || !planName || !months || !amount || !paymentMethod) {
           return new Response(JSON.stringify({ error: "缺少必要参数" }), {
@@ -662,20 +662,59 @@ Deno.serve(async (req) => {
           });
         }
 
+        // === SERVER-SIDE VALIDATION & PRICING FOR TOPUP_TRAFFIC ===
+        let finalAmount = amount;
+        let finalPlanName = planName;
+        let finalMonths = months;
+        let finalDurationDays = durationDays || (months * 30);
+        let finalCryptoAmount = cryptoAmount;
+        if (orderType === "topup_traffic") {
+          const gbNum = Number(gb);
+          if (!gbNum || !Number.isInteger(gbNum) || gbNum < 10 || gbNum % 10 !== 0) {
+            return new Response(JSON.stringify({ error: "购买流量必须为 10 的倍数，最小 10GB" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const { data: topupPlan } = await supabase
+            .from("plans")
+            .select("price, title")
+            .eq("category", "topup_traffic")
+            .eq("enabled", true)
+            .order("sort_order", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (!topupPlan || !topupPlan.price || topupPlan.price <= 0) {
+            return new Response(JSON.stringify({ error: "流量充值未配置，请联系管理员" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          // price is per 10GB; recompute server-side
+          finalAmount = Number((Number(topupPlan.price) * (gbNum / 10)).toFixed(2));
+          finalPlanName = `流量充值 ${gbNum}GB`;
+          finalMonths = gbNum / 10;
+          finalDurationDays = 0;
+          // Re-derive crypto amount proportionally if crypto path
+          if (cryptoAmount && Number(amount) > 0) {
+            finalCryptoAmount = Number((Number(cryptoAmount) * (finalAmount / Number(amount))).toFixed(6));
+          }
+        }
+
         const tradeNo = `ORD${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
         const { data: order, error } = await supabase
           .from("orders")
           .insert({
             uuid,
-            plan_name: planName,
-            months,
-            duration_days: durationDays || (months * 30),
-            amount,
+            plan_name: finalPlanName,
+            months: finalMonths,
+            duration_days: finalDurationDays,
+            amount: finalAmount,
             payment_method: paymentMethod,
             order_type: orderType || "renew",
             trade_no: tradeNo,
-            crypto_amount: cryptoAmount || null,
+            crypto_amount: finalCryptoAmount || null,
             crypto_currency: cryptoCurrency || null,
             email: email || null,
             status: "pending",
