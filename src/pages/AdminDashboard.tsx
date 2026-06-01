@@ -566,6 +566,7 @@ export default function AdminDashboard() {
     new_shared: "👥 购买开通·共享",
     renew_exclusive: "🔒 续费·独享",
     renew_shared: "👥 续费·共享",
+    topup_traffic: "📊 流量充值",
   };
 
   const togglePlanExpand = (id: string) => {
