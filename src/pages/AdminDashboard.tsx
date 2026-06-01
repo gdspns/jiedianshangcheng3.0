@@ -1277,6 +1277,7 @@ export default function AdminDashboard() {
                 {([
                   { key: "new", label: "🛒 购买开通", icon: ShoppingCart },
                   { key: "renew", label: "💳 续费商品", icon: CreditCard },
+                  { key: "topup", label: "📊 流量充值", icon: Package },
                 ] as const).map(g => (
                   <button
                     key={g.key}
