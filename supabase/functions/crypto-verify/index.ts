@@ -298,10 +298,11 @@ Deno.serve(async (req) => {
         tx_hash: result.txHash,
       }).eq("id", order.id);
 
-      // Use order_type field to determine if this is a new purchase or renewal
+      // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
+      const isTopupOrder = order.order_type === "topup_traffic";
 
-      // Extend expiry via 3x-ui (only for renewal orders)
+      // Extend expiry / add traffic via 3x-ui (skip for buy_new — handled by create-client)
       let clientRemark = "";
       let fulfilled = false;
       if (!isBuyNewOrder) {
@@ -320,8 +321,14 @@ Deno.serve(async (req) => {
           const client = await findClient(p.panel_url, cookie, order.uuid);
           if (!client) continue;
           clientRemark = client.email || "";
-          const durationDays = order.duration_days || (order.months * 30);
-          const success = await extendExpiry(p.panel_url, cookie, client.inboundId, client.email, client.expiryTime, durationDays);
+          let success = false;
+          if (isTopupOrder) {
+            const addBytes = (Number(order.months) || 0) * 10 * 1073741824;
+            success = await addClientTraffic(p.panel_url, cookie, client.inboundId, client.email, addBytes, client.isSocks5);
+          } else {
+            const durationDays = order.duration_days || (order.months * 30);
+            success = await extendExpiry(p.panel_url, cookie, client.inboundId, client.email, client.expiryTime, durationDays);
+          }
           if (success) {
             await supabase.from("orders").update({
               status: "fulfilled",
