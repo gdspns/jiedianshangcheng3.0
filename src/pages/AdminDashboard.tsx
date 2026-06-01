@@ -1314,11 +1314,15 @@ export default function AdminDashboard() {
 
               {/* 当前分组内容 */}
               {(() => {
-                const groupTitle = productGroupTab === "new" ? "购买开通" : "续费商品";
+                const groupTitle = productGroupTab === "new" ? "购买开通" : productGroupTab === "renew" ? "续费商品" : "流量充值";
                 const allCats = productGroupTab === "new"
                   ? ["new_exclusive", "new_shared"]
-                  : ["renew_exclusive", "renew_shared"];
-                const cats = productSubTab === "all"
+                  : productGroupTab === "renew"
+                  ? ["renew_exclusive", "renew_shared"]
+                  : ["topup_traffic"];
+                const cats = productGroupTab === "topup"
+                  ? allCats
+                  : productSubTab === "all"
                   ? allCats
                   : allCats.filter(c => c.endsWith(productSubTab));
                 const subLabels: Record<string, string> = {
@@ -1326,6 +1330,7 @@ export default function AdminDashboard() {
                   "new_shared": "👥 共享",
                   "renew_exclusive": "🔒 独享",
                   "renew_shared": "👥 共享",
+                  "topup_traffic": "📊 10GB 单价（¥）— 建议仅保留 1 条",
                 };
                 return renderPlanGroup(groupTitle, productGroupTab, cats, subLabels);
               })()}
