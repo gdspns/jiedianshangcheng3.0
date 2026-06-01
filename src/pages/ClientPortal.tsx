@@ -675,6 +675,8 @@ export default function ClientPortal() {
         durationDays: checkoutData.durationDays,
         amount: checkoutData.price,
         paymentMethod: method,
+        ...(checkoutData.type === "buy_new" || checkoutData.type === "topup_traffic" ? { orderType: checkoutData.type } : {}),
+        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) * 10 } : {}),
         cryptoAmount: computedPrice,
         cryptoCurrency: method.toUpperCase(),
         ...(checkoutEmail.trim() ? { email: checkoutEmail.trim() } : {}),
