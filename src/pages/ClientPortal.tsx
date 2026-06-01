@@ -1297,6 +1297,88 @@ export default function ClientPortal() {
                   </div>
                 </div>
               </div>
+
+              {/* 购买流量包 */}
+              {(() => {
+                const topupPlan = dynamicPlans.find(p => p.category === "topup_traffic" && p.enabled);
+                if (!topupPlan || !topupPlan.price || topupPlan.price <= 0) return null;
+                const unitPrice = Number(topupPlan.price);
+                const gbNum = Number(topupGbInput);
+                const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= 10 && gbNum % 10 === 0;
+                const computedAmount = gbValid ? Number((unitPrice * (gbNum / 10)).toFixed(2)) : 0;
+                return (
+                  <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <div className="text-client-primary font-bold flex items-center">
+                        <ShoppingCart className="w-5 h-5 mr-2" /> 购买流量包
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        单价：<span className="font-bold text-foreground">¥{unitPrice}</span> / 10GB
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+                      <div className="flex-1">
+                        <label className="block text-xs text-muted-foreground mb-1">请输入购买流量 GB（必须为 10 的倍数，最小 10GB）</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={10}
+                          step={10}
+                          value={topupGbInput}
+                          onChange={(e) => setTopupGbInput(e.target.value)}
+                          placeholder="例如 10、20、50、100"
+                          className="w-full border border-input p-2.5 rounded-lg bg-background focus:ring-2 focus:ring-client-primary outline-none"
+                        />
+                      </div>
+                      <div className="text-sm">
+                        <div className="text-muted-foreground">应付</div>
+                        <div className="text-2xl font-extrabold text-client-primary">¥{computedAmount.toFixed(2)}</div>
+                      </div>
+                      <button
+                        onClick={() => setTopupConfirmOpen(true)}
+                        disabled={!gbValid || uuid === "游客_未登录"}
+                        className="bg-client-primary text-client-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        购买流量
+                      </button>
+                    </div>
+                    {!gbValid && topupGbInput && (
+                      <p className="text-xs text-destructive mt-2">流量必须为 10 的倍数，且不少于 10GB</p>
+                    )}
+                    {/* 确认弹窗 */}
+                    {topupConfirmOpen && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setTopupConfirmOpen(false)}>
+                        <div className="bg-card max-w-md w-full p-6 rounded-2xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+                          <h3 className="text-lg font-bold mb-3">确认购买流量包</h3>
+                          <p className="text-muted-foreground mb-2">
+                            确认购买 <span className="font-bold text-foreground">{gbNum}GB</span> 流量包？
+                          </p>
+                          <p className="text-muted-foreground mb-5">
+                            应付金额：<span className="font-bold text-client-primary">¥{computedAmount.toFixed(2)}</span>
+                          </p>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setTopupConfirmOpen(false)}
+                              className="px-4 py-2 rounded-lg border border-border hover:bg-muted text-sm font-bold"
+                            >
+                              取消
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTopupConfirmOpen(false);
+                                initiateCheckout(gbNum / 10, computedAmount, `流量充值 ${gbNum}GB`, "topup_traffic", null, 0);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
+                            >
+                              确认购买
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               </>
               )}
             </div>
