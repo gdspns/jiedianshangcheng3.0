@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
           clientRemark = client.email || "";
           let success = false;
           if (isTopupOrder) {
-            const addBytes = (Number(order.months) || 0) * 10 * 1073741824;
+            const addBytes = (Number(order.months) || 0) * 1073741824;
             success = await addClientTraffic(p.panel_url, cookie, client.inboundId, client.email, addBytes, client.isSocks5);
           } else {
             const durationDays = order.duration_days || (order.months * 30);
