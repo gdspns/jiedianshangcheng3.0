@@ -139,6 +139,8 @@ const defaultConfig: AdminConfigData = {
   salesInboundId: 1,
   salesProtocol: "mixed",
   notifyStockOut: false,
+  topupMinGb: 0,
+  topupPrice: 0,
 };
 
 export default function AdminDashboard() {
