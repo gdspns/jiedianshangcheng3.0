@@ -54,6 +54,8 @@ interface AdminConfigData {
   salesInboundId: number;
   salesProtocol: string;
   notifyStockOut: boolean;
+  topupMinGb: number;
+  topupPrice: number;
 }
 
 interface Plan {
