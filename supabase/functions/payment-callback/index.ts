@@ -670,32 +670,30 @@ Deno.serve(async (req) => {
         let finalCryptoAmount = cryptoAmount;
         if (orderType === "topup_traffic") {
           const gbNum = Number(gb);
-          if (!gbNum || !Number.isInteger(gbNum) || gbNum < 10 || gbNum % 10 !== 0) {
-            return new Response(JSON.stringify({ error: "购买流量必须为 10 的倍数，最小 10GB" }), {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-          const { data: topupPlan } = await supabase
-            .from("plans")
-            .select("price, title")
-            .eq("category", "topup_traffic")
-            .eq("enabled", true)
-            .order("sort_order", { ascending: true })
+          const { data: cfg } = await supabase
+            .from("admin_config")
+            .select("topup_min_gb, topup_price")
             .limit(1)
             .maybeSingle();
-          if (!topupPlan || !topupPlan.price || topupPlan.price <= 0) {
+          const minGb = Number(cfg?.topup_min_gb || 0);
+          const unitPrice = Number(cfg?.topup_price || 0);
+          if (!minGb || minGb <= 0 || !unitPrice || unitPrice <= 0) {
             return new Response(JSON.stringify({ error: "流量充值未配置，请联系管理员" }), {
               status: 400,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          // price is per 10GB; recompute server-side
-          finalAmount = Number((Number(topupPlan.price) * (gbNum / 10)).toFixed(2));
+          if (!gbNum || !Number.isInteger(gbNum) || gbNum < minGb || gbNum % minGb !== 0) {
+            return new Response(JSON.stringify({ error: `购买流量必须为 ${minGb} 的倍数，最小 ${minGb}GB` }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          // unitPrice is per minGb; recompute server-side
+          finalAmount = Number((unitPrice * (gbNum / minGb)).toFixed(2));
           finalPlanName = `流量充值 ${gbNum}GB`;
-          finalMonths = gbNum / 10;
+          finalMonths = gbNum; // store actual GB in months field
           finalDurationDays = 0;
-          // Re-derive crypto amount proportionally if crypto path
           if (cryptoAmount && Number(amount) > 0) {
             finalCryptoAmount = Number((Number(cryptoAmount) * (finalAmount / Number(amount))).toFixed(6));
           }
