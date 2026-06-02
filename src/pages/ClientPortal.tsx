@@ -251,7 +251,7 @@ export default function ClientPortal() {
   const [tutorials, setTutorials] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
   const [announcement, setAnnouncement] = useState<string>("");
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
-  const [topupGbInput, setTopupGbInput] = useState<string>("10");
+  const [topupGbInput, setTopupGbInput] = useState<string>("");
   const [topupConfirmOpen, setTopupConfirmOpen] = useState(false);
 
   const copyWithFeedback = (text: string, key: string) => {
