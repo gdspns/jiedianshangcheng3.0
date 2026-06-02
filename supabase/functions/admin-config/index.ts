@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
         salesInboundId: data.sales_inbound_id ?? 1,
         salesProtocol: data.sales_protocol ?? "mixed",
         notifyStockOut: data.notify_stock_out ?? false,
+        topupMinGb: data.topup_min_gb ?? 0,
+        topupPrice: Number(data.topup_price ?? 0),
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -125,6 +127,8 @@ Deno.serve(async (req) => {
         sales_inbound_id: config.salesInboundId,
         sales_protocol: config.salesProtocol,
         notify_stock_out: config.notifyStockOut,
+        topup_min_gb: Math.max(0, Math.floor(Number(config.topupMinGb) || 0)),
+        topup_price: Math.max(0, Number(config.topupPrice) || 0),
       };
 
       const { error } = await supabase

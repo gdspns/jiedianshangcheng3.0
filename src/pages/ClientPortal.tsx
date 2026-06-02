@@ -71,6 +71,8 @@ interface PublicConfig {
   crypto_usdt: boolean;
   crypto_trx: boolean;
   crypto_address: string | null;
+  topup_min_gb?: number;
+  topup_price?: number;
 }
 
 interface ClientData {
@@ -249,7 +251,7 @@ export default function ClientPortal() {
   const [tutorials, setTutorials] = useState<{ id: string; title: string; content: string; sort_order: number }[]>([]);
   const [announcement, setAnnouncement] = useState<string>("");
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
-  const [topupGbInput, setTopupGbInput] = useState<string>("10");
+  const [topupGbInput, setTopupGbInput] = useState<string>("");
   const [topupConfirmOpen, setTopupConfirmOpen] = useState(false);
 
   const copyWithFeedback = (text: string, key: string) => {
@@ -283,7 +285,11 @@ export default function ClientPortal() {
 
   useEffect(() => {
     getPublicConfig()
-      .then(setConfig)
+      .then((c: any) => {
+        setConfig(c);
+        const min = Number(c?.topup_min_gb || 0);
+        if (min > 0) setTopupGbInput(String(min));
+      })
       .catch(() => {});
     getPlans()
       .then(setDynamicPlans)
@@ -676,7 +682,7 @@ export default function ClientPortal() {
         amount: checkoutData.price,
         paymentMethod: method,
         ...(checkoutData.type === "buy_new" || checkoutData.type === "topup_traffic" ? { orderType: checkoutData.type } : {}),
-        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) * 10 } : {}),
+        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) } : {}),
         cryptoAmount: computedPrice,
         cryptoCurrency: method.toUpperCase(),
         ...(checkoutEmail.trim() ? { email: checkoutEmail.trim() } : {}),
@@ -802,11 +808,11 @@ export default function ClientPortal() {
                 }));
               } else if (checkoutData) {
                 // Optimistic update
-                const addGb = (checkoutData.months || 0) * 10;
+                const addGb = (checkoutData.months || 0);
                 setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
               }
             } catch {
-              const addGb = (checkoutData.months || 0) * 10;
+              const addGb = (checkoutData.months || 0);
               setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
             }
           } else {
@@ -867,7 +873,7 @@ export default function ClientPortal() {
         amount: checkoutData.price,
         paymentMethod: selectedMethod,
         orderType: checkoutData.type === "buy_new" ? "buy_new" : checkoutData.type === "topup_traffic" ? "topup_traffic" : "renew",
-        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) * 10 } : {}),
+        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) } : {}),
         ...(isCrypto ? { cryptoAmount: cryptoPrice, cryptoCurrency: selectedMethod.toUpperCase() } : {}),
         ...(checkoutEmail.trim() ? { email: checkoutEmail.trim() } : {}),
       });
@@ -912,7 +918,7 @@ export default function ClientPortal() {
                 trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? prev.trafficTotal),
               }));
             } else {
-              const addGb = (checkoutData.months || 0) * 10;
+              const addGb = (checkoutData.months || 0);
               setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
             }
           } catch {}
@@ -1300,12 +1306,12 @@ export default function ClientPortal() {
 
               {/* 购买流量包 */}
               {(() => {
-                const topupPlan = dynamicPlans.find(p => p.category === "topup_traffic" && p.enabled);
-                if (!topupPlan || !topupPlan.price || topupPlan.price <= 0) return null;
-                const unitPrice = Number(topupPlan.price);
+                const minGb = Number(config?.topup_min_gb || 0);
+                const unitPrice = Number(config?.topup_price || 0);
+                if (!minGb || minGb <= 0 || !unitPrice || unitPrice <= 0) return null;
                 const gbNum = Number(topupGbInput);
-                const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= 10 && gbNum % 10 === 0;
-                const computedAmount = gbValid ? Number((unitPrice * (gbNum / 10)).toFixed(2)) : 0;
+                const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= minGb && gbNum % minGb === 0;
+                const computedAmount = gbValid ? Number((unitPrice * (gbNum / minGb)).toFixed(2)) : 0;
                 return (
                   <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1313,20 +1319,20 @@ export default function ClientPortal() {
                         <ShoppingCart className="w-5 h-5 mr-2" /> 购买流量包
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        单价：<span className="font-bold text-foreground">¥{unitPrice}</span> / 10GB
+                        单价：<span className="font-bold text-foreground">¥{unitPrice}</span> / {minGb}GB
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
                       <div className="flex-1">
-                        <label className="block text-xs text-muted-foreground mb-1">请输入购买流量 GB（必须为 10 的倍数，最小 10GB）</label>
+                        <label className="block text-xs text-muted-foreground mb-1">请输入购买流量 GB（必须为 {minGb} 的倍数，最小 {minGb}GB）</label>
                         <input
                           type="number"
                           inputMode="numeric"
-                          min={10}
-                          step={10}
+                          min={minGb}
+                          step={minGb}
                           value={topupGbInput}
                           onChange={(e) => setTopupGbInput(e.target.value)}
-                          placeholder="例如 10、20、50、100"
+                          placeholder={`例如 ${minGb}、${minGb * 2}、${minGb * 5}`}
                           className="w-full border border-input p-2.5 rounded-lg bg-background focus:ring-2 focus:ring-client-primary outline-none"
                         />
                       </div>
@@ -1343,7 +1349,7 @@ export default function ClientPortal() {
                       </button>
                     </div>
                     {!gbValid && topupGbInput && (
-                      <p className="text-xs text-destructive mt-2">流量必须为 10 的倍数，且不少于 10GB</p>
+                      <p className="text-xs text-destructive mt-2">流量必须为 {minGb} 的倍数，且不少于 {minGb}GB</p>
                     )}
                     {/* 确认弹窗 */}
                     {topupConfirmOpen && (
@@ -1366,7 +1372,7 @@ export default function ClientPortal() {
                             <button
                               onClick={() => {
                                 setTopupConfirmOpen(false);
-                                initiateCheckout(gbNum / 10, computedAmount, `流量充值 ${gbNum}GB`, "topup_traffic", null, 0);
+                                initiateCheckout(gbNum, computedAmount, `流量充值 ${gbNum}GB`, "topup_traffic", null, 0);
                               }}
                               className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
                             >
