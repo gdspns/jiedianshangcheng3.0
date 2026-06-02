@@ -557,8 +557,8 @@ Deno.serve(async (req) => {
           clientRemark = foundClient.email || "";
           let success = false;
           if (isTopupOrder) {
-            // months stores 10GB multiplier; add bytes = months * 10 * 1GB
-            const addBytes = (Number(order.months) || 0) * 10 * 1073741824;
+            // months stores actual GB; add bytes = GB * 1GB
+            const addBytes = (Number(order.months) || 0) * 1073741824;
             success = await addClientTraffic(
               foundPanel.panel_url,
               foundCookie,
