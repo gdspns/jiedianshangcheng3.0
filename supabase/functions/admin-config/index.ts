@@ -127,6 +127,8 @@ Deno.serve(async (req) => {
         sales_inbound_id: config.salesInboundId,
         sales_protocol: config.salesProtocol,
         notify_stock_out: config.notifyStockOut,
+        topup_min_gb: Math.max(0, Math.floor(Number(config.topupMinGb) || 0)),
+        topup_price: Math.max(0, Number(config.topupPrice) || 0),
       };
 
       const { error } = await supabase
