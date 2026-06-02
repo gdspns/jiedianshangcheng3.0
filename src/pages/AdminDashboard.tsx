@@ -1275,7 +1275,6 @@ export default function AdminDashboard() {
                 {([
                   { key: "new", label: "🛒 购买开通", icon: ShoppingCart },
                   { key: "renew", label: "💳 续费商品", icon: CreditCard },
-                  { key: "topup", label: "📊 流量充值", icon: Package },
                 ] as const).map(g => (
                   <button
                     key={g.key}
@@ -1310,17 +1309,44 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
+              {/* 流量充值配置 */}
+              <div className="bg-muted/50 border border-border rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-bold text-base flex items-center"><Package className="w-4 h-4 mr-2" /> 📊 流量充值配置</h3>
+                    <p className="text-xs text-muted-foreground mt-1">设置最低充值 GB 与价格。任一为 0 则前台不显示充值入口。</p>
+                  </div>
+                  <button
+                    onClick={() => handleSave("saveTopup")}
+                    className="bg-client-primary text-client-primary-foreground font-bold px-4 py-2 rounded-lg hover:opacity-90 text-sm">
+                    {btnStatus.saveTopup || "保存"}
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">最低充值（GB） — 用户必须按此倍数购买</label>
+                    <input type="number" min={0} step={1}
+                      value={config.topupMinGb ?? 0}
+                      onChange={e => setConfig({ ...config, topupMinGb: Number(e.target.value) || 0 })}
+                      className="w-full border border-input p-2 rounded text-sm bg-background focus:ring-2 focus:ring-client-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">单价（¥）— 每 {config.topupMinGb || 0}GB 的价格</label>
+                    <input type="number" min={0} step={0.01}
+                      value={config.topupPrice ?? 0}
+                      onChange={e => setConfig({ ...config, topupPrice: Number(e.target.value) || 0 })}
+                      className="w-full border border-input p-2 rounded text-sm bg-background focus:ring-2 focus:ring-client-primary outline-none" />
+                  </div>
+                </div>
+              </div>
+
               {/* 当前分组内容 */}
               {(() => {
-                const groupTitle = productGroupTab === "new" ? "购买开通" : productGroupTab === "renew" ? "续费商品" : "流量充值";
+                const groupTitle = productGroupTab === "new" ? "购买开通" : "续费商品";
                 const allCats = productGroupTab === "new"
                   ? ["new_exclusive", "new_shared"]
-                  : productGroupTab === "renew"
-                  ? ["renew_exclusive", "renew_shared"]
-                  : ["topup_traffic"];
-                const cats = productGroupTab === "topup"
-                  ? allCats
-                  : productSubTab === "all"
+                  : ["renew_exclusive", "renew_shared"];
+                const cats = productSubTab === "all"
                   ? allCats
                   : allCats.filter(c => c.endsWith(productSubTab));
                 const subLabels: Record<string, string> = {
@@ -1328,7 +1354,6 @@ export default function AdminDashboard() {
                   "new_shared": "👥 共享",
                   "renew_exclusive": "🔒 独享",
                   "renew_shared": "👥 共享",
-                  "topup_traffic": "📊 10GB 单价（¥）— 建议仅保留 1 条",
                 };
                 return renderPlanGroup(groupTitle, productGroupTab, cats, subLabels);
               })()}
