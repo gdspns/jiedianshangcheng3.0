@@ -71,6 +71,8 @@ interface PublicConfig {
   crypto_usdt: boolean;
   crypto_trx: boolean;
   crypto_address: string | null;
+  topup_min_gb?: number;
+  topup_price?: number;
 }
 
 interface ClientData {
