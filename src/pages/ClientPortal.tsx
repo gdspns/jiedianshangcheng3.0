@@ -285,7 +285,11 @@ export default function ClientPortal() {
 
   useEffect(() => {
     getPublicConfig()
-      .then(setConfig)
+      .then((c: any) => {
+        setConfig(c);
+        const min = Number(c?.topup_min_gb || 0);
+        if (min > 0) setTopupGbInput(String(min));
+      })
       .catch(() => {});
     getPlans()
       .then(setDynamicPlans)
