@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
         salesInboundId: data.sales_inbound_id ?? 1,
         salesProtocol: data.sales_protocol ?? "mixed",
         notifyStockOut: data.notify_stock_out ?? false,
+        topupMinGb: data.topup_min_gb ?? 0,
+        topupPrice: Number(data.topup_price ?? 0),
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
