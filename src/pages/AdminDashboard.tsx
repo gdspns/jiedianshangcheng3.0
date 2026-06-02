@@ -631,7 +631,6 @@ export default function AdminDashboard() {
             <option value="new_shared">👥 购买·共享</option>
             <option value="renew_exclusive">🔒 续费·独享</option>
             <option value="renew_shared">👥 续费·共享</option>
-            <option value="topup_traffic">📊 流量充值</option>
           </select>
         </div>
         <div className="md:col-span-1">
