@@ -50,6 +50,8 @@ export type Database = {
           sales_protocol: string
           tawk_id: string
           telegram_link: string
+          topup_min_gb: number
+          topup_price: number
           updated_at: string
           video_embed: string
         }
@@ -88,6 +90,8 @@ export type Database = {
           sales_protocol?: string
           tawk_id?: string
           telegram_link?: string
+          topup_min_gb?: number
+          topup_price?: number
           updated_at?: string
           video_embed?: string
         }
@@ -126,6 +130,8 @@ export type Database = {
           sales_protocol?: string
           tawk_id?: string
           telegram_link?: string
+          topup_min_gb?: number
+          topup_price?: number
           updated_at?: string
           video_embed?: string
         }
