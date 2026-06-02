@@ -678,7 +678,7 @@ export default function ClientPortal() {
         amount: checkoutData.price,
         paymentMethod: method,
         ...(checkoutData.type === "buy_new" || checkoutData.type === "topup_traffic" ? { orderType: checkoutData.type } : {}),
-        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) * 10 } : {}),
+        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) } : {}),
         cryptoAmount: computedPrice,
         cryptoCurrency: method.toUpperCase(),
         ...(checkoutEmail.trim() ? { email: checkoutEmail.trim() } : {}),
@@ -804,11 +804,11 @@ export default function ClientPortal() {
                 }));
               } else if (checkoutData) {
                 // Optimistic update
-                const addGb = (checkoutData.months || 0) * 10;
+                const addGb = (checkoutData.months || 0);
                 setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
               }
             } catch {
-              const addGb = (checkoutData.months || 0) * 10;
+              const addGb = (checkoutData.months || 0);
               setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
             }
           } else {
@@ -869,7 +869,7 @@ export default function ClientPortal() {
         amount: checkoutData.price,
         paymentMethod: selectedMethod,
         orderType: checkoutData.type === "buy_new" ? "buy_new" : checkoutData.type === "topup_traffic" ? "topup_traffic" : "renew",
-        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) * 10 } : {}),
+        ...(checkoutData.type === "topup_traffic" ? { gb: (checkoutData.months || 0) } : {}),
         ...(isCrypto ? { cryptoAmount: cryptoPrice, cryptoCurrency: selectedMethod.toUpperCase() } : {}),
         ...(checkoutEmail.trim() ? { email: checkoutEmail.trim() } : {}),
       });
@@ -914,7 +914,7 @@ export default function ClientPortal() {
                 trafficTotal: normalizeTrafficGB(lookupRes.trafficTotal ?? prev.trafficTotal),
               }));
             } else {
-              const addGb = (checkoutData.months || 0) * 10;
+              const addGb = (checkoutData.months || 0);
               setClientData((prev) => ({ ...prev, trafficTotal: (prev.trafficTotal || 0) + addGb }));
             }
           } catch {}
