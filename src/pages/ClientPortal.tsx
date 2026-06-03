@@ -625,7 +625,7 @@ export default function ClientPortal() {
 
   const initiateCheckout = (months: number, price: number, planName: string, type = "renew", regionId?: string | null, durationDays?: number) => {
     cleanupPolling();
-    setCheckoutData({ months, durationDays: durationDays || months * 30, price, planName, type, regionId });
+    setCheckoutData({ months, durationDays: durationDays ?? months * 30, price, planName, type, regionId });
     setSelectedMethod("");
     setPayStatus(null);
     setOrderId("");
