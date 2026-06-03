@@ -526,7 +526,7 @@ Deno.serve(async (req) => {
 
       // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
-      const isTopupOrder = order.order_type === "topup_traffic";
+      const isTopupOrder = order.order_type === "topup_traffic" || String(order.plan_name || "").includes("流量充值");
 
       // For buy_new orders, skip renewal logic — client will call create-client after polling
       let finalStatus = "paid";
@@ -654,6 +654,12 @@ Deno.serve(async (req) => {
 
       if (action === "create-order") {
         const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email, gb } = body;
+        const normalizedOrderType =
+          orderType === "topup_traffic" || gb !== undefined || String(planName || "").includes("流量充值")
+            ? "topup_traffic"
+            : orderType === "buy_new"
+              ? "buy_new"
+              : "renew";
 
         if (!uuid || !planName || !months || !amount || !paymentMethod) {
           return new Response(JSON.stringify({ error: "缺少必要参数" }), {
@@ -668,7 +674,7 @@ Deno.serve(async (req) => {
         let finalMonths = months;
         let finalDurationDays = durationDays || (months * 30);
         let finalCryptoAmount = cryptoAmount;
-        if (orderType === "topup_traffic") {
+        if (normalizedOrderType === "topup_traffic") {
           const gbNum = Number(gb);
           const { data: cfg } = await supabase
             .from("admin_config")
@@ -710,7 +716,7 @@ Deno.serve(async (req) => {
             duration_days: finalDurationDays,
             amount: finalAmount,
             payment_method: paymentMethod,
-            order_type: orderType || "renew",
+            order_type: normalizedOrderType,
             trade_no: tradeNo,
             crypto_amount: finalCryptoAmount || null,
             crypto_currency: cryptoCurrency || null,
