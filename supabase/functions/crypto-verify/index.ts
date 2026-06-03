@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
 
       // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
-      const isTopupOrder = order.order_type === "topup_traffic";
+      const isTopupOrder = order.order_type === "topup_traffic" || String(order.plan_name || "").includes("流量充值");
 
       // Extend expiry / add traffic via 3x-ui (skip for buy_new — handled by create-client)
       let clientRemark = "";

@@ -625,7 +625,7 @@ export default function ClientPortal() {
 
   const initiateCheckout = (months: number, price: number, planName: string, type = "renew", regionId?: string | null, durationDays?: number) => {
     cleanupPolling();
-    setCheckoutData({ months, durationDays: durationDays || months * 30, price, planName, type, regionId });
+    setCheckoutData({ months, durationDays: durationDays ?? months * 30, price, planName, type, regionId });
     setSelectedMethod("");
     setPayStatus(null);
     setOrderId("");
@@ -2037,7 +2037,7 @@ export default function ClientPortal() {
               )}
               {payStatus === "paid_unfulfilled" && (
                 <div className="bg-warning/10 border border-warning/20 p-6 rounded-2xl text-center mb-6">
-                  <h3 className="text-lg font-bold mb-2">⚠️ 支付已确认，但续期操作失败</h3>
+                  <h3 className="text-lg font-bold mb-2">⚠️ 支付已确认，但{checkoutData?.type === "topup_traffic" ? "流量充值" : "续期"}操作失败</h3>
                   <p className="text-muted-foreground text-sm">请联系站长处理，订单号：{orderId}</p>
                 </div>
               )}
@@ -2380,8 +2380,8 @@ export default function ClientPortal() {
                           </span>
                         </div>
                         <div>
-                          <span className="block text-xs">时长</span>
-                          <span className="font-bold text-foreground">{order.months}个月</span>
+                          <span className="block text-xs">{order.order_type === "topup_traffic" ? "流量" : "时长"}</span>
+                          <span className="font-bold text-foreground">{order.order_type === "topup_traffic" ? `${order.months}GB` : `${order.months}个月`}</span>
                         </div>
                         <div>
                           <span className="block text-xs">下单时间</span>
@@ -2440,7 +2440,7 @@ export default function ClientPortal() {
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                           <span className="font-bold text-foreground text-lg">{order.plan_name}</span>
                           <span className="text-xs ml-2 px-2 py-0.5 rounded-full bg-muted font-medium">
-                            {order.order_type === "buy_new" ? "购买开通" : "在线续费"}
+                            {order.order_type === "buy_new" ? "购买开通" : order.order_type === "topup_traffic" ? "流量充值" : "在线续费"}
                           </span>
                           <span className={`text-xs font-bold px-2 py-1 rounded-full ${order.status === "fulfilled" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>
                             {order.status === "fulfilled" ? "已完成" : order.status === "processing" ? "开通中…" : "已支付待开通"}
@@ -2478,8 +2478,8 @@ export default function ClientPortal() {
                             <span className="font-mono font-bold text-foreground text-xs">{order.trade_no || order.id.substring(0, 12)}</span>
                           </div>
                           <div>
-                            <span className="block text-xs">时长</span>
-                            <span className="font-bold text-foreground">{order.duration_days || order.months * 30}天</span>
+                            <span className="block text-xs">{order.order_type === "topup_traffic" ? "流量" : "时长"}</span>
+                            <span className="font-bold text-foreground">{order.order_type === "topup_traffic" ? `${order.months}GB` : `${order.duration_days || order.months * 30}天`}</span>
                           </div>
                           <div>
                             <span className="block text-xs">下单时间</span>

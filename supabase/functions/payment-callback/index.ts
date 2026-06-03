@@ -526,7 +526,7 @@ Deno.serve(async (req) => {
 
       // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
-      const isTopupOrder = order.order_type === "topup_traffic";
+      const isTopupOrder = order.order_type === "topup_traffic" || String(order.plan_name || "").includes("流量充值");
 
       // For buy_new orders, skip renewal logic — client will call create-client after polling
       let finalStatus = "paid";
@@ -619,7 +619,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               from: "通知 <onboarding@resend.dev>",
               to: [config.notify_email],
-              subject: `💰 支付成功通知 - ${order.plan_name}`,
+              subject: `💰 ${isTopupOrder ? "流量充值" : "支付"}成功通知 - ${order.plan_name}`,
               html: `
                 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
                   <h2 style="color:#10b981;">✅ 用户支付成功</h2>
@@ -629,9 +629,9 @@ Deno.serve(async (req) => {
                     <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">用户备注</td><td style="padding:8px;border-bottom:1px solid #eee;">${clientRemark || "未找到"}</td></tr>
                     <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">套餐</td><td style="padding:8px;border-bottom:1px solid #eee;">${order.plan_name}</td></tr>
                     <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">金额</td><td style="padding:8px;border-bottom:1px solid #eee;">¥${order.amount}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">时长</td><td style="padding:8px;border-bottom:1px solid #eee;">${order.months} 个月</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">${isTopupOrder ? "流量" : "时长"}</td><td style="padding:8px;border-bottom:1px solid #eee;">${isTopupOrder ? `${order.months} GB` : `${order.months} 个月`}</td></tr>
                     <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">支付方式</td><td style="padding:8px;border-bottom:1px solid #eee;">${order.payment_method}</td></tr>
-                    <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">续费状态</td><td style="padding:8px;border-bottom:1px solid #eee;">${finalStatus === "fulfilled" ? "✅ 已续费" : "⚠️ 待处理"}</td></tr>
+                    <tr><td style="padding:8px;border-bottom:1px solid #eee;color:#666;">处理状态</td><td style="padding:8px;border-bottom:1px solid #eee;">${finalStatus === "fulfilled" ? (isTopupOrder ? "✅ 已增加流量" : "✅ 已续费") : "⚠️ 待处理"}</td></tr>
                     <tr><td style="padding:8px;color:#666;">时间</td><td style="padding:8px;">${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</td></tr>
                   </table>
                 </div>
@@ -654,6 +654,12 @@ Deno.serve(async (req) => {
 
       if (action === "create-order") {
         const { uuid, planName, months, durationDays, amount, paymentMethod, orderType, cryptoAmount, cryptoCurrency, email, gb } = body;
+        const normalizedOrderType =
+          orderType === "topup_traffic" || gb !== undefined || String(planName || "").includes("流量充值")
+            ? "topup_traffic"
+            : orderType === "buy_new"
+              ? "buy_new"
+              : "renew";
 
         if (!uuid || !planName || !months || !amount || !paymentMethod) {
           return new Response(JSON.stringify({ error: "缺少必要参数" }), {
@@ -668,7 +674,7 @@ Deno.serve(async (req) => {
         let finalMonths = months;
         let finalDurationDays = durationDays || (months * 30);
         let finalCryptoAmount = cryptoAmount;
-        if (orderType === "topup_traffic") {
+        if (normalizedOrderType === "topup_traffic") {
           const gbNum = Number(gb);
           const { data: cfg } = await supabase
             .from("admin_config")
@@ -710,7 +716,7 @@ Deno.serve(async (req) => {
             duration_days: finalDurationDays,
             amount: finalAmount,
             payment_method: paymentMethod,
-            order_type: orderType || "renew",
+            order_type: normalizedOrderType,
             trade_no: tradeNo,
             crypto_amount: finalCryptoAmount || null,
             crypto_currency: cryptoCurrency || null,
