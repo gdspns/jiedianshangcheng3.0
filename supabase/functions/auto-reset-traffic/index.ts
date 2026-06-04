@@ -245,6 +245,19 @@ Deno.serve(async (req) => {
         }
       }
 
+      const failedCount = results.filter((r: any) => r?.error).length;
+      try {
+        await supabase.from("cron_execution_logs").insert({
+          job_name: "auto-backfill-client-records",
+          checked: scanned,
+          reset_count: inserted,
+          skipped_count: Math.max(0, scanned - inserted - failedCount),
+          failed_count: failedCount,
+          trigger_source: body?.source === "cron" ? "cron" : "manual",
+          details: { panels: allPanels.length, results: results.slice(0, 50) },
+        });
+      } catch {}
+
       return new Response(JSON.stringify({
         success: true, backfill: true, panels: allPanels.length, scanned, inserted, results,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
