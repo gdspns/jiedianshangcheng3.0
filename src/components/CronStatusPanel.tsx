@@ -146,7 +146,7 @@ export default function CronStatusPanel() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground">
+              <div className="grid grid-cols-1 gap-y-1 text-muted-foreground">
                 <div>调度规则：<code className="text-foreground">{j.schedule}</code></div>
                 <div>
                   下次触发：<span className="text-foreground">{fmt(next)}</span>
