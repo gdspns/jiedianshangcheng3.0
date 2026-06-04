@@ -1175,7 +1175,7 @@ export default function ClientPortal() {
       <nav className="bg-card shadow-sm px-6 py-4 flex justify-between items-center border-b border-border">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
+            onClick={() => { localStorage.removeItem("portal_uuid"); localStorage.removeItem("portal_login_input"); setLogged(false); setUuid(""); setLoginInput(""); }}
             className="text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors"
           >
             返回
@@ -1187,7 +1187,7 @@ export default function ClientPortal() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
+            onClick={() => { localStorage.removeItem("portal_uuid"); localStorage.removeItem("portal_login_input"); setLogged(false); setUuid(""); setLoginInput(""); }}
             className="text-muted-foreground hover:text-foreground flex items-center text-sm font-medium"
           >
             <LogOut className="w-4 h-4 mr-1" /> 退出
