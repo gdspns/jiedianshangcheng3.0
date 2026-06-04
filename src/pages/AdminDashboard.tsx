@@ -1183,7 +1183,11 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+                <div className="mt-6 pt-5 border-t border-border">
+                  <CronStatusPanel />
+                </div>
               </div>
+
 
               {/* 到期自动重置流量 */}
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
