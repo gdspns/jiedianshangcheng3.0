@@ -1174,8 +1174,35 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* 到期自动重置流量 */}
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                <h2 className="text-xl font-bold mb-3 flex items-center text-admin-primary border-b border-border pb-3">
+                  <CheckCircle2 className="mr-2" /> 到期自动重置流量
+                </h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  系统每小时自动检查一次所有 3x-ui 客户端：若已到期则将"已用流量"归零，并把"总流量"恢复为购买时套餐的默认值（不保留额外购买的流量包）。同一到期时间只重置一次。
+                </p>
+                <button
+                  onClick={async () => {
+                    setBtnStatus({ ...btnStatus, autoReset: "执行中..." });
+                    try {
+                      const res: any = await runAutoResetTraffic();
+                      const reset = (res?.results || []).filter((r: any) => r.reset).length;
+                      setBtnStatus({ ...btnStatus, autoReset: `✅ 已检查 ${res?.checked || 0} 个，重置 ${reset} 个` });
+                    } catch (e: any) {
+                      setBtnStatus({ ...btnStatus, autoReset: "❌ " + (e?.message || "失败") });
+                    }
+                    setTimeout(() => setBtnStatus((s) => ({ ...s, autoReset: "" })), 5000);
+                  }}
+                  disabled={btnStatus["autoReset"] === "执行中..."}
+                  className="bg-admin-primary text-admin-primary-foreground py-2.5 px-5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-md disabled:opacity-70">
+                  {btnStatus["autoReset"] || "立即执行检查"}
+                </button>
+              </div>
             </div>
           </TabsContent>
+
 
           {/* 支付网关 */}
           <TabsContent value="payment">
