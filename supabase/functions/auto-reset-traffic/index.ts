@@ -179,12 +179,18 @@ Deno.serve(async (req) => {
       return Number(rec.default_traffic_gb) || 0;
     }
 
+    const now = Date.now();
+    const cookieCache = new Map<string, string | null>();
+    const results: any[] = [];
 
     for (const rec of records || []) {
+      const effectiveGB = resolveDefaultGB(rec);
+      // Skip "unlimited" (0) — no point resetting to unlimited
+      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
+
       const key = `${rec.panel_url}`;
       let cookie = cookieCache.get(key) ?? null;
       if (!cookieCache.has(key)) {
-        // Find matching panel credentials
         const { data: panels } = await supabase
           .from("panels")
           .select("*")
@@ -206,15 +212,13 @@ Deno.serve(async (req) => {
       if (!found) { results.push({ uuid: rec.uuid, skipped: "not-found" }); continue; }
 
       const expiry = found.expiryTime || 0;
-      // Only act on expired clients with a real expiry set
       if (expiry <= 0 || expiry > now) { results.push({ uuid: rec.uuid, skipped: "not-expired" }); continue; }
-      // De-dup: same expiry already reset
       if (Number(rec.last_reset_expiry) === Number(expiry)) {
         results.push({ uuid: rec.uuid, skipped: "already-reset" });
         continue;
       }
 
-      const defaultBytes = Number(rec.default_traffic_gb) * 1073741824;
+      const defaultBytes = effectiveGB * 1073741824;
       const ok = await resetClientToDefault(
         rec.panel_url, cookie, found.inbound, found.settings,
         found.email, rec.is_socks5, defaultBytes,
