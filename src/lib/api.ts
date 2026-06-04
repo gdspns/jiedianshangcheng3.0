@@ -321,3 +321,17 @@ export async function getOrders(uuid: string) {
 export async function runAutoResetTraffic() {
   return callEdgeFunction("auto-reset-traffic", {});
 }
+
+// Traffic default rules (admin)
+export async function adminListTrafficRules(token: string) {
+  return callEdgeFunction("admin-plans", { action: "list-traffic-rules", token });
+}
+export async function adminCreateTrafficRule(token: string, rule: object) {
+  return callEdgeFunction("admin-plans", { action: "create-traffic-rule", token, rule });
+}
+export async function adminUpdateTrafficRule(token: string, rule: object) {
+  return callEdgeFunction("admin-plans", { action: "update-traffic-rule", token, rule });
+}
+export async function adminDeleteTrafficRule(token: string, ruleId: string) {
+  return callEdgeFunction("admin-plans", { action: "delete-traffic-rule", token, rule: { id: ruleId } });
+}
