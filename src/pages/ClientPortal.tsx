@@ -253,6 +253,7 @@ export default function ClientPortal() {
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
   const [topupGbInput, setTopupGbInput] = useState<string>("");
   const [topupConfirmOpen, setTopupConfirmOpen] = useState(false);
+  const [topupBlockedOpen, setTopupBlockedOpen] = useState(false);
 
   const copyWithFeedback = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
