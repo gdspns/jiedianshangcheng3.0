@@ -318,16 +318,8 @@ async function extendExpiry(
     return updateBody?.success === true;
   }
 
-  // Standard protocol (VMESS/VLESS/Trojan): reset traffic by email, update client expiryTime
-  const resetRes = await fetchUnsafe(
-    `${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`,
-    {
-      method: "POST",
-      headers: { Cookie: cookie, Accept: "application/json" },
-    },
-  );
-  const resetBody = await resetRes.json();
-  console.log("Reset traffic result:", resetBody);
+  // Standard protocol (VMESS/VLESS/Trojan): update client expiryTime only, do NOT reset traffic
+
 
   const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
     headers: { Cookie: cookie, Accept: "application/json" },
