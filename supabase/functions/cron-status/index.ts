@@ -58,29 +58,33 @@ Deno.serve(async (req) => {
     });
 
     // History: last 20 executions from cron_execution_logs (richer than pg_cron's return_message)
-    const histRes = await client.queryObject<{
-      created_at: Date; checked: number; reset_count: number; skipped_count: number;
-      failed_count: number; trigger_source: string;
-    }>(
-      `SELECT created_at, checked, reset_count, skipped_count, failed_count, trigger_source
-       FROM public.cron_execution_logs
-       WHERE job_name = 'auto-reset-traffic'
-       ORDER BY created_at DESC LIMIT 20`,
-    );
-    const history = histRes.rows.map((r) => ({
-      startTime: r.created_at,
-      endTime: r.created_at,
-      status: "succeeded",
-      checked: Number(r.checked),
-      reset: Number(r.reset_count),
-      skipped: Number(r.skipped_count),
-      failed: Number(r.failed_count),
-      source: r.trigger_source,
-      message: `检查 ${r.checked} 个 · 重置 ${r.reset_count} 个 · 跳过 ${r.skipped_count} · 失败 ${r.failed_count}`,
-    }));
+    async function loadHistory(jobName: string) {
+      const r = await client.queryObject<{
+        created_at: Date; checked: number; reset_count: number; skipped_count: number;
+        failed_count: number; trigger_source: string;
+      }>(
+        `SELECT created_at, checked, reset_count, skipped_count, failed_count, trigger_source
+         FROM public.cron_execution_logs
+         WHERE job_name = $1
+         ORDER BY created_at DESC LIMIT 20`,
+        [jobName],
+      );
+      return r.rows.map((x) => ({
+        startTime: x.created_at,
+        endTime: x.created_at,
+        status: "succeeded",
+        checked: Number(x.checked),
+        reset: Number(x.reset_count),
+        skipped: Number(x.skipped_count),
+        failed: Number(x.failed_count),
+        source: x.trigger_source,
+      }));
+    }
+    const history = await loadHistory("auto-reset-traffic");
+    const backfillHistory = await loadHistory("auto-backfill-client-records");
 
     return new Response(
-      JSON.stringify({ success: true, jobs, history, now: new Date().toISOString() }),
+      JSON.stringify({ success: true, jobs, history, backfillHistory, now: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
