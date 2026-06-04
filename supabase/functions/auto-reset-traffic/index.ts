@@ -382,9 +382,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    const resetCount = results.filter((r: any) => r.reset === true).length;
+    const failedCount = results.filter((r: any) => r.reset === false || r.error).length;
+    const skippedCount = results.filter((r: any) => r.skipped).length;
+    const triggerSource = (body && body.source) ? String(body.source) : (req.headers.get("user-agent")?.includes("pg_net") ? "cron" : "manual");
+    try {
+      await supabase.from("cron_execution_logs").insert({
+        job_name: "auto-reset-traffic",
+        checked: records?.length || 0,
+        reset_count: resetCount,
+        skipped_count: skippedCount,
+        failed_count: failedCount,
+        trigger_source: triggerSource,
+        details: { results: results.slice(0, 200) },
+      });
+    } catch (_) {}
     return new Response(JSON.stringify({
       success: true,
       checked: records?.length || 0,
+      reset: resetCount,
+      skipped: skippedCount,
+      failed: failedCount,
       results,
       ranAt: new Date().toISOString(),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
