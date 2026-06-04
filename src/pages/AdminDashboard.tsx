@@ -171,7 +171,7 @@ export default function AdminDashboard() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [announcementContent, setAnnouncementContent] = useState<string>("");
   const ANNOUNCEMENT_MARKER = "__announcement_bar__";
-  const [regionInbounds, setRegionInbounds] = useState<{ id: string; region_id: string; inbound_id: number; sort_order: number; max_clients: number; current_clients: number; protocol: string }[]>([]);
+  const [regionInbounds, setRegionInbounds] = useState<{ id: string; region_id: string; inbound_id: number; sort_order: number; max_clients: number; current_clients: number; protocol: string; panel_id?: string | null }[]>([]);
   const [inboundPlans, setInboundPlans] = useState<{ id: string; region_inbound_id: string; plan_id: string }[]>([]);
   const [assignInboundId, setAssignInboundId] = useState<string | null>(null);
   const [panels, setPanels] = useState<{ id: string; name: string; panel_url: string; panel_user: string; panel_pass: string; is_primary: boolean; enabled: boolean; sort_order: number }[]>([]);
