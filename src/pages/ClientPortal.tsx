@@ -260,6 +260,33 @@ export default function ClientPortal() {
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 1500);
   };
+
+  // 基于用户登录时输入的原始链接，将备注/ps 替换为最新的 clientData.email，
+  // 这样续费导致备注日期变化时，用户能复制到“最新”的链接（保留我们对原链接的所有自定义参数）。
+  const buildLatestLink = (): string | null => {
+    const original = (loginInput || "").trim();
+    const newRemark = (clientData?.email || "").trim();
+    if (!original || !newRemark) return null;
+    const lines = original.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (line.startsWith("vless://") || line.startsWith("trojan://")) {
+        const hashIdx = line.indexOf("#");
+        const base = hashIdx >= 0 ? line.substring(0, hashIdx) : line;
+        return `${base}#${encodeURIComponent(newRemark)}`;
+      }
+      if (line.startsWith("vmess://")) {
+        try {
+          const decoded = atob(line.substring(8));
+          const json = JSON.parse(decoded);
+          json.ps = newRemark;
+          return "vmess://" + btoa(JSON.stringify(json));
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
   const [lookupError, setLookupError] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1243,12 +1270,35 @@ export default function ClientPortal() {
                   </span>
                 </div>
                 {clientData.email && (
-                  <div className="flex items-center pl-7">
-                    <User className="w-4 h-4 mr-2 opacity-70" />
+                  <div className="flex items-center flex-wrap gap-2 pl-7">
+                    <User className="w-4 h-4 opacity-70" />
                     <span className="font-medium text-sm">备注名称: </span>
-                    <span className="ml-2 text-sm font-mono bg-background px-2 py-1 rounded border border-border">
+                    <span className="text-sm font-mono bg-background px-2 py-1 rounded border border-border">
                       {clientData.email}
                     </span>
+                    {buildLatestLink() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const link = buildLatestLink();
+                          if (link) copyWithFeedback(link, "latest_link");
+                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-client-primary/30 bg-background hover:bg-client-primary/10 text-client-primary font-medium transition-colors"
+                        title="复制最新链接（已替换为当前最新备注）"
+                      >
+                        {copiedKey === "latest_link" ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                            <span className="text-green-500">已复制最新链接</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>复制最新链接</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
