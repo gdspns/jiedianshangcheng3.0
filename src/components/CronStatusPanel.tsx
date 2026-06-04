@@ -127,7 +127,7 @@ export default function CronStatusPanel() {
 
       {error && <div className="text-xs text-destructive mb-2">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {jobs.length === 0 && !loading && (
           <div className="text-xs text-muted-foreground">暂无定时任务</div>
         )}
