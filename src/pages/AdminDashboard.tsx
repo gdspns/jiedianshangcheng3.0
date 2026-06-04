@@ -1183,9 +1183,6 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-6 pt-5 border-t border-border">
-                  <CronStatusPanel />
-                </div>
               </div>
 
 
@@ -1350,6 +1347,9 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+              </div>
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                <CronStatusPanel />
               </div>
             </div>
           </TabsContent>
