@@ -429,6 +429,7 @@ Deno.serve(async (req) => {
       const updates: any = {};
       if (rest.scope !== undefined) updates.scope = rest.scope;
       if (rest.plan_id !== undefined) updates.plan_id = rest.plan_id || null;
+      if (rest.region_id !== undefined) updates.region_id = rest.region_id || null;
       if (rest.default_traffic_gb !== undefined) updates.default_traffic_gb = Math.max(0, Math.floor(Number(rest.default_traffic_gb) || 0));
       if (rest.sort_order !== undefined) updates.sort_order = Number(rest.sort_order) || 0;
       if (rest.enabled !== undefined) updates.enabled = rest.enabled;
