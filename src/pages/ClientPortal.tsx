@@ -207,7 +207,7 @@ function fixMobileVideo(html: string): string {
 export default function ClientPortal() {
   const [logged, setLogged] = useState(() => !!localStorage.getItem("portal_uuid"));
   const [uuid, setUuid] = useState(() => localStorage.getItem("portal_uuid") || "");
-  const [loginInput, setLoginInput] = useState("");
+  const [loginInput, setLoginInput] = useState(() => localStorage.getItem("portal_login_input") || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("dashboard");
@@ -584,7 +584,13 @@ export default function ClientPortal() {
         });
         setClientDataLoaded(true);
         setLogged(true);
-        try { localStorage.setItem("portal_uuid", extracted); } catch {}
+        try {
+          localStorage.setItem("portal_uuid", extracted);
+          const raw = (loginInput || "").trim();
+          if (/^(vless|trojan|vmess):\/\//.test(raw)) {
+            localStorage.setItem("portal_login_input", raw);
+          }
+        } catch {}
       } else {
         setError(res?.error || "未找到该 UUID 对应的ID");
       }
@@ -1169,7 +1175,7 @@ export default function ClientPortal() {
       <nav className="bg-card shadow-sm px-6 py-4 flex justify-between items-center border-b border-border">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
+            onClick={() => { localStorage.removeItem("portal_uuid"); localStorage.removeItem("portal_login_input"); setLogged(false); setUuid(""); setLoginInput(""); }}
             className="text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors"
           >
             返回
@@ -1181,7 +1187,7 @@ export default function ClientPortal() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => { localStorage.removeItem("portal_uuid"); setLogged(false); setUuid(""); }}
+            onClick={() => { localStorage.removeItem("portal_uuid"); localStorage.removeItem("portal_login_input"); setLogged(false); setUuid(""); setLoginInput(""); }}
             className="text-muted-foreground hover:text-foreground flex items-center text-sm font-medium"
           >
             <LogOut className="w-4 h-4 mr-1" /> 退出
