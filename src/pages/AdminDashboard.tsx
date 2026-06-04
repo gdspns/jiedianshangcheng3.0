@@ -1192,22 +1192,49 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground mb-4">
                   系统每小时自动检查一次所有 3x-ui 客户端：若已到期则将"已用流量"归零，并把"总流量"恢复为购买时套餐的默认值（不保留额外购买的流量包）。同一到期时间只重置一次。
                 </p>
-                <button
-                  onClick={async () => {
-                    setBtnStatus({ ...btnStatus, autoReset: "执行中..." });
-                    try {
-                      const res: any = await runAutoResetTraffic();
-                      const reset = (res?.results || []).filter((r: any) => r.reset).length;
-                      setBtnStatus({ ...btnStatus, autoReset: `✅ 已检查 ${res?.checked || 0} 个，重置 ${reset} 个` });
-                    } catch (e: any) {
-                      setBtnStatus({ ...btnStatus, autoReset: "❌ " + (e?.message || "失败") });
-                    }
-                    setTimeout(() => setBtnStatus((s) => ({ ...s, autoReset: "" })), 5000);
-                  }}
-                  disabled={btnStatus["autoReset"] === "执行中..."}
-                  className="bg-admin-primary text-admin-primary-foreground py-2.5 px-5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-md disabled:opacity-70">
-                  {btnStatus["autoReset"] || "立即执行检查"}
-                </button>
+                <div className="flex flex-wrap gap-3 items-center">
+                  <button
+                    onClick={async () => {
+                      setBtnStatus({ ...btnStatus, autoReset: "执行中..." });
+                      try {
+                        const res: any = await runAutoResetTraffic();
+                        const reset = (res?.results || []).filter((r: any) => r.reset).length;
+                        const skipped = (res?.results || []).filter((r: any) => r.skipped).length;
+                        setBtnStatus({ ...btnStatus, autoReset: `✅ 已检查 ${res?.checked || 0} 个 · 重置 ${reset} 个 · 跳过 ${skipped} 个` });
+                      } catch (e: any) {
+                        setBtnStatus({ ...btnStatus, autoReset: "❌ " + (e?.message || "失败") });
+                      }
+                      setTimeout(() => setBtnStatus((s) => ({ ...s, autoReset: "" })), 8000);
+                    }}
+                    disabled={btnStatus["autoReset"] === "执行中..."}
+                    className="bg-admin-primary text-admin-primary-foreground py-2.5 px-5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-md disabled:opacity-70">
+                    {btnStatus["autoReset"] === "执行中..." ? "⏳ 执行中..." : "立即执行检查"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setBtnStatus({ ...btnStatus, backfill: "同步中..." });
+                      try {
+                        const res: any = await (await import("@/lib/api")).backfillClientRecords();
+                        setBtnStatus({ ...btnStatus, backfill: `✅ 扫描 ${res?.scanned || 0} · 新增 ${res?.inserted || 0} 条` });
+                      } catch (e: any) {
+                        setBtnStatus({ ...btnStatus, backfill: "❌ " + (e?.message || "失败") });
+                      }
+                      setTimeout(() => setBtnStatus((s) => ({ ...s, backfill: "" })), 8000);
+                    }}
+                    disabled={btnStatus["backfill"] === "同步中..."}
+                    className="bg-secondary text-secondary-foreground py-2.5 px-5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-sm border border-border disabled:opacity-70">
+                    {btnStatus["backfill"] === "同步中..." ? "⏳ 同步中..." : "同步历史客户记录"}
+                  </button>
+                </div>
+                {(btnStatus["autoReset"] || btnStatus["backfill"]) && (
+                  <div className="mt-3 text-sm space-y-1">
+                    {btnStatus["autoReset"] && <div className="text-muted-foreground">执行检查：{btnStatus["autoReset"]}</div>}
+                    {btnStatus["backfill"] && <div className="text-muted-foreground">同步记录：{btnStatus["backfill"]}</div>}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  提示：旧客户（在此功能上线前购买的）不在记录表里，需先点击"同步历史客户记录"从 3x-ui 面板补齐，之后才会被自动重置纳入检查。
+                </p>
 
                 {/* 默认流量规则 */}
                 <div className="mt-6 pt-5 border-t border-border">

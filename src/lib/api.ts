@@ -322,6 +322,10 @@ export async function runAutoResetTraffic() {
   return callEdgeFunction("auto-reset-traffic", {});
 }
 
+export async function backfillClientRecords() {
+  return callEdgeFunction("auto-reset-traffic", { backfill: true });
+}
+
 // Traffic default rules (admin)
 export async function adminListTrafficRules(token: string) {
   return callEdgeFunction("admin-plans", { action: "list-traffic-rules", token });
