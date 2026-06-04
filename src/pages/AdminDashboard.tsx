@@ -57,6 +57,7 @@ interface AdminConfigData {
   notifyStockOut: boolean;
   topupMinGb: number;
   topupPrice: number;
+  topupBlacklist: string;
 }
 
 interface Plan {
