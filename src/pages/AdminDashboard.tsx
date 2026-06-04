@@ -1225,7 +1225,7 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    优先级：①指定商品 &gt; ②独享/共享分类 &gt; ③全部 &gt; ④购买时记录的原始 GB。设为 0 表示无限制（不会被重置）。修改后立即生效。
+                    优先级：①指定地区 &gt; ②独享/共享分类 &gt; ③全部 &gt; ④购买时记录的原始 GB。设为 0 表示无限制（不会被重置）。修改后立即生效。
                   </p>
                   {trafficRules.length === 0 ? (
                     <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-4 text-center">
@@ -1241,31 +1241,31 @@ export default function AdminDashboard() {
                               value={r.scope}
                               onChange={async (e) => {
                                 const scope = e.target.value;
-                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, scope, plan_id: scope === "plan" ? x.plan_id : null } : x));
-                                await adminUpdateTrafficRule(token, { id: r.id, scope, plan_id: scope === "plan" ? r.plan_id : null });
+                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, scope, region_id: scope === "region" ? x.region_id : null } : x));
+                                await adminUpdateTrafficRule(token, { id: r.id, scope, region_id: scope === "region" ? r.region_id : null });
                               }}
                               className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm">
                               <option value="all">全部</option>
                               <option value="exclusive">独享</option>
                               <option value="shared">共享</option>
-                              <option value="plan">指定商品</option>
+                              <option value="region">指定地区</option>
                             </select>
                           </div>
                           <div className="col-span-12 sm:col-span-4">
-                            <label className="text-xs text-muted-foreground">关联商品（仅 范围=指定商品 时生效）</label>
+                            <label className="text-xs text-muted-foreground">关联地区（仅 范围=指定地区 时生效）</label>
                             <select
-                              value={r.plan_id || ""}
-                              disabled={r.scope !== "plan"}
+                              value={r.region_id || ""}
+                              disabled={r.scope !== "region"}
                               onChange={async (e) => {
-                                const plan_id = e.target.value || null;
-                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, plan_id } : x));
-                                await adminUpdateTrafficRule(token, { id: r.id, plan_id });
+                                const region_id = e.target.value || null;
+                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, region_id } : x));
+                                await adminUpdateTrafficRule(token, { id: r.id, region_id });
                               }}
                               className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm disabled:opacity-50">
-                              <option value="">— 选择商品 —</option>
-                              {plans.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.title}（{p.category === "shared" ? "共享" : "独享"}）
+                              <option value="">— 选择地区 —</option>
+                              {regions.map((rg) => (
+                                <option key={rg.id} value={rg.id}>
+                                  {rg.name}
                                 </option>
                               ))}
                             </select>

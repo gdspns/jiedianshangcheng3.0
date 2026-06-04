@@ -152,27 +152,43 @@ Deno.serve(async (req) => {
       .from("client_records")
       .select("*");
 
-    // Load rules + plans for default-GB resolution
+    // Load rules + plans + plan_regions for default-GB resolution
     const { data: rules } = await supabase
       .from("traffic_default_rules")
       .select("*")
       .eq("enabled", true)
       .order("sort_order", { ascending: true });
-    const { data: plans } = await supabase.from("plans").select("id, category");
-    const planMap = new Map<string, string>();
-    for (const p of plans || []) planMap.set(p.id, p.category || "");
+    const { data: plans } = await supabase.from("plans").select("id, category, region_id");
+    const { data: planRegions } = await supabase.from("plan_regions").select("plan_id, region_id");
+    const planMap = new Map<string, { category: string; region_id: string | null }>();
+    for (const p of plans || []) planMap.set(p.id, { category: p.category || "", region_id: p.region_id || null });
+    const planRegionMap = new Map<string, string[]>();
+    for (const pr of planRegions || []) {
+      const arr = planRegionMap.get(pr.plan_id) || [];
+      arr.push(pr.region_id);
+      planRegionMap.set(pr.plan_id, arr);
+    }
 
     function resolveDefaultGB(rec: any): number {
-      const planCategory = rec.plan_id ? planMap.get(rec.plan_id) : "";
+      const planInfo = rec.plan_id ? planMap.get(rec.plan_id) : null;
+      const planCategory = planInfo?.category || "";
+      const regionIds: string[] = [];
+      if (planInfo?.region_id) regionIds.push(planInfo.region_id);
+      if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
+        for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
+      }
       // Priority 1: scope=plan with matching plan_id
       const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
       if (byPlan) return Number(byPlan.default_traffic_gb) || 0;
-      // Priority 2: scope = exclusive/shared matching plan category
+      // Priority 2: scope=region with matching region
+      const byRegion = (rules || []).find((r: any) => r.scope === "region" && r.region_id && regionIds.includes(r.region_id));
+      if (byRegion) return Number(byRegion.default_traffic_gb) || 0;
+      // Priority 3: scope = exclusive/shared matching plan category
       if (planCategory) {
         const byCat = (rules || []).find((r: any) => r.scope === planCategory);
         if (byCat) return Number(byCat.default_traffic_gb) || 0;
       }
-      // Priority 3: scope=all
+      // Priority 4: scope=all
       const byAll = (rules || []).find((r: any) => r.scope === "all");
       if (byAll) return Number(byAll.default_traffic_gb) || 0;
       // Fallback: original baseline recorded at purchase
