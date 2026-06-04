@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
         notifyStockOut: data.notify_stock_out ?? false,
         topupMinGb: data.topup_min_gb ?? 0,
         topupPrice: Number(data.topup_price ?? 0),
+        topupBlacklist: data.topup_blacklist || "",
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -129,6 +130,7 @@ Deno.serve(async (req) => {
         notify_stock_out: config.notifyStockOut,
         topup_min_gb: Math.max(0, Math.floor(Number(config.topupMinGb) || 0)),
         topup_price: Math.max(0, Number(config.topupPrice) || 0),
+        topup_blacklist: typeof config.topupBlacklist === "string" ? config.topupBlacklist : "",
       };
 
       const { error } = await supabase

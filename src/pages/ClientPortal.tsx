@@ -253,6 +253,7 @@ export default function ClientPortal() {
   const [expandedTutorialId, setExpandedTutorialId] = useState<string | null>(null);
   const [topupGbInput, setTopupGbInput] = useState<string>("");
   const [topupConfirmOpen, setTopupConfirmOpen] = useState(false);
+  const [topupBlockedOpen, setTopupBlockedOpen] = useState(false);
 
   const copyWithFeedback = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -1312,6 +1313,13 @@ export default function ClientPortal() {
                 const gbNum = Number(topupGbInput);
                 const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= minGb && gbNum % minGb === 0;
                 const computedAmount = gbValid ? Number((unitPrice * (gbNum / minGb)).toFixed(2)) : 0;
+                const blacklistSet = new Set(
+                  String((config as any)?.topup_blacklist || "")
+                    .split(/[\s,;]+/)
+                    .map((s: string) => s.trim().toLowerCase())
+                    .filter(Boolean)
+                );
+                const isBlacklisted = !!uuid && uuid !== "游客_未登录" && blacklistSet.has(uuid.toLowerCase());
                 return (
                   <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1341,18 +1349,23 @@ export default function ClientPortal() {
                         <div className="text-2xl font-extrabold text-client-primary">¥{computedAmount.toFixed(2)}</div>
                       </div>
                       <button
-                        onClick={() => setTopupConfirmOpen(true)}
-                        disabled={!gbValid || uuid === "游客_未登录"}
+                        onClick={() => isBlacklisted ? setTopupBlockedOpen(true) : setTopupConfirmOpen(true)}
+                        disabled={(!isBlacklisted && !gbValid) || uuid === "游客_未登录"}
                         className="bg-client-primary text-client-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         购买流量
                       </button>
                     </div>
-                    {!gbValid && topupGbInput && (
+                    {!gbValid && topupGbInput && !isBlacklisted && (
                       <p className="text-xs text-destructive mt-2">流量必须为 {minGb} 的倍数，且不少于 {minGb}GB</p>
                     )}
+                    {isBlacklisted && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-bold">
+                        ⚠️ 您的账户为特殊套餐，无法使用自助流量充值，请联系管理员充值。
+                      </p>
+                    )}
                     {/* 确认弹窗 */}
-                    {topupConfirmOpen && (
+                    {topupConfirmOpen && !isBlacklisted && (
                       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setTopupConfirmOpen(false)}>
                         <div className="bg-card max-w-md w-full p-6 rounded-2xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
                           <h3 className="text-lg font-bold mb-3">确认购买流量包</h3>
@@ -1377,6 +1390,28 @@ export default function ClientPortal() {
                               className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
                             >
                               确认购买
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* 黑名单提示弹窗 */}
+                    {topupBlockedOpen && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setTopupBlockedOpen(false)}>
+                        <div className="bg-card max-w-md w-full p-6 rounded-2xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+                          <h3 className="text-lg font-bold mb-3 text-amber-600 dark:text-amber-400">⚠️ 无法自助充值</h3>
+                          <p className="text-muted-foreground mb-3">
+                            您的账户为<span className="font-bold text-foreground">特殊流量套餐</span>，价格与标准套餐不同，无法通过自助充值入口购买流量。
+                          </p>
+                          <p className="text-muted-foreground mb-5">
+                            请通过页面下方的客服渠道（Telegram / QQ / 在线客服）联系管理员为您充值。
+                          </p>
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => setTopupBlockedOpen(false)}
+                              className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
+                            >
+                              我知道了
                             </button>
                           </div>
                         </div>

@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_config ADD COLUMN IF NOT EXISTS topup_blacklist text NOT NULL DEFAULT '';

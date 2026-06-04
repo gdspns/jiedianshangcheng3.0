@@ -52,7 +52,7 @@ export async function adminDeletePanel(token: string, panelId: string) {
 export async function getPublicConfig() {
   const { data, error } = await (supabase as any)
     .from("admin_config")
-    .select("price_month, price_quarter, price_year, price_exclusive_month, price_exclusive_quarter, price_exclusive_year, price_shared_month, price_shared_quarter, price_shared_year, hupi_wechat, hupi_alipay, crypto_usdt, crypto_trx, crypto_address, tawk_id, qq_qrcode_url, telegram_link, landing_image, topup_min_gb, topup_price")
+    .select("price_month, price_quarter, price_year, price_exclusive_month, price_exclusive_quarter, price_exclusive_year, price_shared_month, price_shared_quarter, price_shared_year, hupi_wechat, hupi_alipay, crypto_usdt, crypto_trx, crypto_address, tawk_id, qq_qrcode_url, telegram_link, landing_image, topup_min_gb, topup_price, topup_blacklist")
     .limit(1)
     .single();
   if (error) throw error;
