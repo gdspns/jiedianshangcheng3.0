@@ -147,21 +147,50 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch all records that have a default traffic > 0 (no point resetting "unlimited")
+    // Load all client records
     const { data: records } = await supabase
       .from("client_records")
+      .select("*");
+
+    // Load rules + plans for default-GB resolution
+    const { data: rules } = await supabase
+      .from("traffic_default_rules")
       .select("*")
-      .gt("default_traffic_gb", 0);
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true });
+    const { data: plans } = await supabase.from("plans").select("id, category");
+    const planMap = new Map<string, string>();
+    for (const p of plans || []) planMap.set(p.id, p.category || "");
+
+    function resolveDefaultGB(rec: any): number {
+      const planCategory = rec.plan_id ? planMap.get(rec.plan_id) : "";
+      // Priority 1: scope=plan with matching plan_id
+      const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
+      if (byPlan) return Number(byPlan.default_traffic_gb) || 0;
+      // Priority 2: scope = exclusive/shared matching plan category
+      if (planCategory) {
+        const byCat = (rules || []).find((r: any) => r.scope === planCategory);
+        if (byCat) return Number(byCat.default_traffic_gb) || 0;
+      }
+      // Priority 3: scope=all
+      const byAll = (rules || []).find((r: any) => r.scope === "all");
+      if (byAll) return Number(byAll.default_traffic_gb) || 0;
+      // Fallback: original baseline recorded at purchase
+      return Number(rec.default_traffic_gb) || 0;
+    }
 
     const now = Date.now();
     const cookieCache = new Map<string, string | null>();
     const results: any[] = [];
 
     for (const rec of records || []) {
+      const effectiveGB = resolveDefaultGB(rec);
+      // Skip "unlimited" (0) — no point resetting to unlimited
+      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
+
       const key = `${rec.panel_url}`;
       let cookie = cookieCache.get(key) ?? null;
       if (!cookieCache.has(key)) {
-        // Find matching panel credentials
         const { data: panels } = await supabase
           .from("panels")
           .select("*")
@@ -183,15 +212,13 @@ Deno.serve(async (req) => {
       if (!found) { results.push({ uuid: rec.uuid, skipped: "not-found" }); continue; }
 
       const expiry = found.expiryTime || 0;
-      // Only act on expired clients with a real expiry set
       if (expiry <= 0 || expiry > now) { results.push({ uuid: rec.uuid, skipped: "not-expired" }); continue; }
-      // De-dup: same expiry already reset
       if (Number(rec.last_reset_expiry) === Number(expiry)) {
         results.push({ uuid: rec.uuid, skipped: "already-reset" });
         continue;
       }
 
-      const defaultBytes = Number(rec.default_traffic_gb) * 1073741824;
+      const defaultBytes = effectiveGB * 1073741824;
       const ok = await resetClientToDefault(
         rec.panel_url, cookie, found.inbound, found.settings,
         found.email, rec.is_socks5, defaultBytes,
@@ -201,7 +228,7 @@ Deno.serve(async (req) => {
         await supabase.from("client_records")
           .update({ last_reset_expiry: expiry, client_email: found.email })
           .eq("id", rec.id);
-        results.push({ uuid: rec.uuid, reset: true, gb: rec.default_traffic_gb });
+        results.push({ uuid: rec.uuid, reset: true, gb: effectiveGB });
       } else {
         results.push({ uuid: rec.uuid, reset: false, error: "update-failed" });
       }

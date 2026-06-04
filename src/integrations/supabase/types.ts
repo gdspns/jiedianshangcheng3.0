@@ -540,6 +540,42 @@ export type Database = {
         }
         Relationships: []
       }
+      traffic_default_rules: {
+        Row: {
+          created_at: string
+          default_traffic_gb: number
+          enabled: boolean
+          id: string
+          note: string
+          plan_id: string | null
+          scope: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_traffic_gb?: number
+          enabled?: boolean
+          id?: string
+          note?: string
+          plan_id?: string | null
+          scope?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_traffic_gb?: number
+          enabled?: boolean
+          id?: string
+          note?: string
+          plan_id?: string | null
+          scope?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tutorials: {
         Row: {
           content: string

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Settings, Server, QrCode, Bitcoin, CheckCircle2, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic } from "@/lib/api";
+import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
 
 interface Tutorial {
@@ -147,6 +147,7 @@ const defaultConfig: AdminConfigData = {
 export default function AdminDashboard() {
   const [config, setConfig] = useState<AdminConfigData>(defaultConfig);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [trafficRules, setTrafficRules] = useState<any[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [planRegions, setPlanRegions] = useState<{ plan_id: string; region_id: string }[]>([]);
   const [saveStatus, setSaveStatus] = useState("");
@@ -187,7 +188,15 @@ export default function AdminDashboard() {
     loadTutorials();
     loadArticles();
     loadPanels();
+    loadTrafficRules();
   }, []);
+
+  const loadTrafficRules = async () => {
+    try {
+      const res = await adminListTrafficRules(token);
+      if (res?.rules) setTrafficRules(res.rules);
+    } catch {}
+  };
 
   const loadPanels = async () => {
     try {
@@ -1199,6 +1208,111 @@ export default function AdminDashboard() {
                   className="bg-admin-primary text-admin-primary-foreground py-2.5 px-5 rounded-lg font-bold hover:opacity-90 transition-colors shadow-md disabled:opacity-70">
                   {btnStatus["autoReset"] || "立即执行检查"}
                 </button>
+
+                {/* 默认流量规则 */}
+                <div className="mt-6 pt-5 border-t border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-base font-bold text-admin-primary">默认流量规则（重置时使用）</h3>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await adminCreateTrafficRule(token, { scope: "all", default_traffic_gb: 0, sort_order: trafficRules.length });
+                          await loadTrafficRules();
+                        } catch (e: any) { alert("添加失败：" + (e?.message || e)); }
+                      }}
+                      className="bg-admin-primary text-admin-primary-foreground py-1.5 px-3 rounded-lg text-sm font-bold hover:opacity-90 flex items-center">
+                      <Plus className="w-4 h-4 mr-1" /> 添加规则
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    优先级：①指定商品 &gt; ②独享/共享分类 &gt; ③全部 &gt; ④购买时记录的原始 GB。设为 0 表示无限制（不会被重置）。修改后立即生效。
+                  </p>
+                  {trafficRules.length === 0 ? (
+                    <div className="text-sm text-muted-foreground bg-muted/40 rounded-lg p-4 text-center">
+                      暂无规则。未设置时按购买记录的原始 GB 重置。
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {trafficRules.map((r) => (
+                        <div key={r.id} className="grid grid-cols-12 gap-2 items-center bg-muted/40 border border-border rounded-lg p-3">
+                          <div className="col-span-12 sm:col-span-3">
+                            <label className="text-xs text-muted-foreground">范围</label>
+                            <select
+                              value={r.scope}
+                              onChange={async (e) => {
+                                const scope = e.target.value;
+                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, scope, plan_id: scope === "plan" ? x.plan_id : null } : x));
+                                await adminUpdateTrafficRule(token, { id: r.id, scope, plan_id: scope === "plan" ? r.plan_id : null });
+                              }}
+                              className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+                              <option value="all">全部</option>
+                              <option value="exclusive">独享</option>
+                              <option value="shared">共享</option>
+                              <option value="plan">指定商品</option>
+                            </select>
+                          </div>
+                          <div className="col-span-12 sm:col-span-4">
+                            <label className="text-xs text-muted-foreground">关联商品（仅 范围=指定商品 时生效）</label>
+                            <select
+                              value={r.plan_id || ""}
+                              disabled={r.scope !== "plan"}
+                              onChange={async (e) => {
+                                const plan_id = e.target.value || null;
+                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, plan_id } : x));
+                                await adminUpdateTrafficRule(token, { id: r.id, plan_id });
+                              }}
+                              className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm disabled:opacity-50">
+                              <option value="">— 选择商品 —</option>
+                              {plans.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.title}（{p.category === "shared" ? "共享" : "独享"}）
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-span-6 sm:col-span-2">
+                            <label className="text-xs text-muted-foreground">默认 GB</label>
+                            <input
+                              type="number" min={0}
+                              defaultValue={r.default_traffic_gb}
+                              onBlur={async (e) => {
+                                const v = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                                if (v === r.default_traffic_gb) return;
+                                setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, default_traffic_gb: v } : x));
+                                await adminUpdateTrafficRule(token, { id: r.id, default_traffic_gb: v });
+                              }}
+                              className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm" />
+                          </div>
+                          <div className="col-span-4 sm:col-span-2 flex items-end h-full">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer pb-1.5">
+                              <input
+                                type="checkbox"
+                                checked={r.enabled}
+                                onChange={async (e) => {
+                                  const enabled = e.target.checked;
+                                  setTrafficRules((prev) => prev.map((x) => x.id === r.id ? { ...x, enabled } : x));
+                                  await adminUpdateTrafficRule(token, { id: r.id, enabled });
+                                }}
+                                className="w-4 h-4" />
+                              启用
+                            </label>
+                          </div>
+                          <div className="col-span-2 sm:col-span-1 flex items-end justify-end h-full">
+                            <button
+                              onClick={async () => {
+                                if (!confirm("确定删除该规则？")) return;
+                                await adminDeleteTrafficRule(token, r.id);
+                                await loadTrafficRules();
+                              }}
+                              className="text-destructive hover:opacity-80 pb-1.5">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </TabsContent>
