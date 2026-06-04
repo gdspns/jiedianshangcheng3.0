@@ -1183,9 +1183,6 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-6 pt-5 border-t border-border">
-                  <CronStatusPanel />
-                </div>
               </div>
 
 
