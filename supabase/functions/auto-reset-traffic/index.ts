@@ -249,9 +249,13 @@ Deno.serve(async (req) => {
       // Priority 2: scope=region with matching region
       const byRegion = (rules || []).find((r: any) => r.scope === "region" && r.region_id && regionIds.includes(r.region_id));
       if (byRegion) return Number(byRegion.default_traffic_gb) || 0;
-      // Priority 3: scope = exclusive/shared matching plan category
+      // Priority 3: scope = exclusive/shared matching plan category (substring match,
+      // so categories like "new_exclusive" / "renew_exclusive" also match scope "exclusive")
       if (planCategory) {
-        const byCat = (rules || []).find((r: any) => r.scope === planCategory);
+        const cat = String(planCategory).toLowerCase();
+        const normalized = cat.includes("exclusive") ? "exclusive"
+          : cat.includes("shared") ? "shared" : cat;
+        const byCat = (rules || []).find((r: any) => r.scope === normalized);
         if (byCat) return Number(byCat.default_traffic_gb) || 0;
       }
       // Priority 4: scope=all
