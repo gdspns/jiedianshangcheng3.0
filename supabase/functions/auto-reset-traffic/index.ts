@@ -310,6 +310,13 @@ Deno.serve(async (req) => {
         if (anchor <= 0) break;
       }
       if (anchor <= 0 || anchor > now) { results.push({ uuid: rec.uuid, skipped: "no-anchor" }); continue; }
+      // Only reset if the anchor falls within the last hour (i.e. it's "this hour's" anchor).
+      // Prevents back-filling past anchors that were missed because the client was created later.
+      const ONE_HOUR = 3600 * 1000;
+      if (now - anchor > ONE_HOUR) {
+        results.push({ uuid: rec.uuid, skipped: "not-due-this-hour", anchor: new Date(anchor).toISOString() });
+        continue;
+      }
       if (Number(rec.last_reset_expiry) >= Number(anchor)) {
         results.push({ uuid: rec.uuid, skipped: "already-reset" });
         continue;
