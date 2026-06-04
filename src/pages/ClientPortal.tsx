@@ -1470,7 +1470,7 @@ export default function ClientPortal() {
                                   {plan.duration_days} 天有效期
                                 </li>
                                 <li className="flex items-center">
-                                  <ChevronRight className="w-4 h-4 text-client-primary mr-1 shrink-0" /> 立即重置流量
+                                  <ChevronRight className="w-4 h-4 text-client-primary mr-1 shrink-0" /> 续费有效期叠加
                                 </li>
                               </ul>
                               <button
@@ -1534,7 +1534,7 @@ export default function ClientPortal() {
                                   {plan.duration_days} 天有效期
                                 </li>
                                 <li className="flex items-center">
-                                  <ChevronRight className="w-4 h-4 text-success mr-1 shrink-0" /> 立即重置流量
+                                  <ChevronRight className="w-4 h-4 text-success mr-1 shrink-0" /> 续费有效期叠加
                                 </li>
                               </ul>
                               <button
