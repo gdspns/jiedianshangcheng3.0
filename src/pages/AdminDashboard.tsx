@@ -70,6 +70,7 @@ interface Plan {
   featured: boolean;
   enabled: boolean;
   region_id?: string | null;
+  traffic_gb?: number;
 }
 
 interface Region {
