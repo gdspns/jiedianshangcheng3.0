@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
         // 3. Fetch all candidate region_inbounds, sorted by sort_order
         const { data: candidateInbounds } = await supabase
           .from("region_inbounds")
-          .select("id, inbound_id, region_id, protocol, current_clients, max_clients, sort_order")
+          .select("id, inbound_id, region_id, protocol, current_clients, max_clients, sort_order, panel_id")
           .in("id", candidateIds)
           .order("sort_order", { ascending: true });
         
@@ -364,6 +364,20 @@ Deno.serve(async (req) => {
           salesInboundId = available.inbound_id;
           foundViaInboundPlans = true;
           if (available.protocol) salesProtocol = available.protocol;
+
+          // Override panel credentials if this inbound is bound to a specific panel
+          if (available.panel_id) {
+            const { data: boundPanel } = await supabase
+              .from("panels")
+              .select("panel_url, panel_user, panel_pass")
+              .eq("id", available.panel_id)
+              .maybeSingle();
+            if (boundPanel?.panel_url) {
+              config.panel_url = boundPanel.panel_url;
+              config.panel_user = boundPanel.panel_user;
+              config.panel_pass = boundPanel.panel_pass;
+            }
+          }
         }
       }
     }
@@ -380,6 +394,7 @@ Deno.serve(async (req) => {
         salesProtocol = regionData.protocol;
       }
     }
+
 
     // Login to 3x-ui
     const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
