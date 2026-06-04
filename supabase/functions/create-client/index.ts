@@ -474,7 +474,7 @@ Deno.serve(async (req) => {
       const clientEntry: any = {
         email: remark,
         limitIp: 0,
-        totalGB: 0,
+        totalGB: planTrafficBytes,
         expiryTime: expiryTime,
         enable: true,
         tgId: "",
