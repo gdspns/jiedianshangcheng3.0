@@ -299,6 +299,12 @@ Deno.serve(async (req) => {
       // Priority 4: scope=all
       const byAll = (rules || []).find((r: any) => r.scope === "all");
       if (byAll) return Number(byAll.default_traffic_gb) || 0;
+      // Priority 5: for orphan clients without plan info, fall back to the
+      // generic exclusive rule (default behavior), then shared.
+      const byExc = (rules || []).find((r: any) => r.scope === "exclusive");
+      if (byExc) return Number(byExc.default_traffic_gb) || 0;
+      const byShr = (rules || []).find((r: any) => r.scope === "shared");
+      if (byShr) return Number(byShr.default_traffic_gb) || 0;
       // Fallback: original baseline recorded at purchase
       return Number(rec.default_traffic_gb) || 0;
     }
