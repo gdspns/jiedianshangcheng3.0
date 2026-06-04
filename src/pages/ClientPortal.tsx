@@ -260,6 +260,33 @@ export default function ClientPortal() {
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 1500);
   };
+
+  // 基于用户登录时输入的原始链接，将备注/ps 替换为最新的 clientData.email，
+  // 这样续费导致备注日期变化时，用户能复制到“最新”的链接（保留我们对原链接的所有自定义参数）。
+  const buildLatestLink = (): string | null => {
+    const original = (loginInput || "").trim();
+    const newRemark = (clientData?.email || "").trim();
+    if (!original || !newRemark) return null;
+    const lines = original.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (line.startsWith("vless://") || line.startsWith("trojan://")) {
+        const hashIdx = line.indexOf("#");
+        const base = hashIdx >= 0 ? line.substring(0, hashIdx) : line;
+        return `${base}#${encodeURIComponent(newRemark)}`;
+      }
+      if (line.startsWith("vmess://")) {
+        try {
+          const decoded = atob(line.substring(8));
+          const json = JSON.parse(decoded);
+          json.ps = newRemark;
+          return "vmess://" + btoa(JSON.stringify(json));
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
   const [lookupError, setLookupError] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
