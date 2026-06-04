@@ -293,8 +293,9 @@ async function extendExpiry(
     const inbound = inboundData.obj;
 
     const formData = new URLSearchParams();
-    formData.append("up", "0");
-    formData.append("down", "0");
+    // Do NOT reset up/down — preserve used traffic on renewal
+    formData.append("up", String(inbound.up));
+    formData.append("down", String(inbound.down));
     formData.append("total", String(inbound.total));
     formData.append("remark", inbound.remark || "");
     formData.append("enable", String(inbound.enable));
