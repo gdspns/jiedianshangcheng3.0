@@ -4,6 +4,7 @@ import { Settings, Server, QrCode, Bitcoin, CheckCircle2, Plus, Trash2, Package,
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
+import CronStatusPanel from "@/components/CronStatusPanel";
 
 interface Tutorial {
   id: string;
@@ -1190,9 +1191,13 @@ export default function AdminDashboard() {
                   <CheckCircle2 className="mr-2" /> 到期自动重置流量
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  系统每小时自动检查一次所有 3x-ui 客户端：若已到期则将"已用流量"归零，并把"总流量"恢复为购买时套餐的默认值（不保留额外购买的流量包）。同一到期时间只重置一次。
+                  系统每小时整点（0 * * * *）自动检查一次所有 3x-ui 客户端：若已到期则将"已用流量"归零，并把"总流量"恢复为购买时套餐的默认值（不保留额外购买的流量包）。同一到期时间只重置一次。
                 </p>
-                <div className="flex flex-wrap gap-3 items-center">
+
+                {/* 定时任务实时状态 */}
+                <CronStatusPanel />
+
+                <div className="flex flex-wrap gap-3 items-center mt-5">
                   <button
                     onClick={async () => {
                       setBtnStatus({ ...btnStatus, autoReset: "执行中..." });
@@ -1235,6 +1240,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-muted-foreground mt-2">
                   提示：旧客户（在此功能上线前购买的）不在记录表里，需先点击"同步历史客户记录"从 3x-ui 面板补齐，之后才会被自动重置纳入检查。
                 </p>
+
 
                 {/* 默认流量规则 */}
                 <div className="mt-6 pt-5 border-t border-border">
