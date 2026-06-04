@@ -212,6 +212,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_execution_logs: {
+        Row: {
+          checked: number
+          created_at: string
+          details: Json | null
+          failed_count: number
+          id: string
+          job_name: string
+          reset_count: number
+          skipped_count: number
+          trigger_source: string
+        }
+        Insert: {
+          checked?: number
+          created_at?: string
+          details?: Json | null
+          failed_count?: number
+          id?: string
+          job_name: string
+          reset_count?: number
+          skipped_count?: number
+          trigger_source?: string
+        }
+        Update: {
+          checked?: number
+          created_at?: string
+          details?: Json | null
+          failed_count?: number
+          id?: string
+          job_name?: string
+          reset_count?: number
+          skipped_count?: number
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       inbound_plans: {
         Row: {
           created_at: string
