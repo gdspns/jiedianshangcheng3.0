@@ -228,8 +228,19 @@ Deno.serve(async (req) => {
       if (!found) { results.push({ uuid: rec.uuid, skipped: "not-found" }); continue; }
 
       const expiry = found.expiryTime || 0;
-      if (expiry <= 0 || expiry > now) { results.push({ uuid: rec.uuid, skipped: "not-expired" }); continue; }
-      if (Number(rec.last_reset_expiry) === Number(expiry)) {
+      if (expiry <= 0) { results.push({ uuid: rec.uuid, skipped: "no-expiry" }); continue; }
+
+      // Compute most recent monthly anchor at or before now, derived from expiry.
+      // E.g. expiry = July 4 19:00 → anchors at June 4 19:00, May 4 19:00, ...
+      let anchor = expiry;
+      while (anchor > now) {
+        const d = new Date(anchor);
+        d.setUTCMonth(d.getUTCMonth() - 1);
+        anchor = d.getTime();
+        if (anchor <= 0) break;
+      }
+      if (anchor <= 0 || anchor > now) { results.push({ uuid: rec.uuid, skipped: "no-anchor" }); continue; }
+      if (Number(rec.last_reset_expiry) >= Number(anchor)) {
         results.push({ uuid: rec.uuid, skipped: "already-reset" });
         continue;
       }
@@ -242,9 +253,9 @@ Deno.serve(async (req) => {
 
       if (ok) {
         await supabase.from("client_records")
-          .update({ last_reset_expiry: expiry, client_email: found.email })
+          .update({ last_reset_expiry: anchor, client_email: found.email })
           .eq("id", rec.id);
-        results.push({ uuid: rec.uuid, reset: true, gb: effectiveGB });
+        results.push({ uuid: rec.uuid, reset: true, gb: effectiveGB, anchor: new Date(anchor).toISOString() });
       } else {
         results.push({ uuid: rec.uuid, reset: false, error: "update-failed" });
       }
