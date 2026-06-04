@@ -94,6 +94,9 @@ Deno.serve(async (req) => {
       if (plan.region_id !== undefined) {
         updateData.region_id = plan.region_id || null;
       }
+      if (plan.traffic_gb !== undefined) {
+        updateData.traffic_gb = Math.max(0, Math.floor(Number(plan.traffic_gb) || 0));
+      }
       const { error } = await supabase
         .from("plans")
         .update(updateData)
