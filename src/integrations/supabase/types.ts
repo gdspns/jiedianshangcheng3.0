@@ -370,6 +370,7 @@ export type Database = {
           region_id: string | null
           sort_order: number
           title: string
+          traffic_gb: number
           updated_at: string
         }
         Insert: {
@@ -385,6 +386,7 @@ export type Database = {
           region_id?: string | null
           sort_order?: number
           title: string
+          traffic_gb?: number
           updated_at?: string
         }
         Update: {
@@ -400,6 +402,7 @@ export type Database = {
           region_id?: string | null
           sort_order?: number
           title?: string
+          traffic_gb?: number
           updated_at?: string
         }
         Relationships: [
