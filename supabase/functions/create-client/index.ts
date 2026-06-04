@@ -309,8 +309,11 @@ Deno.serve(async (req) => {
     // 1. Find which plan was purchased by matching plan_name
     const { data: matchedPlans } = await supabase
       .from("plans")
-      .select("id")
+      .select("id, traffic_gb")
       .eq("title", order.plan_name);
+
+    const planTrafficGB = Math.max(0, Math.floor(Number((matchedPlans && matchedPlans[0] && (matchedPlans[0] as any).traffic_gb) || 0)));
+    const planTrafficBytes = planTrafficGB * 1073741824;
     
     let foundViaInboundPlans = false;
     let targetRegionInboundId: string | null = null;
@@ -471,7 +474,7 @@ Deno.serve(async (req) => {
       const clientEntry: any = {
         email: remark,
         limitIp: 0,
-        totalGB: 0,
+        totalGB: planTrafficBytes,
         expiryTime: expiryTime,
         enable: true,
         tgId: "",

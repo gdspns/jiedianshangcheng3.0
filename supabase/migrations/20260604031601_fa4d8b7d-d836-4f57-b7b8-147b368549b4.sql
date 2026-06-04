@@ -1,0 +1,1 @@
+ALTER TABLE public.plans ADD COLUMN IF NOT EXISTS traffic_gb integer NOT NULL DEFAULT 0;

@@ -70,6 +70,7 @@ interface Plan {
   featured: boolean;
   enabled: boolean;
   region_id?: string | null;
+  traffic_gb?: number;
 }
 
 interface Region {
@@ -657,6 +658,12 @@ export default function AdminDashboard() {
           <label className="block text-[15px] text-muted-foreground">价格¥</label>
           <input type="number" value={plan.price}
             onChange={e => updatePlanField(plan.id, "price", Number(e.target.value))}
+            className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-[15px] text-muted-foreground">流量GB (0=无限)</label>
+          <input type="number" min={0} value={(plan as any).traffic_gb ?? 0}
+            onChange={e => updatePlanField(plan.id, "traffic_gb" as any, Math.max(0, Number(e.target.value) || 0))}
             className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
         </div>
         <div className="md:col-span-3">
