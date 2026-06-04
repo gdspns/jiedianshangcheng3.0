@@ -147,6 +147,72 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    let body: any = {};
+    try { body = await req.json(); } catch {}
+
+    // ===== Backfill: rebuild client_records from fulfilled orders =====
+    if (body?.backfill === true) {
+      const { data: orders } = await supabase
+        .from("orders").select("id, uuid, inbound_id, plan_name, status, email")
+        .eq("status", "fulfilled");
+      const { data: existing } = await supabase.from("client_records").select("uuid, inbound_id");
+      const existSet = new Set((existing || []).map((r: any) => `${r.uuid}::${r.inbound_id}`));
+      const { data: panels } = await supabase.from("panels").select("*").eq("enabled", true);
+      const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
+      const allPanels: any[] = [...(panels || [])];
+      if (cfg?.panel_url && !allPanels.some((p) => p.panel_url === cfg.panel_url)) {
+        allPanels.push({ panel_url: cfg.panel_url, panel_user: cfg.panel_user, panel_pass: cfg.panel_pass });
+      }
+      const { data: plans } = await supabase.from("plans").select("id, title, traffic_gb");
+      const planByTitle = new Map<string, any>();
+      for (const p of plans || []) planByTitle.set(p.title, p);
+
+      const panelCookies = new Map<string, string | null>();
+      const uniqueOrders = new Map<string, any>();
+      for (const o of orders || []) {
+        if (!o.uuid || !o.inbound_id) continue;
+        const k = `${o.uuid}::${o.inbound_id}`;
+        if (existSet.has(k)) continue;
+        if (!uniqueOrders.has(k)) uniqueOrders.set(k, o);
+      }
+
+      const results: any[] = [];
+      let inserted = 0;
+      for (const o of uniqueOrders.values()) {
+        let matched = false;
+        for (const panel of allPanels) {
+          if (!panelCookies.has(panel.panel_url)) {
+            panelCookies.set(panel.panel_url, await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass));
+          }
+          const cookie = panelCookies.get(panel.panel_url);
+          if (!cookie) continue;
+          const found = await findClientInInbound(panel.panel_url, cookie, o.inbound_id, o.uuid);
+          if (found) {
+            const plan = planByTitle.get(o.plan_name);
+            const defaultGB = plan ? Number(plan.traffic_gb) || 0 : 0;
+            const { error: insErr } = await supabase.from("client_records").insert({
+              uuid: o.uuid,
+              plan_id: plan?.id || null,
+              plan_title: o.plan_name || "",
+              default_traffic_gb: defaultGB,
+              panel_url: panel.panel_url,
+              inbound_id: o.inbound_id,
+              client_email: found.email || o.email || "",
+              is_socks5: !!found.isSocks5,
+              last_reset_expiry: 0,
+            });
+            if (!insErr) { inserted++; results.push({ uuid: o.uuid, panel: panel.panel_url, inserted: true }); }
+            else results.push({ uuid: o.uuid, error: insErr.message });
+            matched = true; break;
+          }
+        }
+        if (!matched) results.push({ uuid: o.uuid, inbound_id: o.inbound_id, skipped: "not-found-in-any-panel" });
+      }
+      return new Response(JSON.stringify({
+        success: true, backfill: true, scanned: uniqueOrders.size, inserted, results,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Load all client records
     const { data: records } = await supabase
       .from("client_records")
