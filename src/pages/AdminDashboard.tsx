@@ -1778,6 +1778,29 @@ export default function AdminDashboard() {
                                         </div>
                                       </div>
 
+                                      {/* Panel binding selector */}
+                                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground whitespace-nowrap">🖥️ 关联面板</span>
+                                        <select
+                                          value={ri.panel_id || ""}
+                                          onChange={e => setRegionInbounds(prev => prev.map(r => r.id === ri.id ? { ...r, panel_id: e.target.value || null } : r))}
+                                          className="border border-input bg-background rounded px-2 py-1 text-xs focus:ring-1 focus:ring-accent outline-none"
+                                        >
+                                          <option value="">默认（新购主面板）</option>
+                                          {panels.filter(p => p.enabled).map(p => (
+                                            <option key={p.id} value={p.id}>
+                                              {p.name}{p.is_primary ? "（主）" : ""}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {ri.panel_id
+                                            ? `开通到「${panels.find(p => p.id === ri.panel_id)?.name || "未知面板"}」`
+                                            : "未关联时，按设为新购主面板开通"}
+                                        </span>
+                                      </div>
+
+
                                       {/* Assigned plans for this inbound */}
                                       {riPlanItems.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-1.5">
