@@ -933,7 +933,7 @@ export default function ClientPortal() {
             const suffix = matched[0].includes("号") ? "号" : "日";
             updatedEmail = updatedEmail.replace(dateRegex, `${newExpiry.getMonth() + 1}月${newExpiry.getDate()}${suffix}到期`);
           }
-          setClientData({ ...clientData, trafficUsed: 0, expiryDate: newExpiry.getTime(), email: updatedEmail });
+          setClientData({ ...clientData, expiryDate: newExpiry.getTime(), email: updatedEmail });
         }
       } else {
         setPayStatus("waiting");
