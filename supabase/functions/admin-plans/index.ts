@@ -292,12 +292,14 @@ Deno.serve(async (req) => {
         max_clients: regionInbound.max_clients || 0,
         current_clients: 0,
         protocol: regionInbound.protocol || "mixed",
+        panel_id: regionInbound.panel_id || null,
       }).select().single();
       if (error) throw error;
       return new Response(JSON.stringify({ success: true, regionInbound: data }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     if (action === "update-region-inbound") {
       const { regionInbound } = body;
