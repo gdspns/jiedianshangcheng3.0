@@ -1528,10 +1528,13 @@ export default function ClientPortal() {
                                 </span>
                               </div>
                               <ul className="text-sm text-muted-foreground space-y-2 mb-6">
-                                <li className="flex items-center">
-                                  <ChevronRight className="w-4 h-4 text-success mr-1 shrink-0" />{" "}
-                                  {plan.description || "多人共享，价格实惠"}
-                                </li>
+                                {(plan.description || "多人共享，价格实惠").split("\n").map((line, i) => (
+                                  <li key={i} className="flex items-start">
+                                    <ChevronRight className="w-4 h-4 text-success mr-1 shrink-0 mt-0.5" />
+                                    <span className="whitespace-pre-wrap">{line}</span>
+                                  </li>
+                                ))}
+
                                 <li className="flex items-center">
                                   <ChevronRight className="w-4 h-4 text-success mr-1 shrink-0" /> 增加{" "}
                                   {plan.duration_days} 天有效期
