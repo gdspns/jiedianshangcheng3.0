@@ -181,29 +181,45 @@ export default function CronStatusPanel() {
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="text-left py-1.5 pr-3">#</th>
-                  <th className="text-left py-1.5 pr-3">开始时间</th>
-                  <th className="text-left py-1.5 pr-3">结束时间</th>
-                  <th className="text-left py-1.5 pr-3">状态</th>
-                  <th className="text-left py-1.5">返回</th>
+                  <th className="text-left py-1.5 pr-3">执行时间</th>
+                  <th className="text-left py-1.5 pr-3">触发</th>
+                  <th className="text-left py-1.5 pr-3">检查</th>
+                  <th className="text-left py-1.5 pr-3">重置</th>
+                  <th className="text-left py-1.5 pr-3">跳过</th>
+                  <th className="text-left py-1.5 pr-3">失败</th>
+                  <th className="text-left py-1.5">状态</th>
                 </tr>
               </thead>
               <tbody>
                 {history.length === 0 && (
-                  <tr><td colSpan={5} className="py-3 text-muted-foreground text-center">暂无执行记录</td></tr>
+                  <tr><td colSpan={8} className="py-3 text-muted-foreground text-center">暂无执行记录</td></tr>
                 )}
                 {history.map((h, i) => (
                   <tr key={i} className="border-b border-border/60">
                     <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
                     <td className="py-1.5 pr-3">{fmt(h.startTime)}</td>
-                    <td className="py-1.5 pr-3">{fmt(h.endTime)}</td>
                     <td className="py-1.5 pr-3">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${h.source === "cron" ? "bg-blue-500/15 text-blue-600" : "bg-muted text-foreground"}`}>
+                        {h.source === "cron" ? "自动" : "手动"}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-3">{h.checked ?? "—"}</td>
+                    <td className="py-1.5 pr-3">
+                      <span className={`font-bold ${(h.reset ?? 0) > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                        {h.reset ?? 0}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">{h.skipped ?? 0}</td>
+                    <td className="py-1.5 pr-3">
+                      <span className={(h.failed ?? 0) > 0 ? "text-destructive font-bold" : "text-muted-foreground"}>{h.failed ?? 0}</span>
+                    </td>
+                    <td className="py-1.5">
                       {h.status === "succeeded" ? (
-                        <span className="text-emerald-600 font-bold">✅ 成功</span>
+                        <span className="text-emerald-600 font-bold">✅</span>
                       ) : (
-                        <span className="text-destructive font-bold">❌ {h.status}</span>
+                        <span className="text-destructive font-bold">❌</span>
                       )}
                     </td>
-                    <td className="py-1.5 text-muted-foreground truncate max-w-[300px]" title={h.message}>{h.message || "—"}</td>
                   </tr>
                 ))}
               </tbody>
