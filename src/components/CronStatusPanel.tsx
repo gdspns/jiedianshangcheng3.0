@@ -28,7 +28,6 @@ type HistoryItem = {
 const NICE_NAME: Record<string, string> = {
   "auto-reset-traffic-hourly": "自动重置流量（每小时整点）",
   "auto-backfill-client-records-daily": "同步 3x 面板客户端（每天）",
-  "auto-fulfill-every-minute": "订单自动发货（每分钟）",
 };
 
 function fmt(d: string | Date | null): string {
@@ -132,7 +131,7 @@ export default function CronStatusPanel() {
         {jobs.length === 0 && !loading && (
           <div className="text-xs text-muted-foreground">暂无定时任务</div>
         )}
-        {jobs.map((j) => {
+        {jobs.filter((j) => j.name !== "auto-fulfill-every-minute").map((j) => {
           const next = nextRun(j.schedule);
           const isOk = j.lastStatus === "succeeded";
           return (
