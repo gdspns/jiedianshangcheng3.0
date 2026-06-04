@@ -532,6 +532,25 @@ Deno.serve(async (req) => {
       })
       .eq("id", orderId);
 
+    // Record client baseline for auto-reset-traffic feature
+    try {
+      const matchedPlanId = matchedPlans && matchedPlans[0] ? (matchedPlans[0] as any).id : null;
+      await supabase.from("client_records").insert({
+        uuid: clientUuid,
+        plan_id: matchedPlanId,
+        plan_title: order.plan_name,
+        default_traffic_gb: planTrafficGB,
+        panel_url: config.panel_url,
+        inbound_id: salesInboundId,
+        client_email: remark,
+        is_socks5: (protocol === "socks" || protocol === "mixed"),
+        last_reset_expiry: 0,
+      });
+    } catch (recErr) {
+      console.error("Failed to insert client_records:", recErr);
+    }
+
+
     // Send email notification for new purchase
     if (config.resend_api_key && config.notify_email) {
       await sendAdminEmail(
