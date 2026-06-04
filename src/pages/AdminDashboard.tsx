@@ -1197,7 +1197,7 @@ export default function AdminDashboard() {
                 {/* 定时任务实时状态 */}
                 <CronStatusPanel />
 
-                <div className="flex flex-wrap gap-3 items-center justify-end mt-5">
+                <div className="flex flex-wrap gap-3 items-center mt-5">
                   <button
                     onClick={async () => {
                       setBtnStatus({ ...btnStatus, autoReset: "执行中..." });
