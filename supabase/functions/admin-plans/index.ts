@@ -411,6 +411,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.from("traffic_default_rules").insert({
         scope: rule?.scope || "all",
         plan_id: rule?.plan_id || null,
+        region_id: rule?.region_id || null,
         default_traffic_gb: Math.max(0, Math.floor(Number(rule?.default_traffic_gb) || 0)),
         sort_order: Number(rule?.sort_order) || 0,
         enabled: rule?.enabled !== false,
