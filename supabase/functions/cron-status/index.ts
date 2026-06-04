@@ -57,26 +57,27 @@ Deno.serve(async (req) => {
       };
     });
 
-    // History: last 20 of auto-reset-traffic-hourly
-    const targetJob = jobsRes.rows.find((j) => j.jobname === "auto-reset-traffic-hourly");
-    let history: any[] = [];
-    if (targetJob) {
-      const histRes = await client.queryObject<{
-        start_time: Date; end_time: Date | null; status: string; return_message: string;
-      }>(
-        `SELECT start_time, end_time, status, return_message
-         FROM cron.job_run_details
-         WHERE jobid = $1
-         ORDER BY start_time DESC LIMIT 20`,
-        [targetJob.jobid],
-      );
-      history = histRes.rows.map((r) => ({
-        startTime: r.start_time,
-        endTime: r.end_time,
-        status: r.status,
-        message: r.return_message,
-      }));
-    }
+    // History: last 20 executions from cron_execution_logs (richer than pg_cron's return_message)
+    const histRes = await client.queryObject<{
+      created_at: Date; checked: number; reset_count: number; skipped_count: number;
+      failed_count: number; trigger_source: string;
+    }>(
+      `SELECT created_at, checked, reset_count, skipped_count, failed_count, trigger_source
+       FROM public.cron_execution_logs
+       WHERE job_name = 'auto-reset-traffic'
+       ORDER BY created_at DESC LIMIT 20`,
+    );
+    const history = histRes.rows.map((r) => ({
+      startTime: r.created_at,
+      endTime: r.created_at,
+      status: "succeeded",
+      checked: Number(r.checked),
+      reset: Number(r.reset_count),
+      skipped: Number(r.skipped_count),
+      failed: Number(r.failed_count),
+      source: r.trigger_source,
+      message: `检查 ${r.checked} 个 · 重置 ${r.reset_count} 个 · 跳过 ${r.skipped_count} · 失败 ${r.failed_count}`,
+    }));
 
     return new Response(
       JSON.stringify({ success: true, jobs, history, now: new Date().toISOString() }),
