@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
           featured: plan.featured || false,
           enabled: plan.enabled !== false,
           region_id: plan.region_id || null,
+          traffic_gb: Math.max(0, Math.floor(Number(plan.traffic_gb) || 0)),
         })
         .select()
         .single();
