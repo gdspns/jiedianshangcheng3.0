@@ -393,6 +393,62 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ====== TRAFFIC DEFAULT RULES ======
+    if (action === "list-traffic-rules") {
+      const { data, error } = await supabase
+        .from("traffic_default_rules")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return new Response(JSON.stringify({ rules: data || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create-traffic-rule") {
+      const { rule } = body;
+      const { data, error } = await supabase.from("traffic_default_rules").insert({
+        scope: rule?.scope || "all",
+        plan_id: rule?.plan_id || null,
+        default_traffic_gb: Math.max(0, Math.floor(Number(rule?.default_traffic_gb) || 0)),
+        sort_order: Number(rule?.sort_order) || 0,
+        enabled: rule?.enabled !== false,
+        note: rule?.note || "",
+      }).select().single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true, rule: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-traffic-rule") {
+      const { rule } = body;
+      const { id, ...rest } = rule || {};
+      const updates: any = {};
+      if (rest.scope !== undefined) updates.scope = rest.scope;
+      if (rest.plan_id !== undefined) updates.plan_id = rest.plan_id || null;
+      if (rest.default_traffic_gb !== undefined) updates.default_traffic_gb = Math.max(0, Math.floor(Number(rest.default_traffic_gb) || 0));
+      if (rest.sort_order !== undefined) updates.sort_order = Number(rest.sort_order) || 0;
+      if (rest.enabled !== undefined) updates.enabled = rest.enabled;
+      if (rest.note !== undefined) updates.note = rest.note;
+      updates.updated_at = new Date().toISOString();
+      const { error } = await supabase.from("traffic_default_rules").update(updates).eq("id", id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete-traffic-rule") {
+      const { rule } = body;
+      const { error } = await supabase.from("traffic_default_rules").delete().eq("id", rule.id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
