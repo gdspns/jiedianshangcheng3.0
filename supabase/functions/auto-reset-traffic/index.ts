@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
         await supabase.from("client_records")
           .update({ last_reset_expiry: expiry, client_email: found.email })
           .eq("id", rec.id);
-        results.push({ uuid: rec.uuid, reset: true, gb: rec.default_traffic_gb });
+        results.push({ uuid: rec.uuid, reset: true, gb: effectiveGB });
       } else {
         results.push({ uuid: rec.uuid, reset: false, error: "update-failed" });
       }
