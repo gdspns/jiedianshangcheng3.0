@@ -207,7 +207,7 @@ function fixMobileVideo(html: string): string {
 export default function ClientPortal() {
   const [logged, setLogged] = useState(() => !!localStorage.getItem("portal_uuid"));
   const [uuid, setUuid] = useState(() => localStorage.getItem("portal_uuid") || "");
-  const [loginInput, setLoginInput] = useState("");
+  const [loginInput, setLoginInput] = useState(() => localStorage.getItem("portal_login_input") || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("dashboard");
