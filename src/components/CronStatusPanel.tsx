@@ -229,6 +229,66 @@ export default function CronStatusPanel() {
             </table>
           </div>
         )}
+
+        <div className="mt-3 pt-3 border-t border-border">
+          <button
+            onClick={() => setShowBackfill((v) => !v)}
+            className="text-xs flex items-center gap-1 text-admin-primary hover:underline">
+            <HistoryIcon className="w-3 h-3" />
+            {showBackfill ? "隐藏同步历史" : "查看同步历史（最近 20 次「同步历史客户记录」）"}
+          </button>
+          {showBackfill && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-1.5 pr-3">#</th>
+                    <th className="text-left py-1.5 pr-3">同步时间</th>
+                    <th className="text-left py-1.5 pr-3">触发</th>
+                    <th className="text-left py-1.5 pr-3">新增客户端</th>
+                    <th className="text-left py-1.5 pr-3">总客户端</th>
+                    <th className="text-left py-1.5 pr-3">已存在</th>
+                    <th className="text-left py-1.5 pr-3">失败</th>
+                    <th className="text-left py-1.5">状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backfillHistory.length === 0 && (
+                    <tr><td colSpan={8} className="py-3 text-muted-foreground text-center">暂无同步记录</td></tr>
+                  )}
+                  {backfillHistory.map((h, i) => (
+                    <tr key={i} className="border-b border-border/60">
+                      <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
+                      <td className="py-1.5 pr-3">{fmt(h.startTime)}</td>
+                      <td className="py-1.5 pr-3">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${h.source === "cron" ? "bg-blue-500/15 text-blue-600" : "bg-muted text-foreground"}`}>
+                          {h.source === "cron" ? "自动" : "手动"}
+                        </span>
+                      </td>
+                      <td className="py-1.5 pr-3">
+                        <span className={`font-bold ${(h.reset ?? 0) > 0 ? "text-emerald-600" : "text-muted-foreground"}`}>
+                          +{h.reset ?? 0}
+                        </span>
+                      </td>
+                      <td className="py-1.5 pr-3 font-bold text-foreground">{h.checked ?? 0}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{h.skipped ?? 0}</td>
+                      <td className="py-1.5 pr-3">
+                        <span className={(h.failed ?? 0) > 0 ? "text-destructive font-bold" : "text-muted-foreground"}>{h.failed ?? 0}</span>
+                      </td>
+                      <td className="py-1.5">
+                        {(h.failed ?? 0) === 0 ? (
+                          <span className="text-emerald-600 font-bold">✅</span>
+                        ) : (
+                          <span className="text-destructive font-bold">⚠️</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
