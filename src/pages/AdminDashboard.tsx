@@ -1183,7 +1183,11 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+                <div className="mt-6 pt-5 border-t border-border">
+                  <CronStatusPanel />
+                </div>
               </div>
+
 
               {/* 到期自动重置流量 */}
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
@@ -1194,8 +1198,8 @@ export default function AdminDashboard() {
                   系统每小时整点（0 * * * *）自动检查一次所有 3x-ui 客户端：若已到期则将"已用流量"归零，并把"总流量"恢复为购买时套餐的默认值（不保留额外购买的流量包）。同一到期时间只重置一次。
                 </p>
 
-                {/* 定时任务实时状态 */}
-                <CronStatusPanel />
+
+
 
                 <div className="flex flex-wrap gap-3 items-center mt-5">
                   <button
