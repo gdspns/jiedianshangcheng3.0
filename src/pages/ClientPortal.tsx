@@ -584,7 +584,13 @@ export default function ClientPortal() {
         });
         setClientDataLoaded(true);
         setLogged(true);
-        try { localStorage.setItem("portal_uuid", extracted); } catch {}
+        try {
+          localStorage.setItem("portal_uuid", extracted);
+          const raw = (loginInput || "").trim();
+          if (/^(vless|trojan|vmess):\/\//.test(raw)) {
+            localStorage.setItem("portal_login_input", raw);
+          }
+        } catch {}
       } else {
         setError(res?.error || "未找到该 UUID 对应的ID");
       }
