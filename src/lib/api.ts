@@ -316,3 +316,8 @@ export async function getOrders(uuid: string) {
   if (error) throw error;
   return data;
 }
+
+// Manually trigger expired-client traffic reset (admin)
+export async function runAutoResetTraffic() {
+  return callEdgeFunction("auto-reset-traffic", {});
+}
