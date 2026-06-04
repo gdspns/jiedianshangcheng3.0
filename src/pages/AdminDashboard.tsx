@@ -144,6 +144,7 @@ const defaultConfig: AdminConfigData = {
   notifyStockOut: false,
   topupMinGb: 0,
   topupPrice: 0,
+  topupBlacklist: "",
 };
 
 export default function AdminDashboard() {
