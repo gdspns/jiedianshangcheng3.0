@@ -167,6 +167,51 @@ export type Database = {
         }
         Relationships: []
       }
+      client_records: {
+        Row: {
+          client_email: string
+          created_at: string
+          default_traffic_gb: number
+          id: string
+          inbound_id: number
+          is_socks5: boolean
+          last_reset_expiry: number
+          panel_url: string
+          plan_id: string | null
+          plan_title: string
+          updated_at: string
+          uuid: string
+        }
+        Insert: {
+          client_email?: string
+          created_at?: string
+          default_traffic_gb?: number
+          id?: string
+          inbound_id?: number
+          is_socks5?: boolean
+          last_reset_expiry?: number
+          panel_url?: string
+          plan_id?: string | null
+          plan_title?: string
+          updated_at?: string
+          uuid: string
+        }
+        Update: {
+          client_email?: string
+          created_at?: string
+          default_traffic_gb?: number
+          id?: string
+          inbound_id?: number
+          is_socks5?: boolean
+          last_reset_expiry?: number
+          panel_url?: string
+          plan_id?: string | null
+          plan_title?: string
+          updated_at?: string
+          uuid?: string
+        }
+        Relationships: []
+      }
       inbound_plans: {
         Row: {
           created_at: string
