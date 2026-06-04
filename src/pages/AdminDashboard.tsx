@@ -188,7 +188,15 @@ export default function AdminDashboard() {
     loadTutorials();
     loadArticles();
     loadPanels();
+    loadTrafficRules();
   }, []);
+
+  const loadTrafficRules = async () => {
+    try {
+      const res = await adminListTrafficRules(token);
+      if (res?.rules) setTrafficRules(res.rules);
+    } catch {}
+  };
 
   const loadPanels = async () => {
     try {
