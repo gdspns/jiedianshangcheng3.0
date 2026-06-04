@@ -132,10 +132,8 @@ async function extendExpiry(panelUrl: string, cookie: string, inboundId: number,
   const baseTime = (currentExpiry > 0 && currentExpiry > now) ? currentExpiry : now;
   const newExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
 
-  // Reset traffic
-  await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
-    method: "POST", headers: { Cookie: cookie },
-  });
+  // Do NOT reset traffic on renewal — only extend expiry
+
 
   // Get inbound detail
   const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
