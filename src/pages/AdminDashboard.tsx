@@ -668,9 +668,10 @@ export default function AdminDashboard() {
         </div>
         <div className="md:col-span-3">
           <label className="block text-[15px] text-muted-foreground">描述</label>
-          <input type="text" value={plan.description}
+          <textarea value={plan.description}
             onChange={e => updatePlanField(plan.id, "description", e.target.value)}
-            className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
+            rows={2}
+            className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none resize-y" />
         </div>
       </div>
       {/* Action buttons on a separate row */}
