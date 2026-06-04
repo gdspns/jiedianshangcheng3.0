@@ -1,0 +1,1 @@
+ALTER TABLE public.traffic_default_rules ADD COLUMN IF NOT EXISTS region_id uuid;

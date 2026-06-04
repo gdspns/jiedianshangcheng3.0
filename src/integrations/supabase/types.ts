@@ -548,6 +548,7 @@ export type Database = {
           id: string
           note: string
           plan_id: string | null
+          region_id: string | null
           scope: string
           sort_order: number
           updated_at: string
@@ -559,6 +560,7 @@ export type Database = {
           id?: string
           note?: string
           plan_id?: string | null
+          region_id?: string | null
           scope?: string
           sort_order?: number
           updated_at?: string
@@ -570,6 +572,7 @@ export type Database = {
           id?: string
           note?: string
           plan_id?: string | null
+          region_id?: string | null
           scope?: string
           sort_order?: number
           updated_at?: string
