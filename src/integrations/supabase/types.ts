@@ -506,6 +506,7 @@ export type Database = {
           id: string
           inbound_id: number
           max_clients: number
+          panel_id: string | null
           protocol: string
           region_id: string
           sort_order: number
@@ -516,6 +517,7 @@ export type Database = {
           id?: string
           inbound_id?: number
           max_clients?: number
+          panel_id?: string | null
           protocol?: string
           region_id: string
           sort_order?: number
@@ -526,6 +528,7 @@ export type Database = {
           id?: string
           inbound_id?: number
           max_clients?: number
+          panel_id?: string | null
           protocol?: string
           region_id?: string
           sort_order?: number
