@@ -1,0 +1,1 @@
+ALTER TABLE public.region_inbounds ADD COLUMN IF NOT EXISTS panel_id uuid;
