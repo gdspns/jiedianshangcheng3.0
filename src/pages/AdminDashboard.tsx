@@ -147,6 +147,7 @@ const defaultConfig: AdminConfigData = {
 export default function AdminDashboard() {
   const [config, setConfig] = useState<AdminConfigData>(defaultConfig);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [trafficRules, setTrafficRules] = useState<any[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [planRegions, setPlanRegions] = useState<{ plan_id: string; region_id: string }[]>([]);
   const [saveStatus, setSaveStatus] = useState("");
