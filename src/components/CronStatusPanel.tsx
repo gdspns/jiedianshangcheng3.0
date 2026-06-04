@@ -83,8 +83,10 @@ function countdown(d: Date | null): string {
 export default function CronStatusPanel() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [backfillHistory, setBackfillHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHist, setShowHist] = useState(false);
+  const [showBackfill, setShowBackfill] = useState(false);
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
 
@@ -95,6 +97,7 @@ export default function CronStatusPanel() {
       const res: any = await getCronStatus();
       setJobs(res?.jobs || []);
       setHistory(res?.history || []);
+      setBackfillHistory(res?.backfillHistory || []);
     } catch (e: any) {
       setError(e?.message || "加载失败");
     }
