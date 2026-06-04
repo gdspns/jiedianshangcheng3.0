@@ -658,6 +658,7 @@ export default function AdminDashboard() {
           <input type="number" value={plan.price}
             onChange={e => updatePlanField(plan.id, "price", Number(e.target.value))}
             className="w-full border border-input p-1.5 rounded text-sm bg-background focus:ring-1 focus:ring-client-primary outline-none" />
+        </div>
         <div className="md:col-span-2">
           <label className="block text-[15px] text-muted-foreground">流量GB (0=无限)</label>
           <input type="number" min={0} value={(plan as any).traffic_gb ?? 0}
