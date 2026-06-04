@@ -18,6 +18,11 @@ type HistoryItem = {
   endTime: string | null;
   status: string;
   message: string;
+  checked?: number;
+  reset?: number;
+  skipped?: number;
+  failed?: number;
+  source?: string;
 };
 
 const NICE_NAME: Record<string, string> = {
