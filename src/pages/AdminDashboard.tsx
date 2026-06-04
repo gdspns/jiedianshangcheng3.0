@@ -1528,8 +1528,23 @@ export default function AdminDashboard() {
                       value={config.topupPrice ?? 0}
                       onChange={e => setConfig({ ...config, topupPrice: Number(e.target.value) || 0 })}
                       className="w-full border border-input p-2 rounded text-sm bg-background focus:ring-2 focus:ring-client-primary outline-none" />
-                  </div>
                 </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">
+                    🚫 充值黑名单 UUID — 在名单中的客户端点击「购买流量」时会弹窗提示联系管理员，无法自助充值（适用于 3X 面板手动设置动态流量的特殊用户）
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={config.topupBlacklist ?? ""}
+                    onChange={e => setConfig({ ...config, topupBlacklist: e.target.value })}
+                    placeholder={"每行一个 UUID，或用逗号 / 空格分隔\n例如：\nxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\nyyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"}
+                    className="w-full border border-input p-2 rounded text-xs font-mono bg-background focus:ring-2 focus:ring-client-primary outline-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    当前黑名单：<span className="font-bold text-foreground">{(config.topupBlacklist || "").split(/[\s,;]+/).filter(Boolean).length}</span> 个 UUID
+                  </p>
+                </div>
+              </div>
               </div>
 
               {/* 当前分组内容 */}
