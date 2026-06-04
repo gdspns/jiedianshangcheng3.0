@@ -1313,6 +1313,13 @@ export default function ClientPortal() {
                 const gbNum = Number(topupGbInput);
                 const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= minGb && gbNum % minGb === 0;
                 const computedAmount = gbValid ? Number((unitPrice * (gbNum / minGb)).toFixed(2)) : 0;
+                const blacklistSet = new Set(
+                  String((config as any)?.topup_blacklist || "")
+                    .split(/[\s,;]+/)
+                    .map((s: string) => s.trim().toLowerCase())
+                    .filter(Boolean)
+                );
+                const isBlacklisted = !!uuid && uuid !== "游客_未登录" && blacklistSet.has(uuid.toLowerCase());
                 return (
                   <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
