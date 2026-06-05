@@ -90,11 +90,13 @@ async function addClientTraffic(
   if (isSocks5) {
     newTotal = newTotal + addBytes;
   } else {
+    // Re-enable the client too in case xray disabled it after the previous quota was exhausted.
     const settings = JSON.parse(inbound.settings || "{}");
     let found = false;
     for (const entry of settings.clients || []) {
       if (entry.email === email) {
         entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
+        entry.enable = true;
         found = true;
         break;
       }
