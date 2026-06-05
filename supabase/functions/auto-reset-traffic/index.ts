@@ -298,6 +298,13 @@ Deno.serve(async (req) => {
       if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
         for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
       }
+      // Fallback: infer region(s) from inbound remark by matching region names (e.g. "马来西亚-住宅独享" -> 马来西亚)
+      if (inboundRemark) {
+        const rk = String(inboundRemark);
+        for (const r of regionNameList) {
+          if (r.name && rk.includes(r.name) && !regionIds.includes(r.id)) regionIds.push(r.id);
+        }
+      }
       // Fallback category inference from inbound remark text (e.g. "美国住宅共享224" -> shared)
       if (!planCategory && inboundRemark) {
         const rk = String(inboundRemark).toLowerCase();
@@ -307,7 +314,7 @@ Deno.serve(async (req) => {
       // Priority 1: scope=plan with matching plan_id
       const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
       if (byPlan) return Number(byPlan.default_traffic_gb) || 0;
-      // Priority 2: scope=region with matching region
+      // Priority 2: scope=region with matching region (from plan or inferred from inbound remark)
       const byRegion = (rules || []).find((r: any) => r.scope === "region" && r.region_id && regionIds.includes(r.region_id));
       if (byRegion) return Number(byRegion.default_traffic_gb) || 0;
       // Priority 3: scope = exclusive/shared matching plan category (substring match,
