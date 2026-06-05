@@ -286,13 +286,19 @@ Deno.serve(async (req) => {
       planRegionMap.set(pr.plan_id, arr);
     }
 
-    function resolveDefaultGB(rec: any): number {
+    function resolveDefaultGB(rec: any, inboundRemark?: string): number {
       const planInfo = rec.plan_id ? planMap.get(rec.plan_id) : null;
-      const planCategory = planInfo?.category || "";
+      let planCategory = planInfo?.category || "";
       const regionIds: string[] = [];
       if (planInfo?.region_id) regionIds.push(planInfo.region_id);
       if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
         for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
+      }
+      // Fallback category inference from inbound remark text (e.g. "美国住宅共享224" -> shared)
+      if (!planCategory && inboundRemark) {
+        const rk = String(inboundRemark).toLowerCase();
+        if (rk.includes("共享") || rk.includes("shared")) planCategory = "shared";
+        else if (rk.includes("独享") || rk.includes("exclusive")) planCategory = "exclusive";
       }
       // Priority 1: scope=plan with matching plan_id
       const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
@@ -327,10 +333,6 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const rec of records || []) {
-      const effectiveGB = resolveDefaultGB(rec);
-      // Skip "unlimited" (0) — no point resetting to unlimited
-      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
-
       const key = `${rec.panel_url}`;
       let cookie = cookieCache.get(key) ?? null;
       if (!cookieCache.has(key)) {
@@ -353,6 +355,10 @@ Deno.serve(async (req) => {
 
       const found = await findClientInInbound(rec.panel_url, cookie, rec.inbound_id, rec.uuid);
       if (!found) { results.push({ uuid: rec.uuid, skipped: "not-found" }); continue; }
+
+      const effectiveGB = resolveDefaultGB(rec, found.inbound?.remark || "");
+      // Skip "unlimited" (0) — no point resetting to unlimited
+      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
 
       const expiry = found.expiryTime || 0;
       if (expiry <= 0) { results.push({ uuid: rec.uuid, skipped: "no-expiry" }); continue; }
