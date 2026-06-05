@@ -333,10 +333,6 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const rec of records || []) {
-      const effectiveGB = resolveDefaultGB(rec);
-      // Skip "unlimited" (0) — no point resetting to unlimited
-      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
-
       const key = `${rec.panel_url}`;
       let cookie = cookieCache.get(key) ?? null;
       if (!cookieCache.has(key)) {
@@ -359,6 +355,10 @@ Deno.serve(async (req) => {
 
       const found = await findClientInInbound(rec.panel_url, cookie, rec.inbound_id, rec.uuid);
       if (!found) { results.push({ uuid: rec.uuid, skipped: "not-found" }); continue; }
+
+      const effectiveGB = resolveDefaultGB(rec, found.inbound?.remark || "");
+      // Skip "unlimited" (0) — no point resetting to unlimited
+      if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
 
       const expiry = found.expiryTime || 0;
       if (expiry <= 0) { results.push({ uuid: rec.uuid, skipped: "no-expiry" }); continue; }
