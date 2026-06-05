@@ -112,7 +112,7 @@ async function addClientTraffic(
       const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
         method: "POST",
         headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ id: inboundId, settings: JSON.stringify(updatedClient) }),
+        body: JSON.stringify({ id: inboundId, settings: JSON.stringify({ clients: [updatedClient] }) }),
       });
       const clientBody = await clientRes.json();
       if (clientBody?.success === true) return true;
