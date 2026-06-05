@@ -277,6 +277,7 @@ Deno.serve(async (req) => {
       .order("sort_order", { ascending: true });
     const { data: plans } = await supabase.from("plans").select("id, category, region_id");
     const { data: planRegions } = await supabase.from("plan_regions").select("plan_id, region_id");
+    const { data: regionsList } = await supabase.from("regions").select("id, name");
     const planMap = new Map<string, { category: string; region_id: string | null }>();
     for (const p of plans || []) planMap.set(p.id, { category: p.category || "", region_id: p.region_id || null });
     const planRegionMap = new Map<string, string[]>();
@@ -285,6 +286,9 @@ Deno.serve(async (req) => {
       arr.push(pr.region_id);
       planRegionMap.set(pr.plan_id, arr);
     }
+    const regionNameList: { id: string; name: string }[] = (regionsList || [])
+      .filter((r: any) => r && r.name)
+      .map((r: any) => ({ id: r.id, name: String(r.name) }));
 
     function resolveDefaultGB(rec: any, inboundRemark?: string): number {
       const planInfo = rec.plan_id ? planMap.get(rec.plan_id) : null;
