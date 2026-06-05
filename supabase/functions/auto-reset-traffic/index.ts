@@ -277,6 +277,7 @@ Deno.serve(async (req) => {
       .order("sort_order", { ascending: true });
     const { data: plans } = await supabase.from("plans").select("id, category, region_id");
     const { data: planRegions } = await supabase.from("plan_regions").select("plan_id, region_id");
+    const { data: regionsList } = await supabase.from("regions").select("id, name");
     const planMap = new Map<string, { category: string; region_id: string | null }>();
     for (const p of plans || []) planMap.set(p.id, { category: p.category || "", region_id: p.region_id || null });
     const planRegionMap = new Map<string, string[]>();
@@ -285,6 +286,9 @@ Deno.serve(async (req) => {
       arr.push(pr.region_id);
       planRegionMap.set(pr.plan_id, arr);
     }
+    const regionNameList: { id: string; name: string }[] = (regionsList || [])
+      .filter((r: any) => r && r.name)
+      .map((r: any) => ({ id: r.id, name: String(r.name) }));
 
     function resolveDefaultGB(rec: any, inboundRemark?: string): number {
       const planInfo = rec.plan_id ? planMap.get(rec.plan_id) : null;
@@ -293,6 +297,13 @@ Deno.serve(async (req) => {
       if (planInfo?.region_id) regionIds.push(planInfo.region_id);
       if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
         for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
+      }
+      // Fallback: infer region(s) from inbound remark by matching region names (e.g. "马来西亚-住宅独享" -> 马来西亚)
+      if (inboundRemark) {
+        const rk = String(inboundRemark);
+        for (const r of regionNameList) {
+          if (r.name && rk.includes(r.name) && !regionIds.includes(r.id)) regionIds.push(r.id);
+        }
       }
       // Fallback category inference from inbound remark text (e.g. "美国住宅共享224" -> shared)
       if (!planCategory && inboundRemark) {
@@ -303,7 +314,7 @@ Deno.serve(async (req) => {
       // Priority 1: scope=plan with matching plan_id
       const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
       if (byPlan) return Number(byPlan.default_traffic_gb) || 0;
-      // Priority 2: scope=region with matching region
+      // Priority 2: scope=region with matching region (from plan or inferred from inbound remark)
       const byRegion = (rules || []).find((r: any) => r.scope === "region" && r.region_id && regionIds.includes(r.region_id));
       if (byRegion) return Number(byRegion.default_traffic_gb) || 0;
       // Priority 3: scope = exclusive/shared matching plan category (substring match,
