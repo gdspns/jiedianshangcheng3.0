@@ -408,16 +408,31 @@ async function addClientTraffic(
     // Also re-enable the client in case xray disabled it after hitting the previous quota.
     const settings = JSON.parse(inbound.settings || "{}");
     let found = false;
+    let updatedClient: any = null;
+    let clientKey = "";
     for (const entry of settings.clients || []) {
       if (entry.email === email) {
         entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
         entry.enable = true;
+        updatedClient = entry;
+        clientKey = entry.id || entry.password || entry.email || "";
         found = true;
         break;
       }
     }
     if (!found) return false;
     newSettingsStr = JSON.stringify(settings);
+
+    if (clientKey && updatedClient) {
+      const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ id: inboundId, settings: JSON.stringify({ clients: [updatedClient] }) }),
+      });
+      const clientBody = await clientRes.json();
+      console.log("Add traffic update client result:", clientBody);
+      if (clientBody?.success === true) return true;
+    }
   }
 
   const formData = new URLSearchParams();
