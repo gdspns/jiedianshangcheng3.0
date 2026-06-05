@@ -286,13 +286,19 @@ Deno.serve(async (req) => {
       planRegionMap.set(pr.plan_id, arr);
     }
 
-    function resolveDefaultGB(rec: any): number {
+    function resolveDefaultGB(rec: any, inboundRemark?: string): number {
       const planInfo = rec.plan_id ? planMap.get(rec.plan_id) : null;
-      const planCategory = planInfo?.category || "";
+      let planCategory = planInfo?.category || "";
       const regionIds: string[] = [];
       if (planInfo?.region_id) regionIds.push(planInfo.region_id);
       if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
         for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
+      }
+      // Fallback category inference from inbound remark text (e.g. "美国住宅共享224" -> shared)
+      if (!planCategory && inboundRemark) {
+        const rk = String(inboundRemark).toLowerCase();
+        if (rk.includes("共享") || rk.includes("shared")) planCategory = "shared";
+        else if (rk.includes("独享") || rk.includes("exclusive")) planCategory = "exclusive";
       }
       // Priority 1: scope=plan with matching plan_id
       const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec.plan_id);
