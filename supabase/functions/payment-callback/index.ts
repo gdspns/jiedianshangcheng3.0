@@ -405,11 +405,13 @@ async function addClientTraffic(
     newTotal = newTotal + addBytes;
   } else {
     // Standard protocol: increase per-client totalGB (which is stored in bytes)
+    // Also re-enable the client in case xray disabled it after hitting the previous quota.
     const settings = JSON.parse(inbound.settings || "{}");
     let found = false;
     for (const entry of settings.clients || []) {
       if (entry.email === email) {
         entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
+        entry.enable = true;
         found = true;
         break;
       }
