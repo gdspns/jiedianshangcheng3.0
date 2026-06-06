@@ -396,29 +396,49 @@ export default function ClientPortal() {
     };
   }, []);
 
-  // Realtime refresh: poll used traffic from 3x panel every 15s while logged in
+  // Realtime push: subscribe to SSE stream from edge function `traffic-stream`,
+  // which polls 3x-ui server-side and pushes used-traffic updates as they change.
   useEffect(() => {
     if (!clientDataLoaded) return;
     const uuid = localStorage.getItem("portal_uuid");
     if (!uuid || uuid === "游客_未登录") return;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const res: any = await lookupClient(uuid);
-        if (cancelled || !res?.success) return;
-        setClientData((prev) => ({
-          ...prev,
-          trafficUsed: normalizeTrafficGB(res.trafficUsed ?? prev.trafficUsed),
-        }));
-      } catch {}
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const url = `${supabaseUrl}/functions/v1/traffic-stream?uuid=${encodeURIComponent(uuid)}&apikey=${encodeURIComponent(anonKey)}`;
+
+    let es: EventSource | null = null;
+    let retryTimer: number | undefined;
+    let closed = false;
+
+    const apply = (snap: { trafficUsed?: number; trafficTotal?: number }) => {
+      setClientData((prev) => ({
+        ...prev,
+        trafficUsed: normalizeTrafficGB(snap.trafficUsed ?? prev.trafficUsed),
+      }));
     };
-    const id = setInterval(tick, 15000);
-    const onVis = () => { if (document.visibilityState === "visible") tick(); };
-    document.addEventListener("visibilitychange", onVis);
+
+    const connect = () => {
+      if (closed) return;
+      es = new EventSource(url);
+      es.addEventListener("traffic", (e: MessageEvent) => {
+        try { apply(JSON.parse(e.data)); } catch {}
+      });
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (closed) return;
+        // Auto-reconnect with backoff
+        retryTimer = window.setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
     return () => {
-      cancelled = true;
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", onVis);
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
     };
   }, [clientDataLoaded]);
 
