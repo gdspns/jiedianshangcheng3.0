@@ -396,6 +396,32 @@ export default function ClientPortal() {
     };
   }, []);
 
+  // Realtime refresh: poll used traffic from 3x panel every 15s while logged in
+  useEffect(() => {
+    if (!clientDataLoaded) return;
+    const uuid = localStorage.getItem("portal_uuid");
+    if (!uuid || uuid === "游客_未登录") return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res: any = await lookupClient(uuid);
+        if (cancelled || !res?.success) return;
+        setClientData((prev) => ({
+          ...prev,
+          trafficUsed: normalizeTrafficGB(res.trafficUsed ?? prev.trafficUsed),
+        }));
+      } catch {}
+    };
+    const id = setInterval(tick, 15000);
+    const onVis = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [clientDataLoaded]);
+
   // Merge plan_regions + inbound_plans into a combined plan-region mapping
   const mergedPlanRegions = useMemo(() => {
     const result = [...dynamicPlanRegions];
