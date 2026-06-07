@@ -684,6 +684,7 @@ Deno.serve(async (req) => {
             );
           } else {
             const durationDays = order.duration_days || (order.months * 30);
+            const defaultGB = await resolveRenewalDefaultGB(supabase, order.uuid, foundClient.inboundRemark || "");
             success = await extendExpiry(
               foundPanel.panel_url,
               foundCookie,
@@ -692,6 +693,7 @@ Deno.serve(async (req) => {
               foundClient.expiryTime,
               durationDays,
               foundClient.isSocks5,
+              defaultGB > 0 ? defaultGB * GB : 0,
             );
           }
           if (success) {
