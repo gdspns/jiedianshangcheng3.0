@@ -5,6 +5,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const GB = 1073741824;
+
+function normalizeTrafficLimitBytes(value: any): number {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1024 * 1024 ? n * GB : n;
+}
+
 function trafficUsedBytes(up: any, down: any): number {
   const u = Number(up || 0);
   const d = Number(down || 0);
