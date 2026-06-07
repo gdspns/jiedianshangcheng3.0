@@ -351,6 +351,28 @@ async function findClient(panelUrl: string, cookie: string, identifier: string) 
 }
 
 // Extend client expiry via 3x-ui API
+async function resetClientTrafficByKeys(baseUrl: string, cookie: string, inboundId: number, keys: string[], label: string): Promise<boolean> {
+  const uniqueKeys = [...new Set(keys.filter((v) => typeof v === "string" && v.length > 0))];
+  for (const key of uniqueKeys) {
+    try {
+      const resetRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(key)}`, {
+        method: "POST",
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+      const resetText = await resetRes.text();
+      console.log(`${label} resetClientTraffic key=${key} result:`, resetText);
+      try {
+        if (JSON.parse(resetText)?.success === true) return true;
+      } catch {
+        if (resetRes.ok && resetText.toLowerCase().includes("success")) return true;
+      }
+    } catch (err) {
+      console.error(`${label} resetClientTraffic key=${key} failed:`, err);
+    }
+  }
+  return false;
+}
+
 async function extendExpiry(
   panelUrl: string,
   cookie: string,
@@ -360,6 +382,8 @@ async function extendExpiry(
   durationDays: number,
   isSocks5: boolean,
   renewalDefaultBytes = 0,
+  observedUsedBytes = 0,
+  observedTotalBytes = 0,
 ): Promise<boolean> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
 
@@ -377,8 +401,9 @@ async function extendExpiry(
     if (!inboundData?.success || !inboundData?.obj) return false;
 
     const inbound = inboundData.obj;
-    const currentTotal = normalizeTrafficLimitBytes(inbound.total);
-    const isOverQuota = currentTotal > 0 && trafficUsedBytes(inbound.up, inbound.down) >= currentTotal;
+    const currentTotal = normalizeTrafficLimitBytes(inbound.total) || normalizeTrafficLimitBytes(observedTotalBytes);
+    const currentUsed = Math.max(trafficUsedBytes(inbound.up, inbound.down), Number(observedUsedBytes || 0));
+    const isOverQuota = currentTotal > 0 && currentUsed >= currentTotal;
 
     const formData = new URLSearchParams();
     formData.append("up", String(isOverQuota ? 0 : inbound.up));
@@ -425,9 +450,10 @@ async function extendExpiry(
     targetClient?.pass,
   ].filter((v): v is string => typeof v === "string" && v.length > 0);
   const clientStats = inbound.clientStats?.find((s: any) => typeof s?.email === "string" && statKeys.includes(s.email));
-  const currentTotal = normalizeTrafficLimitBytes(targetClient.totalGB || clientStats?.total);
-  const currentUsed = trafficUsedBytes(clientStats?.up, clientStats?.down);
-  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || (!clientStats && targetClient.enable === false));
+  const currentTotal = normalizeTrafficLimitBytes(targetClient.totalGB || clientStats?.total) || normalizeTrafficLimitBytes(observedTotalBytes);
+  const currentUsed = Math.max(trafficUsedBytes(clientStats?.up, clientStats?.down), Number(observedUsedBytes || 0));
+  const currentEnable = clientStats?.enable ?? targetClient.enable;
+  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || currentEnable === false);
 
   let found = false;
   let updatedClient: any = null;
@@ -460,18 +486,8 @@ async function extendExpiry(
   }
   if (!found) return false;
 
-  if (isOverQuota) {
-    try {
-      const resetKey = clientStats?.email || email;
-      const resetRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(resetKey)}`, {
-        method: "POST",
-        headers: { Cookie: cookie, Accept: "application/json" },
-      });
-      console.log("resetClientTraffic on renewal result:", await resetRes.text());
-    } catch (err) {
-      console.error("resetClientTraffic on renewal failed:", err);
-    }
-  }
+  const resetKeys = [clientStats?.email, targetClient?.id, targetClient?.password, targetClient?.pass, targetClient?.email, email];
+  const resetOk = isOverQuota ? await resetClientTrafficByKeys(baseUrl, cookie, inboundId, resetKeys, "renewal") : true;
 
   if (clientKey && updatedClient) {
     const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
@@ -481,7 +497,7 @@ async function extendExpiry(
     });
     const clientBody = await clientRes.json();
     console.log("Renew update client result:", clientBody);
-    if (clientBody?.success === true) return true;
+    if (clientBody?.success === true) return !isOverQuota || resetOk;
   }
 
   const formData = new URLSearchParams();
@@ -719,6 +735,8 @@ Deno.serve(async (req) => {
               durationDays,
               foundClient.isSocks5,
               defaultGB > 0 ? defaultGB * GB : 0,
+              foundClient.usedBytes || 0,
+              foundClient.totalBytes || 0,
             );
           }
           if (success) {
