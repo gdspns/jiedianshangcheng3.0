@@ -266,6 +266,8 @@ async function extendExpiry(
   }
 
   let found = false;
+  let updatedClient: any = null;
+  let clientKey = "";
   const newExpiryDate = new Date(newExpiry);
   const month = newExpiryDate.getMonth() + 1;
   const day = newExpiryDate.getDate();
@@ -276,11 +278,13 @@ async function extendExpiry(
       c.expiryTime = newExpiry;
       c.enable = true;
       if (isOverQuota && renewalDefaultBytes > 0) c.totalGB = renewalDefaultBytes;
+      clientKey = c.id || c.password || c.email || "";
       const matched = (c.email || "").match(dateRegex);
       if (matched) {
         const suffix = matched[0].includes("号") ? "号" : "日";
         c.email = c.email.replace(dateRegex, `${month}月${day}${suffix}到期`);
       }
+      updatedClient = c;
       found = true;
       break;
     }
@@ -296,6 +300,16 @@ async function extendExpiry(
     } catch (err) {
       console.error("resetClientTraffic on crypto renewal failed:", err);
     }
+  }
+
+  if (clientKey && updatedClient) {
+    const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ id: inboundId, settings: JSON.stringify({ clients: [updatedClient] }) }),
+    });
+    const clientBody = await clientRes.json();
+    if (clientBody?.success === true) return true;
   }
 
   const formData = new URLSearchParams();
