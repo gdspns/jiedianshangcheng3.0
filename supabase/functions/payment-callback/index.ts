@@ -446,6 +446,18 @@ async function extendExpiry(
       break;
     }
   }
+  if (!found) return false;
+
+  if (isOverQuota) {
+    try {
+      await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
+        method: "POST",
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+    } catch (err) {
+      console.error("resetClientTraffic on renewal failed:", err);
+    }
+  }
 
   const formData = new URLSearchParams();
   formData.append("up", String(inbound.up));
