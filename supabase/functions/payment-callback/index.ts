@@ -330,12 +330,18 @@ async function findClient(panelUrl: string, cookie: string, identifier: string) 
           const email = entry.email || inbound.remark || entry.user || entry.username || "";
           // SOCKS5 expiryTime is at inbound level, not account level
           const expiryTime = isSocks5 ? inbound.expiryTime || 0 : entry.expiryTime || 0;
+          const clientStats = inbound.clientStats?.find((s: any) => {
+            const statsKey = typeof s?.email === "string" ? s.email : "";
+            return statsKey.length > 0 && candidateKeys.includes(statsKey);
+          });
           return {
             inboundId: inbound.id,
             inboundRemark: inbound.remark || "",
             email,
             expiryTime,
             isSocks5,
+            usedBytes: isSocks5 ? trafficUsedBytes(inbound.up, inbound.down) : trafficUsedBytes(clientStats?.up, clientStats?.down),
+            totalBytes: isSocks5 ? normalizeTrafficLimitBytes(inbound.total) : normalizeTrafficLimitBytes(entry.totalGB || clientStats?.total),
           };
         }
       }
@@ -353,6 +359,7 @@ async function extendExpiry(
   currentExpiry: number,
   durationDays: number,
   isSocks5: boolean,
+  renewalDefaultBytes = 0,
 ): Promise<boolean> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
 
@@ -362,7 +369,7 @@ async function extendExpiry(
   const newExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
 
   if (isSocks5) {
-    // SOCKS5: reset traffic at inbound level (set up/down to 0) and update inbound expiryTime
+    // SOCKS5: if already over quota, start the renewed period fresh.
     const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
       headers: { Cookie: cookie, Accept: "application/json" },
     });
@@ -370,12 +377,13 @@ async function extendExpiry(
     if (!inboundData?.success || !inboundData?.obj) return false;
 
     const inbound = inboundData.obj;
+    const currentTotal = normalizeTrafficLimitBytes(inbound.total);
+    const isOverQuota = currentTotal > 0 && trafficUsedBytes(inbound.up, inbound.down) >= currentTotal;
 
     const formData = new URLSearchParams();
-    // Do NOT reset up/down — preserve used traffic on renewal
-    formData.append("up", String(inbound.up));
-    formData.append("down", String(inbound.down));
-    formData.append("total", String(inbound.total));
+    formData.append("up", String(isOverQuota ? 0 : inbound.up));
+    formData.append("down", String(isOverQuota ? 0 : inbound.down));
+    formData.append("total", String(isOverQuota && renewalDefaultBytes > 0 ? renewalDefaultBytes : inbound.total));
     formData.append("remark", inbound.remark || "");
     formData.append("enable", String(inbound.enable));
     formData.append("expiryTime", String(newExpiry));
@@ -397,9 +405,8 @@ async function extendExpiry(
     return updateBody?.success === true;
   }
 
-  // Standard protocol (VMESS/VLESS/Trojan): update client expiryTime only, do NOT reset traffic
-
-
+  // Standard protocol (VMESS/VLESS/Trojan): normally only update expiryTime.
+  // If the client is already over quota, reset used traffic and restore the configured default total.
   const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
     headers: { Cookie: cookie, Accept: "application/json" },
   });
@@ -408,6 +415,11 @@ async function extendExpiry(
 
   const inbound = inboundData.obj;
   const settings = JSON.parse(inbound.settings || "{}");
+  const clientStats = inbound.clientStats?.find((s: any) => s?.email === email);
+  const currentTotal = normalizeTrafficLimitBytes(
+    (settings.clients || []).find((entry: any) => entry.email === email)?.totalGB || clientStats?.total,
+  );
+  const isOverQuota = currentTotal > 0 && trafficUsedBytes(clientStats?.up, clientStats?.down) >= currentTotal;
 
   let found = false;
   // Build updated remark with new expiry date
@@ -420,6 +432,8 @@ async function extendExpiry(
     const entryEmail = entry.email || "";
     if (entryEmail === email) {
       entry.expiryTime = newExpiry;
+      entry.enable = true;
+      if (isOverQuota && renewalDefaultBytes > 0) entry.totalGB = renewalDefaultBytes;
       // Update remark to reflect new expiry date — works for both 自助 prefixed
       // and manually-added clients (e.g. "独享4月24号到期哇哈哈哈哈")
       if (dateRegex.test(entryEmail)) {
