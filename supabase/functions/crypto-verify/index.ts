@@ -210,17 +210,21 @@ async function addClientTraffic(
   return updateBody?.success === true;
 }
 
-// Extend client expiry
-async function extendExpiry(panelUrl: string, cookie: string, inboundId: number, email: string, currentExpiry: number, durationDays: number): Promise<boolean> {
+// Extend client expiry; if already over quota, start the renewed period with fresh default traffic.
+async function extendExpiry(
+  panelUrl: string,
+  cookie: string,
+  inboundId: number,
+  email: string,
+  currentExpiry: number,
+  durationDays: number,
+  isSocks5: boolean,
+  renewalDefaultBytes = 0,
+): Promise<boolean> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
   const now = Date.now();
   const baseTime = (currentExpiry > 0 && currentExpiry > now) ? currentExpiry : now;
   const newExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
-
-  // Do NOT reset traffic on renewal — only extend expiry
-
-
-  // Get inbound detail
   const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
     headers: { Cookie: cookie, Accept: "application/json" },
   });
@@ -229,6 +233,38 @@ async function extendExpiry(panelUrl: string, cookie: string, inboundId: number,
 
   const inbound = inboundData.obj;
   const settings = JSON.parse(inbound.settings || "{}");
+  const clientStats = inbound.clientStats?.find((s: any) => s?.email === email);
+  const currentTotal = isSocks5
+    ? normalizeTrafficLimitBytes(inbound.total)
+    : normalizeTrafficLimitBytes((settings.clients || []).find((c: any) => c.email === email)?.totalGB || clientStats?.total);
+  const isOverQuota = currentTotal > 0 && (isSocks5
+    ? trafficUsedBytes(inbound.up, inbound.down)
+    : trafficUsedBytes(clientStats?.up, clientStats?.down)) >= currentTotal;
+
+  if (isSocks5) {
+    const formData = new URLSearchParams();
+    formData.append("up", String(isOverQuota ? 0 : inbound.up));
+    formData.append("down", String(isOverQuota ? 0 : inbound.down));
+    formData.append("total", String(isOverQuota && renewalDefaultBytes > 0 ? renewalDefaultBytes : inbound.total));
+    formData.append("remark", inbound.remark || "");
+    formData.append("enable", String(inbound.enable));
+    formData.append("expiryTime", String(newExpiry));
+    formData.append("listen", inbound.listen || "");
+    formData.append("port", String(inbound.port));
+    formData.append("protocol", inbound.protocol);
+    formData.append("settings", inbound.settings || "{}");
+    formData.append("streamSettings", inbound.streamSettings || "");
+    formData.append("sniffing", inbound.sniffing || "");
+    formData.append("allocate", inbound.allocate || "");
+    const updateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inboundId}`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    });
+    const updateBody = await updateRes.json();
+    return updateBody?.success === true;
+  }
+
   let found = false;
   const newExpiryDate = new Date(newExpiry);
   const month = newExpiryDate.getMonth() + 1;
@@ -238,6 +274,8 @@ async function extendExpiry(panelUrl: string, cookie: string, inboundId: number,
   for (const c of settings.clients || []) {
     if (c.email === email) {
       c.expiryTime = newExpiry;
+      c.enable = true;
+      if (isOverQuota && renewalDefaultBytes > 0) c.totalGB = renewalDefaultBytes;
       const matched = (c.email || "").match(dateRegex);
       if (matched) {
         const suffix = matched[0].includes("号") ? "号" : "日";
@@ -248,6 +286,17 @@ async function extendExpiry(panelUrl: string, cookie: string, inboundId: number,
     }
   }
   if (!found) return false;
+
+  if (isOverQuota) {
+    try {
+      await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
+        method: "POST",
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+    } catch (err) {
+      console.error("resetClientTraffic on crypto renewal failed:", err);
+    }
+  }
 
   const formData = new URLSearchParams();
   formData.append("up", String(inbound.up));
