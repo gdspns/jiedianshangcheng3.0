@@ -233,13 +233,20 @@ async function extendExpiry(
 
   const inbound = inboundData.obj;
   const settings = JSON.parse(inbound.settings || "{}");
-  const clientStats = inbound.clientStats?.find((s: any) => s?.email === email);
+  const targetClient = (settings.clients || []).find((c: any) => c.email === email);
+  const statKeys = [
+    email,
+    targetClient?.email,
+    targetClient?.id,
+    targetClient?.password,
+    targetClient?.pass,
+  ].filter((v: any): v is string => typeof v === "string" && v.length > 0);
+  const clientStats = inbound.clientStats?.find((s: any) => typeof s?.email === "string" && statKeys.includes(s.email));
   const currentTotal = isSocks5
     ? normalizeTrafficLimitBytes(inbound.total)
-    : normalizeTrafficLimitBytes((settings.clients || []).find((c: any) => c.email === email)?.totalGB || clientStats?.total);
-  const isOverQuota = currentTotal > 0 && (isSocks5
-    ? trafficUsedBytes(inbound.up, inbound.down)
-    : trafficUsedBytes(clientStats?.up, clientStats?.down)) >= currentTotal;
+    : normalizeTrafficLimitBytes(targetClient?.totalGB || clientStats?.total);
+  const currentUsed = isSocks5 ? trafficUsedBytes(inbound.up, inbound.down) : trafficUsedBytes(clientStats?.up, clientStats?.down);
+  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || (!isSocks5 && !clientStats && targetClient?.enable === false));
 
   if (isSocks5) {
     const formData = new URLSearchParams();
@@ -274,7 +281,7 @@ async function extendExpiry(
   // Match "X月X日到期" or "X月X号到期" — works for 自助 prefix and manually-added clients
   const dateRegex = /(\d+)月(\d+)[日号]到期/;
   for (const c of settings.clients || []) {
-    if (c.email === email) {
+    if (c === targetClient) {
       c.expiryTime = newExpiry;
       c.enable = true;
       if (isOverQuota && renewalDefaultBytes > 0) c.totalGB = renewalDefaultBytes;
@@ -293,10 +300,12 @@ async function extendExpiry(
 
   if (isOverQuota) {
     try {
-      await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
+      const resetKey = clientStats?.email || email;
+      const resetRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(resetKey)}`, {
         method: "POST",
         headers: { Cookie: cookie, Accept: "application/json" },
       });
+      console.log("resetClientTraffic on crypto renewal result:", await resetRes.text());
     } catch (err) {
       console.error("resetClientTraffic on crypto renewal failed:", err);
     }
