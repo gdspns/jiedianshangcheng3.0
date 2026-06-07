@@ -422,6 +422,8 @@ async function extendExpiry(
   const isOverQuota = currentTotal > 0 && trafficUsedBytes(clientStats?.up, clientStats?.down) >= currentTotal;
 
   let found = false;
+  let updatedClient: any = null;
+  let clientKey = "";
   // Build updated remark with new expiry date
   const newExpiryDate = new Date(newExpiry);
   const month = newExpiryDate.getMonth() + 1;
@@ -434,6 +436,7 @@ async function extendExpiry(
       entry.expiryTime = newExpiry;
       entry.enable = true;
       if (isOverQuota && renewalDefaultBytes > 0) entry.totalGB = renewalDefaultBytes;
+      clientKey = entry.id || entry.password || entry.email || "";
       // Update remark to reflect new expiry date — works for both 自助 prefixed
       // and manually-added clients (e.g. "独享4月24号到期哇哈哈哈哈")
       if (dateRegex.test(entryEmail)) {
@@ -442,6 +445,7 @@ async function extendExpiry(
         const suffix = matched && matched[0].includes("号") ? "号" : "日";
         entry.email = entryEmail.replace(dateRegex, `${month}月${day}${suffix}到期`);
       }
+      updatedClient = entry;
       found = true;
       break;
     }
@@ -457,6 +461,17 @@ async function extendExpiry(
     } catch (err) {
       console.error("resetClientTraffic on renewal failed:", err);
     }
+  }
+
+  if (clientKey && updatedClient) {
+    const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ id: inboundId, settings: JSON.stringify({ clients: [updatedClient] }) }),
+    });
+    const clientBody = await clientRes.json();
+    console.log("Renew update client result:", clientBody);
+    if (clientBody?.success === true) return true;
   }
 
   const formData = new URLSearchParams();
