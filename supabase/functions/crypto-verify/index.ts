@@ -459,7 +459,17 @@ Deno.serve(async (req) => {
             success = await addClientTraffic(p.panel_url, cookie, client.inboundId, client.email, addBytes, client.isSocks5);
           } else {
             const durationDays = order.duration_days || (order.months * 30);
-            success = await extendExpiry(p.panel_url, cookie, client.inboundId, client.email, client.expiryTime, durationDays);
+            const defaultGB = await resolveRenewalDefaultGB(supabase, order.uuid, client.inboundRemark || "");
+            success = await extendExpiry(
+              p.panel_url,
+              cookie,
+              client.inboundId,
+              client.email,
+              client.expiryTime,
+              durationDays,
+              client.isSocks5,
+              defaultGB > 0 ? defaultGB * GB : 0,
+            );
           }
           if (success) {
             await supabase.from("orders").update({
