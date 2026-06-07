@@ -415,11 +415,19 @@ async function extendExpiry(
 
   const inbound = inboundData.obj;
   const settings = JSON.parse(inbound.settings || "{}");
-  const clientStats = inbound.clientStats?.find((s: any) => s?.email === email);
-  const currentTotal = normalizeTrafficLimitBytes(
-    (settings.clients || []).find((entry: any) => entry.email === email)?.totalGB || clientStats?.total,
-  );
-  const isOverQuota = currentTotal > 0 && trafficUsedBytes(clientStats?.up, clientStats?.down) >= currentTotal;
+  const targetClient = (settings.clients || []).find((entry: any) => entry.email === email);
+  if (!targetClient) return false;
+  const statKeys = [
+    email,
+    targetClient?.email,
+    targetClient?.id,
+    targetClient?.password,
+    targetClient?.pass,
+  ].filter((v): v is string => typeof v === "string" && v.length > 0);
+  const clientStats = inbound.clientStats?.find((s: any) => typeof s?.email === "string" && statKeys.includes(s.email));
+  const currentTotal = normalizeTrafficLimitBytes(targetClient.totalGB || clientStats?.total);
+  const currentUsed = trafficUsedBytes(clientStats?.up, clientStats?.down);
+  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || (!clientStats && targetClient.enable === false));
 
   let found = false;
   let updatedClient: any = null;
@@ -432,7 +440,7 @@ async function extendExpiry(
   const dateRegex = /(\d+)月(\d+)[日号]到期/;
   for (const entry of settings.clients || []) {
     const entryEmail = entry.email || "";
-    if (entryEmail === email) {
+    if (entry === targetClient) {
       entry.expiryTime = newExpiry;
       entry.enable = true;
       if (isOverQuota && renewalDefaultBytes > 0) entry.totalGB = renewalDefaultBytes;
@@ -454,10 +462,12 @@ async function extendExpiry(
 
   if (isOverQuota) {
     try {
-      await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
+      const resetKey = clientStats?.email || email;
+      const resetRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(resetKey)}`, {
         method: "POST",
         headers: { Cookie: cookie, Accept: "application/json" },
       });
+      console.log("resetClientTraffic on renewal result:", await resetRes.text());
     } catch (err) {
       console.error("resetClientTraffic on renewal failed:", err);
     }
