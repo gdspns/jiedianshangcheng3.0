@@ -735,6 +735,8 @@ Deno.serve(async (req) => {
               durationDays,
               foundClient.isSocks5,
               defaultGB > 0 ? defaultGB * GB : 0,
+              foundClient.usedBytes || 0,
+              foundClient.totalBytes || 0,
             );
           }
           if (success) {
