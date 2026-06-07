@@ -183,6 +183,85 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const GB = 1073741824;
+
+function normalizeTrafficLimitBytes(value: any): number {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1024 * 1024 ? n * GB : n;
+}
+
+function trafficUsedBytes(up: any, down: any): number {
+  const u = Number(up || 0);
+  const d = Number(down || 0);
+  return (Number.isFinite(u) ? u : 0) + (Number.isFinite(d) ? d : 0);
+}
+
+async function resolveRenewalDefaultGB(supabase: any, uuid: string, inboundRemark: string): Promise<number> {
+  const { data: rec } = await supabase
+    .from("client_records")
+    .select("plan_id, default_traffic_gb")
+    .eq("uuid", uuid)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: rules } = await supabase
+    .from("traffic_default_rules")
+    .select("*")
+    .eq("enabled", true)
+    .order("sort_order", { ascending: true });
+  const { data: plans } = await supabase.from("plans").select("id, category, region_id");
+  const { data: planRegions } = await supabase.from("plan_regions").select("plan_id, region_id");
+  const { data: regionsList } = await supabase.from("regions").select("id, name");
+
+  const planMap = new Map<string, { category: string; region_id: string | null }>();
+  for (const p of plans || []) planMap.set(p.id, { category: p.category || "", region_id: p.region_id || null });
+  const planRegionMap = new Map<string, string[]>();
+  for (const pr of planRegions || []) {
+    const arr = planRegionMap.get(pr.plan_id) || [];
+    arr.push(pr.region_id);
+    planRegionMap.set(pr.plan_id, arr);
+  }
+
+  const planInfo = rec?.plan_id ? planMap.get(rec.plan_id) : null;
+  let planCategory = planInfo?.category || "";
+  const regionIds: string[] = [];
+  if (planInfo?.region_id) regionIds.push(planInfo.region_id);
+  if (rec?.plan_id && planRegionMap.has(rec.plan_id)) {
+    for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
+  }
+  if (inboundRemark) {
+    const remark = String(inboundRemark);
+    for (const r of regionsList || []) {
+      if (r?.name && remark.includes(String(r.name)) && !regionIds.includes(r.id)) regionIds.push(r.id);
+    }
+    if (!planCategory) {
+      const lower = remark.toLowerCase();
+      if (lower.includes("共享") || lower.includes("shared")) planCategory = "shared";
+      else if (lower.includes("独享") || lower.includes("exclusive")) planCategory = "exclusive";
+    }
+  }
+
+  const byPlan = (rules || []).find((r: any) => r.scope === "plan" && r.plan_id && r.plan_id === rec?.plan_id);
+  if (byPlan) return Number(byPlan.default_traffic_gb) || 0;
+  const byRegion = (rules || []).find((r: any) => r.scope === "region" && r.region_id && regionIds.includes(r.region_id));
+  if (byRegion) return Number(byRegion.default_traffic_gb) || 0;
+  if (planCategory) {
+    const cat = String(planCategory).toLowerCase();
+    const normalized = cat.includes("exclusive") ? "exclusive" : cat.includes("shared") ? "shared" : cat;
+    const byCat = (rules || []).find((r: any) => r.scope === normalized);
+    if (byCat) return Number(byCat.default_traffic_gb) || 0;
+  }
+  const byAll = (rules || []).find((r: any) => r.scope === "all");
+  if (byAll) return Number(byAll.default_traffic_gb) || 0;
+  const byExc = (rules || []).find((r: any) => r.scope === "exclusive");
+  if (byExc) return Number(byExc.default_traffic_gb) || 0;
+  const byShr = (rules || []).find((r: any) => r.scope === "shared");
+  if (byShr) return Number(byShr.default_traffic_gb) || 0;
+  return Number(rec?.default_traffic_gb) || 0;
+}
+
 // Helper: fetch with automatic HTTP fallback
 async function fetchUnsafe(url: string, init?: RequestInit): Promise<Response> {
   try {
@@ -251,12 +330,18 @@ async function findClient(panelUrl: string, cookie: string, identifier: string) 
           const email = entry.email || inbound.remark || entry.user || entry.username || "";
           // SOCKS5 expiryTime is at inbound level, not account level
           const expiryTime = isSocks5 ? inbound.expiryTime || 0 : entry.expiryTime || 0;
+          const clientStats = inbound.clientStats?.find((s: any) => {
+            const statsKey = typeof s?.email === "string" ? s.email : "";
+            return statsKey.length > 0 && candidateKeys.includes(statsKey);
+          });
           return {
             inboundId: inbound.id,
             inboundRemark: inbound.remark || "",
             email,
             expiryTime,
             isSocks5,
+            usedBytes: isSocks5 ? trafficUsedBytes(inbound.up, inbound.down) : trafficUsedBytes(clientStats?.up, clientStats?.down),
+            totalBytes: isSocks5 ? normalizeTrafficLimitBytes(inbound.total) : normalizeTrafficLimitBytes(entry.totalGB || clientStats?.total),
           };
         }
       }
@@ -274,6 +359,7 @@ async function extendExpiry(
   currentExpiry: number,
   durationDays: number,
   isSocks5: boolean,
+  renewalDefaultBytes = 0,
 ): Promise<boolean> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
 
@@ -283,7 +369,7 @@ async function extendExpiry(
   const newExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
 
   if (isSocks5) {
-    // SOCKS5: reset traffic at inbound level (set up/down to 0) and update inbound expiryTime
+    // SOCKS5: if already over quota, start the renewed period fresh.
     const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
       headers: { Cookie: cookie, Accept: "application/json" },
     });
@@ -291,12 +377,13 @@ async function extendExpiry(
     if (!inboundData?.success || !inboundData?.obj) return false;
 
     const inbound = inboundData.obj;
+    const currentTotal = normalizeTrafficLimitBytes(inbound.total);
+    const isOverQuota = currentTotal > 0 && trafficUsedBytes(inbound.up, inbound.down) >= currentTotal;
 
     const formData = new URLSearchParams();
-    // Do NOT reset up/down — preserve used traffic on renewal
-    formData.append("up", String(inbound.up));
-    formData.append("down", String(inbound.down));
-    formData.append("total", String(inbound.total));
+    formData.append("up", String(isOverQuota ? 0 : inbound.up));
+    formData.append("down", String(isOverQuota ? 0 : inbound.down));
+    formData.append("total", String(isOverQuota && renewalDefaultBytes > 0 ? renewalDefaultBytes : inbound.total));
     formData.append("remark", inbound.remark || "");
     formData.append("enable", String(inbound.enable));
     formData.append("expiryTime", String(newExpiry));
@@ -318,9 +405,8 @@ async function extendExpiry(
     return updateBody?.success === true;
   }
 
-  // Standard protocol (VMESS/VLESS/Trojan): update client expiryTime only, do NOT reset traffic
-
-
+  // Standard protocol (VMESS/VLESS/Trojan): normally only update expiryTime.
+  // If the client is already over quota, reset used traffic and restore the configured default total.
   const inboundRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/get/${inboundId}`, {
     headers: { Cookie: cookie, Accept: "application/json" },
   });
@@ -329,8 +415,15 @@ async function extendExpiry(
 
   const inbound = inboundData.obj;
   const settings = JSON.parse(inbound.settings || "{}");
+  const clientStats = inbound.clientStats?.find((s: any) => s?.email === email);
+  const currentTotal = normalizeTrafficLimitBytes(
+    (settings.clients || []).find((entry: any) => entry.email === email)?.totalGB || clientStats?.total,
+  );
+  const isOverQuota = currentTotal > 0 && trafficUsedBytes(clientStats?.up, clientStats?.down) >= currentTotal;
 
   let found = false;
+  let updatedClient: any = null;
+  let clientKey = "";
   // Build updated remark with new expiry date
   const newExpiryDate = new Date(newExpiry);
   const month = newExpiryDate.getMonth() + 1;
@@ -341,6 +434,9 @@ async function extendExpiry(
     const entryEmail = entry.email || "";
     if (entryEmail === email) {
       entry.expiryTime = newExpiry;
+      entry.enable = true;
+      if (isOverQuota && renewalDefaultBytes > 0) entry.totalGB = renewalDefaultBytes;
+      clientKey = entry.id || entry.password || entry.email || "";
       // Update remark to reflect new expiry date — works for both 自助 prefixed
       // and manually-added clients (e.g. "独享4月24号到期哇哈哈哈哈")
       if (dateRegex.test(entryEmail)) {
@@ -349,9 +445,33 @@ async function extendExpiry(
         const suffix = matched && matched[0].includes("号") ? "号" : "日";
         entry.email = entryEmail.replace(dateRegex, `${month}月${day}${suffix}到期`);
       }
+      updatedClient = entry;
       found = true;
       break;
     }
+  }
+  if (!found) return false;
+
+  if (isOverQuota) {
+    try {
+      await fetchUnsafe(`${baseUrl}/panel/api/inbounds/${inboundId}/resetClientTraffic/${encodeURIComponent(email)}`, {
+        method: "POST",
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+    } catch (err) {
+      console.error("resetClientTraffic on renewal failed:", err);
+    }
+  }
+
+  if (clientKey && updatedClient) {
+    const clientRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ id: inboundId, settings: JSON.stringify({ clients: [updatedClient] }) }),
+    });
+    const clientBody = await clientRes.json();
+    console.log("Renew update client result:", clientBody);
+    if (clientBody?.success === true) return true;
   }
 
   const formData = new URLSearchParams();
@@ -579,6 +699,7 @@ Deno.serve(async (req) => {
             );
           } else {
             const durationDays = order.duration_days || (order.months * 30);
+            const defaultGB = await resolveRenewalDefaultGB(supabase, order.uuid, foundClient.inboundRemark || "");
             success = await extendExpiry(
               foundPanel.panel_url,
               foundCookie,
@@ -587,6 +708,7 @@ Deno.serve(async (req) => {
               foundClient.expiryTime,
               durationDays,
               foundClient.isSocks5,
+              defaultGB > 0 ? defaultGB * GB : 0,
             );
           }
           if (success) {
