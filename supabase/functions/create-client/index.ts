@@ -568,7 +568,7 @@ Deno.serve(async (req) => {
 
     // Record client baseline for auto-reset-traffic feature
     try {
-      const matchedPlanId = matchedPlans && matchedPlans[0] ? (matchedPlans[0] as any).id : null;
+      // matchedPlanId resolved above based on the actual region_inbound chosen
       await supabase.from("client_records").insert({
         uuid: clientUuid,
         plan_id: matchedPlanId,
