@@ -309,12 +309,12 @@ Deno.serve(async (req) => {
     // 1. Find which plan was purchased by matching plan_name
     const { data: matchedPlans } = await supabase
       .from("plans")
-      .select("id, traffic_gb")
+      .select("id, traffic_gb, region_id")
       .eq("title", order.plan_name);
 
-    const planTrafficGB = Math.max(0, Math.floor(Number((matchedPlans && matchedPlans[0] && (matchedPlans[0] as any).traffic_gb) || 0)));
-    const planTrafficBytes = planTrafficGB * 1073741824;
-    
+    let planTrafficGB = Math.max(0, Math.floor(Number((matchedPlans && matchedPlans[0] && (matchedPlans[0] as any).traffic_gb) || 0)));
+    let matchedPlanId: string | null = matchedPlans && matchedPlans[0] ? (matchedPlans[0] as any).id : null;
+
     let foundViaInboundPlans = false;
     let targetRegionInboundId: string | null = null;
     let stockPoolIds: string[] = [];
@@ -325,11 +325,11 @@ Deno.serve(async (req) => {
       // 2. Look up inbound_plans for this plan
       const { data: inboundPlanRows } = await supabase
         .from("inbound_plans")
-        .select("region_inbound_id")
+        .select("region_inbound_id, plan_id")
         .in("plan_id", planIds);
       
       if (inboundPlanRows && inboundPlanRows.length > 0) {
-        const candidateIds = inboundPlanRows.map((ip: any) => ip.region_inbound_id);
+        const candidateIds = Array.from(new Set(inboundPlanRows.map((ip: any) => ip.region_inbound_id)));
         
         // 3. Fetch all candidate region_inbounds, sorted by sort_order
         const { data: candidateInbounds } = await supabase
@@ -365,6 +365,23 @@ Deno.serve(async (req) => {
           foundViaInboundPlans = true;
           if (available.protocol) salesProtocol = available.protocol;
 
+          // Resolve the exact plan tied to this region_inbound (avoid title collisions
+          // across regions giving the wrong traffic_gb). Prefer plans whose region_id
+          // matches the chosen inbound's region; fall back to any mapped plan.
+          const mappedPlanIds = inboundPlanRows
+            .filter((ip: any) => ip.region_inbound_id === available.id)
+            .map((ip: any) => ip.plan_id);
+          if (mappedPlanIds.length > 0) {
+            const mappedPlans = matchedPlans.filter((p: any) => mappedPlanIds.includes(p.id));
+            const chosen =
+              mappedPlans.find((p: any) => p.region_id === available.region_id) ||
+              mappedPlans[0];
+            if (chosen) {
+              matchedPlanId = (chosen as any).id;
+              planTrafficGB = Math.max(0, Math.floor(Number((chosen as any).traffic_gb || 0)));
+            }
+          }
+
           // Override panel credentials if this inbound is bound to a specific panel
           if (available.panel_id) {
             const { data: boundPanel } = await supabase
@@ -381,6 +398,8 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    const planTrafficBytes = planTrafficGB * 1073741824;
     
     // Fallback: use region's legacy inbound_id if no inbound_plans mapping found
     if (!foundViaInboundPlans && regionId) {
