@@ -1530,6 +1530,9 @@ export default function ClientPortal() {
           {tab === "renew" && config && (
             <div className="animate-fade-in">
               <h2 className="text-2xl font-bold border-b border-border pb-4 mb-6">购买与续费</h2>
+              <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-700 dark:text-amber-300">
+                ⚠️ 续费仅延长有效期，<strong>不会重置已用流量</strong>。如流量不足，请前往「购买流量包」补充。
+              </div>
               {uuid === "游客_未登录" ? (
                 <div className="bg-muted border border-border p-8 rounded-2xl text-center">
                   <p className="text-muted-foreground">
@@ -1540,7 +1543,7 @@ export default function ClientPortal() {
                 <div className="bg-success/10 border border-success/20 p-8 rounded-2xl text-center">
                   <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" />
                   <h3 className="text-2xl font-bold mb-2">续费成功！</h3>
-                  <p className="text-muted-foreground mb-6">您的数据已实时同步至后台，流量已重置。</p>
+                  <p className="text-muted-foreground mb-6">有效期已延长，已用流量保持不变。</p>
                   <button
                     onClick={() => setTab("dashboard")}
                     className="bg-success text-success-foreground font-bold px-8 py-3 rounded-xl hover:opacity-90 transition-colors shadow-lg"
