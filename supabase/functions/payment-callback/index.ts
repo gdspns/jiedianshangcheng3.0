@@ -403,7 +403,10 @@ async function extendExpiry(
     const inbound = inboundData.obj;
     const currentTotal = normalizeTrafficLimitBytes(inbound.total) || normalizeTrafficLimitBytes(observedTotalBytes);
     const currentUsed = Math.max(trafficUsedBytes(inbound.up, inbound.down), Number(observedUsedBytes || 0));
-    const isOverQuota = currentTotal > 0 && currentUsed >= currentTotal;
+    // 续费仅延长有效期，不再重置已用流量/总流量（防止低价续费 = 无限流量漏洞）
+    // 流量不足请走"购买流量包"流程
+    const isOverQuota = false;
+    void currentTotal; void currentUsed;
 
     const formData = new URLSearchParams();
     formData.append("up", String(isOverQuota ? 0 : inbound.up));
@@ -453,7 +456,9 @@ async function extendExpiry(
   const currentTotal = normalizeTrafficLimitBytes(targetClient.totalGB || clientStats?.total) || normalizeTrafficLimitBytes(observedTotalBytes);
   const currentUsed = Math.max(trafficUsedBytes(clientStats?.up, clientStats?.down), Number(observedUsedBytes || 0));
   const currentEnable = clientStats?.enable ?? targetClient.enable;
-  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || currentEnable === false);
+  // 续费仅延长有效期，不重置流量；保留 enable=true 以便有效期内仍可使用剩余流量
+  const isOverQuota = false;
+  void currentTotal; void currentUsed; void currentEnable;
 
   let found = false;
   let updatedClient: any = null;

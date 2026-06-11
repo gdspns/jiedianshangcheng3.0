@@ -283,7 +283,9 @@ async function extendExpiry(
     : normalizeTrafficLimitBytes(targetClient?.totalGB || clientStats?.total)) || normalizeTrafficLimitBytes(observedTotalBytes);
   const currentUsed = Math.max(isSocks5 ? trafficUsedBytes(inbound.up, inbound.down) : trafficUsedBytes(clientStats?.up, clientStats?.down), Number(observedUsedBytes || 0));
   const currentEnable = isSocks5 ? inbound.enable : (clientStats?.enable ?? targetClient?.enable);
-  const isOverQuota = currentTotal > 0 && (currentUsed >= currentTotal || currentEnable === false);
+  // 续费仅延长有效期，不重置流量（防止低价续费 = 无限流量漏洞），流量不足请走"购买流量包"
+  const isOverQuota = false;
+  void currentTotal; void currentUsed; void currentEnable;
 
   if (isSocks5) {
     const formData = new URLSearchParams();
