@@ -621,6 +621,32 @@ async function verifyHupiSign(params: Record<string, string>, appSecret: string)
   return expectedHash.toLowerCase() === (params.hash || "").toLowerCase();
 }
 
+async function triggerCreateClientForBuyNew(orderId: string): Promise<boolean> {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const res = await fetch(`${baseUrl}/functions/v1/create-client`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+      },
+      body: JSON.stringify({ orderId }),
+    });
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.error("Buy-new create-client trigger failed:", { orderId, status: res.status, body: text });
+      return false;
+    }
+    console.log("Buy-new create-client trigger completed:", { orderId, body: text });
+    return true;
+  } catch (e) {
+    console.error("Buy-new create-client trigger error:", { orderId, error: String(e) });
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -769,7 +795,9 @@ Deno.serve(async (req) => {
           }
         }
       } else {
-        console.log("Buy-new order detected, skipping renewal. Client will call create-client.");
+        console.log("Buy-new order detected, triggering create-client from callback.");
+        const created = await triggerCreateClientForBuyNew(order.id);
+        finalStatus = created ? "fulfilled" : "paid";
       }
 
       // Send email notification via Resend

@@ -416,6 +416,32 @@ async function checkTrxTransactions(address: string, apiKey: string, expectedAmo
   return { found: false };
 }
 
+async function triggerCreateClientForBuyNew(orderId: string): Promise<boolean> {
+  try {
+    const baseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const res = await fetch(`${baseUrl}/functions/v1/create-client`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+      },
+      body: JSON.stringify({ orderId }),
+    });
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.error("Buy-new create-client trigger failed:", { orderId, status: res.status, body: text });
+      return false;
+    }
+    console.log("Buy-new create-client trigger completed:", { orderId, body: text });
+    return true;
+  } catch (e) {
+    console.error("Buy-new create-client trigger error:", { orderId, error: String(e) });
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -575,6 +601,10 @@ Deno.serve(async (req) => {
             console.error("Failed to send email notification:", emailErr);
           }
         }
+      }
+
+      if (isBuyNewOrder) {
+        fulfilled = await triggerCreateClientForBuyNew(order.id);
       }
 
       if (fulfilled) {
