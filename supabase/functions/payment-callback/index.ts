@@ -773,7 +773,9 @@ Deno.serve(async (req) => {
       }
 
       // Send email notification via Resend
-      if (config.resend_api_key && config.notify_email) {
+      // Skip for buy_new orders: create-client will send "🎉 新用户开通成功" after the client is provisioned,
+      // otherwise admin gets a misleading "待处理/未找到" email and the sweep is blocked by email_notified=true.
+      if (order.order_type !== "buy_new" && config.resend_api_key && config.notify_email) {
         try {
           const emRes = await fetch("https://api.resend.com/emails", {
             method: "POST",
