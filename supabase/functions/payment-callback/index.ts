@@ -775,7 +775,7 @@ Deno.serve(async (req) => {
       // Send email notification via Resend
       if (config.resend_api_key && config.notify_email) {
         try {
-          await fetch("https://api.resend.com/emails", {
+          const emRes = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${config.resend_api_key}`,
@@ -803,7 +803,12 @@ Deno.serve(async (req) => {
               `,
             }),
           });
-          console.log("Resend email sent successfully");
+          if (emRes.ok) {
+            console.log("Resend email sent successfully");
+            try { await supabase.from("orders").update({ email_notified: true }).eq("id", order.id); } catch (_) {}
+          } else {
+            console.error("Resend email failed:", emRes.status, await emRes.text().catch(() => ""));
+          }
         } catch (emailErr) {
           console.error("Resend email failed:", emailErr);
         }
