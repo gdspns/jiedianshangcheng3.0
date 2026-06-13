@@ -1,0 +1,1 @@
+UPDATE public.orders SET email_notified = TRUE WHERE status = 'fulfilled' AND email_notified = FALSE;
