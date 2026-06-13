@@ -1394,16 +1394,24 @@ export default function ClientPortal() {
                 </div>
                 <div className="bg-success/5 p-6 rounded-2xl border border-success/20">
                   <div className="text-success font-bold mb-2">本月流量使用情况</div>
-                  <div className="flex items-end mb-3">
-                    <span className="text-5xl font-extrabold text-foreground">{clientData.trafficUsed.toFixed(2)}</span>
-                    <span className="text-success font-bold mb-1 ml-2">/ {clientData.trafficTotal} GB</span>
-                  </div>
-                  <div className="w-full bg-success/20 rounded-full h-2.5">
-                    <div
-                      className="bg-success h-2.5 rounded-full"
-                      style={{ width: `${(clientData.trafficUsed / clientData.trafficTotal) * 100}%` }}
-                    />
-                  </div>
+                  {!clientDataLoaded ? (
+                    <div className="flex items-end mb-3">
+                      <span className="text-5xl font-extrabold text-foreground">加载中...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-end mb-3">
+                        <span className="text-5xl font-extrabold text-foreground">{clientData.trafficUsed.toFixed(2)}</span>
+                        <span className="text-success font-bold mb-1 ml-2">/ {clientData.trafficTotal} GB</span>
+                      </div>
+                      <div className="w-full bg-success/20 rounded-full h-2.5">
+                        <div
+                          className="bg-success h-2.5 rounded-full"
+                          style={{ width: `${(clientData.trafficUsed / clientData.trafficTotal) * 100}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1411,7 +1419,7 @@ export default function ClientPortal() {
               {(() => {
                 const minGb = Number(config?.topup_min_gb || 0);
                 const unitPrice = Number(config?.topup_price || 0);
-                if (!minGb || minGb <= 0 || !unitPrice || unitPrice <= 0) return null;
+                if (!minGb || minGb <= 0 || !unitPrice || unitPrice <= 0 || !clientDataLoaded) return null;
                 const gbNum = Number(topupGbInput);
                 const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= minGb && gbNum % minGb === 0;
                 const computedAmount = gbValid ? Number((unitPrice * (gbNum / minGb)).toFixed(2)) : 0;
