@@ -297,6 +297,7 @@ export type Database = {
           currency: string
           duration_days: number
           email: string | null
+          email_notified: boolean
           fulfilled_at: string | null
           id: string
           inbound_id: number | null
@@ -322,6 +323,7 @@ export type Database = {
           currency?: string
           duration_days?: number
           email?: string | null
+          email_notified?: boolean
           fulfilled_at?: string | null
           id?: string
           inbound_id?: number | null
@@ -347,6 +349,7 @@ export type Database = {
           currency?: string
           duration_days?: number
           email?: string | null
+          email_notified?: boolean
           fulfilled_at?: string | null
           id?: string
           inbound_id?: number | null

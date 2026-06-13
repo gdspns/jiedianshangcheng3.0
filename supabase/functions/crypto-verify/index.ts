@@ -540,7 +540,7 @@ Deno.serve(async (req) => {
         // New purchase emails are sent by create-client after UUID/remark are generated
         if (config.resend_api_key && config.notify_email) {
           try {
-            await fetch("https://api.resend.com/emails", {
+            const emRes = await fetch("https://api.resend.com/emails", {
               method: "POST",
               headers: {
                 "Authorization": `Bearer ${config.resend_api_key}`,
@@ -549,9 +549,9 @@ Deno.serve(async (req) => {
               body: JSON.stringify({
                 from: "通知 <onboarding@resend.dev>",
                 to: [config.notify_email],
-                subject: `💰 加密货币续费成功 - ${order.plan_name}`,
+                subject: `💰 加密货币${isTopupOrder ? "流量充值" : "续费"}成功 - ${order.plan_name}`,
                 html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-                  <h2 style="color:#10b981;">💰 加密货币续费成功通知</h2>
+                  <h2 style="color:#10b981;">💰 加密货币${isTopupOrder ? "流量充值" : "续费"}成功通知</h2>
                   <table style="width:100%;border-collapse:collapse;margin:16px 0;">
                     <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">订单ID</td><td style="padding:8px;border:1px solid #e5e7eb;">${order.id}</td></tr>
                     <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">UUID</td><td style="padding:8px;border:1px solid #e5e7eb;">${order.uuid}</td></tr>
@@ -560,12 +560,17 @@ Deno.serve(async (req) => {
                     <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">币种</td><td style="padding:8px;border:1px solid #e5e7eb;">${order.crypto_currency}</td></tr>
                     <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">金额</td><td style="padding:8px;border:1px solid #e5e7eb;">${order.crypto_amount} ${order.crypto_currency}</td></tr>
                     <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">TX Hash</td><td style="padding:8px;border:1px solid #e5e7eb;word-break:break-all;">${result.txHash || ""}</td></tr>
-                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">续期状态</td><td style="padding:8px;border:1px solid #e5e7eb;">${fulfilled ? "✅ 已续期" : "❌ 续期失败"}</td></tr>
+                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb;">处理状态</td><td style="padding:8px;border:1px solid #e5e7eb;">${fulfilled ? "✅ 已完成" : "❌ 处理失败"}</td></tr>
                   </table>
                   <p style="color:#6b7280;font-size:12px;">此邮件由系统自动发送</p>
                 </div>`,
               }),
             });
+            if (emRes.ok) {
+              try { await supabase.from("orders").update({ email_notified: true }).eq("id", order.id); } catch (_) {}
+            } else {
+              console.error("Crypto email send failed:", emRes.status, await emRes.text().catch(() => ""));
+            }
           } catch (emailErr) {
             console.error("Failed to send email notification:", emailErr);
           }

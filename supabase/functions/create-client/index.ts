@@ -587,7 +587,7 @@ Deno.serve(async (req) => {
 
     // Send email notification for new purchase
     if (config.resend_api_key && config.notify_email) {
-      await sendAdminEmail(
+      const sent = await sendAdminEmail(
         config,
         `🎉 新用户开通成功 - ${order.plan_name}`,
         `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;">
@@ -607,6 +607,9 @@ Deno.serve(async (req) => {
               <p style="color:#999;font-size:12px;margin-top:16px;">此邮件由系统自动发送</p>
             </div>`
       );
+      if (sent) {
+        try { await supabase.from("orders").update({ email_notified: true }).eq("id", order.id); } catch (_) {}
+      }
     }
 
     // Increment current_clients on the region_inbound and check stock
