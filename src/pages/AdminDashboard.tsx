@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
 import CronStatusPanel from "@/components/CronStatusPanel";
+import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
 
 interface Tutorial {
   id: string;
@@ -1352,6 +1353,9 @@ export default function AdminDashboard() {
               </div>
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
                 <CronStatusPanel />
+              </div>
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                <PanelConnectionTestPanel token={token} />
               </div>
             </div>
           </TabsContent>

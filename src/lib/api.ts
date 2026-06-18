@@ -343,3 +343,34 @@ export async function adminUpdateTrafficRule(token: string, rule: object) {
 export async function adminDeleteTrafficRule(token: string, ruleId: string) {
   return callEdgeFunction("admin-plans", { action: "delete-traffic-rule", token, rule: { id: ruleId } });
 }
+
+// Panel connection test APIs
+export async function testPanelConnectionManual(token: string, panelId: string) {
+  return callEdgeFunction("panel-test", { action: "test-manual", token, panel_id: panelId });
+}
+
+export async function getPanelConnectionHistory(panelId: string) {
+  return callEdgeFunction("panel-test", { action: "get-history", panel_id: panelId });
+}
+
+export async function getPanelTestConfig(token: string, panelId: string) {
+  return callEdgeFunction("panel-test", { action: "get-config", token, panel_id: panelId });
+}
+
+export async function updatePanelTestConfig(
+  token: string,
+  panelId: string,
+  config: {
+    enabled?: boolean;
+    test_interval_minutes?: number;
+    notify_on_failure?: boolean;
+    notify_email?: string;
+  }
+) {
+  return callEdgeFunction("panel-test", {
+    action: "update-config",
+    token,
+    panel_id: panelId,
+    ...config,
+  });
+}
