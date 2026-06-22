@@ -73,6 +73,7 @@ interface PublicConfig {
   crypto_address: string | null;
   topup_min_gb?: number;
   topup_price?: number;
+  topup_blacklist?: string;
 }
 
 interface ClientData {
@@ -254,6 +255,18 @@ export default function ClientPortal() {
   const [topupGbInput, setTopupGbInput] = useState<string>("");
   const [topupConfirmOpen, setTopupConfirmOpen] = useState(false);
   const [topupBlockedOpen, setTopupBlockedOpen] = useState(false);
+  const topupBlacklistSet = useMemo(
+    () =>
+      new Set(
+        String(config?.topup_blacklist || "")
+          .split(/[\s,;]+/)
+          .map((s: string) => s.trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    [config?.topup_blacklist]
+  );
+  const isSelfServiceBlocked =
+    !!uuid && uuid !== "游客_未登录" && topupBlacklistSet.has(uuid.trim().toLowerCase());
 
   const copyWithFeedback = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -704,6 +717,10 @@ export default function ClientPortal() {
   useEffect(() => () => cleanupPolling(), []);
 
   const initiateCheckout = (months: number, price: number, planName: string, type = "renew", regionId?: string | null, durationDays?: number) => {
+    if ((type === "renew" || type === "topup_traffic") && isSelfServiceBlocked) {
+      setTopupBlockedOpen(true);
+      return;
+    }
     cleanupPolling();
     setCheckoutData({ months, durationDays: durationDays ?? months * 30, price, planName, type, regionId });
     setSelectedMethod("");
@@ -1252,10 +1269,15 @@ export default function ClientPortal() {
           </button>
           <button
             onClick={() => {
+              if (isSelfServiceBlocked) {
+                setTopupBlockedOpen(true);
+                return;
+              }
               setTab("renew");
               setPayStatus(null);
             }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold ${tab === "renew" ? "bg-client-primary text-client-primary-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-secondary border border-border"}`}
+            aria-disabled={isSelfServiceBlocked}
+            className={`w-full flex items-center px-4 py-3 rounded-xl transition-all font-bold ${isSelfServiceBlocked ? "bg-muted text-muted-foreground border border-border opacity-60 cursor-not-allowed" : tab === "renew" ? "bg-client-primary text-client-primary-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-secondary border border-border"}`}
           >
             <CreditCard className="w-5 h-5 mr-3" /> 在线续费
           </button>
@@ -1423,13 +1445,7 @@ export default function ClientPortal() {
                 const gbNum = Number(topupGbInput);
                 const gbValid = Number.isFinite(gbNum) && Number.isInteger(gbNum) && gbNum >= minGb && gbNum % minGb === 0;
                 const computedAmount = gbValid ? Number((unitPrice * (gbNum / minGb)).toFixed(2)) : 0;
-                const blacklistSet = new Set(
-                  String((config as any)?.topup_blacklist || "")
-                    .split(/[\s,;]+/)
-                    .map((s: string) => s.trim().toLowerCase())
-                    .filter(Boolean)
-                );
-                const isBlacklisted = !!uuid && uuid !== "游客_未登录" && blacklistSet.has(uuid.toLowerCase());
+                const isBlacklisted = isSelfServiceBlocked;
                 return (
                   <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1505,28 +1521,6 @@ export default function ClientPortal() {
                         </div>
                       </div>
                     )}
-                    {/* 黑名单提示弹窗 */}
-                    {topupBlockedOpen && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setTopupBlockedOpen(false)}>
-                        <div className="bg-card max-w-md w-full p-6 rounded-2xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
-                          <h3 className="text-lg font-bold mb-3 text-amber-600 dark:text-amber-400">⚠️ 无法自助充值</h3>
-                          <p className="text-muted-foreground mb-3">
-                            您的账户为<span className="font-bold text-foreground">特殊流量套餐</span>，价格与标准套餐不同，无法通过自助充值入口购买流量。
-                          </p>
-                          <p className="text-muted-foreground mb-5">
-                            请通过页面下方的客服渠道（Telegram / QQ / 在线客服）联系管理员为您充值。
-                          </p>
-                          <div className="flex justify-end">
-                            <button
-                              onClick={() => setTopupBlockedOpen(false)}
-                              className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
-                            >
-                              我知道了
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })()}
@@ -1545,6 +1539,13 @@ export default function ClientPortal() {
                 <div className="bg-muted border border-border p-8 rounded-2xl text-center">
                   <p className="text-muted-foreground">
                     请先退出并在首页输入凭证登录后，方可进行续费操作。如果您没有节点，请点击「购买开通」。
+                  </p>
+                </div>
+              ) : isSelfServiceBlocked ? (
+                <div className="bg-amber-500/10 border border-amber-500/30 p-8 rounded-2xl text-center">
+                  <h3 className="text-xl font-bold mb-2 text-amber-700 dark:text-amber-300">无法自助续费</h3>
+                  <p className="text-muted-foreground">
+                    您的账户为特殊套餐，价格与标准套餐不同，无法通过在线续费入口下单。请联系管理员处理续费。
                   </p>
                 </div>
               ) : payStatus === "success" ? (
@@ -2758,6 +2759,27 @@ export default function ClientPortal() {
           )}
         </div>
       </div>
+      {topupBlockedOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setTopupBlockedOpen(false)}>
+          <div className="bg-card max-w-md w-full p-6 rounded-2xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-3 text-amber-600 dark:text-amber-400">⚠️ 无法自助充值或续费</h3>
+            <p className="text-muted-foreground mb-3">
+              您的账户为<span className="font-bold text-foreground">特殊套餐</span>，价格与标准套餐不同，无法通过自助入口购买流量或在线续费。
+            </p>
+            <p className="text-muted-foreground mb-5">
+              请通过页面下方的客服渠道（Telegram / QQ / 在线客服）联系管理员处理。
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setTopupBlockedOpen(false)}
+                className="px-4 py-2 rounded-lg bg-client-primary text-client-primary-foreground text-sm font-bold hover:opacity-90"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function isInTopupBlacklist(uuid: string, blacklist: string | null | undefined) {
+  if (!uuid || uuid === "游客_未登录") return false;
+  const normalizedUuid = String(uuid).trim().toLowerCase();
+  return String(blacklist || "")
+    .split(/[\s,;]+/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(normalizedUuid);
+}
+
 function safeAdd(x: number, y: number) {
   const lsw = (x & 0xffff) + (y & 0xffff);
   const msw = (x >>> 16) + (y >>> 16) + (lsw >>> 16);
@@ -866,6 +876,21 @@ Deno.serve(async (req) => {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
+        }
+
+        if (normalizedOrderType === "renew" || normalizedOrderType === "topup_traffic") {
+          const { data: blacklistCfg } = await supabase
+            .from("admin_config")
+            .select("topup_blacklist")
+            .limit(1)
+            .maybeSingle();
+
+          if (isInTopupBlacklist(uuid, blacklistCfg?.topup_blacklist)) {
+            return new Response(JSON.stringify({ error: "特殊套餐账户无法自助充值或续费，请联系管理员处理" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
         }
 
         // === SERVER-SIDE VALIDATION & PRICING FOR TOPUP_TRAFFIC ===
