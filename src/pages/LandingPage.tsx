@@ -18,11 +18,45 @@ const defaultFaqs = [
   { q: "为什么 ChatGPT Plus 充值总是失败或被封号？", a: `<p>使用被滥用的机房IP会触发 Stripe 风控。使用静态住宅IP可大幅提升支付成功率。</p>` },
 ];
 
+const seoTopics = [
+  { title: "Claude 3.5 Sonnet 网页端无法打开解决办法", answer: "Claude 网页端打不开，常见原因是访问地区、IP 信誉、浏览器环境和 DNS 解析同时触发风控。建议使用稳定的静态住宅 IP，保持账号登录地区、系统时区、浏览器语言和支付地区一致，避免频繁切换节点。" },
+  { title: "Claude App Unavailable 地区限制无缝突破", answer: "Claude App 提示 Unavailable 通常说明当前网络出口不在服务支持区域，或者 IP 被识别为机房、代理、共享出口。使用独享住宅网络并固定地区后，能显著降低地区限制、反复验证和登录失败的问题。" },
+  { title: "为什么 Claude 封号率极高？独享住宅 IP 养号攻略", answer: "Claude 对账号登录环境、IP 关联和异常请求很敏感。养号阶段应避免多人共用同一出口，优先使用独享静态住宅 IP，并保持设备指纹、Cookie、时区和登录地区长期稳定。" },
+  { title: "Claude Code CLI 命令行代理超时 Timeout 排查", answer: "Claude Code CLI 超时多半与终端代理未生效、DNS 走错线路、代理协议不兼容有关。建议检查 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 环境变量，并使用低延迟住宅网络或专线中转减少连接中断。" },
+  { title: "终端执行 Claude 报错 Network Error 深度解析", answer: "Network Error 不一定是账号问题，更多时候是本地终端没有继承代理、TLS 握手失败或出口 IP 被目标平台拒绝。固定原生住宅 IP、关闭冲突代理规则、统一终端和浏览器出口，可以提升命令行访问稳定性。" },
+  { title: "ChatGPT Plus 订阅防风控：拒绝机房 IP 连坐", answer: "ChatGPT Plus 订阅失败或付款后异常，常见原因是机房 IP 被多人滥用导致连坐。使用高信誉静态住宅 IP，并让账单地区、登录地区和支付环境一致，可以降低支付风控和账号异常概率。" },
+  { title: "如何检测 ChatGPT IP 是否被降智 2026 最新", answer: "如果 ChatGPT 回答明显变短、模型能力异常、频繁验证码或服务不可用，可能和 IP 信誉有关。可以通过固定出口对比响应质量、检查是否触发 Access Denied、观察 Plus 功能是否完整来判断网络环境是否被降权。" },
+  { title: "OpenAI API 调用频繁超时？海外原生中转提速实测", answer: "OpenAI API 超时通常来自跨境链路抖动、DNS 污染、出口拥塞或代理节点质量不稳定。使用海外原生住宅出口搭配 BGP 中转专线，可以减少握手失败、请求超时和高并发掉线。" },
+  { title: "ChatGPT 客户端 Access Denied 1020 完美解决", answer: "Access Denied 1020 是典型的风控拦截提示，通常与 IP 风险、请求指纹和访问频率有关。更换纯净住宅 IP、清理异常 Cookie、保持浏览器环境一致，通常比反复换免费节点更有效。" },
+  { title: "Cursor 代码补全失败？全局代理配置避坑指南", answer: "Cursor 补全失败可能是应用没有走系统代理，也可能是终端、Git、插件分别走了不同出口。建议统一系统代理和终端代理，使用稳定住宅网络，避免代码助手请求在不同 IP 间来回切换。" },
+  { title: "Gemini Advanced 提示当前地区不可用解决办法", answer: "Gemini Advanced 对地区、账号和网络环境要求较高，机房代理很容易被识别为异常访问。固定支持地区的住宅 IP，并同步浏览器语言、Google 账号地区和支付环境，可以降低不可用提示。" },
+  { title: "Gemini API 请求失败：地区封锁与 IP 隔离应对", answer: "Gemini API 请求失败常见于地区不支持、出口 IP 风险或项目调用环境混乱。建议为生产项目单独配置独享住宅出口，避免多个账号、多个项目共用同一高风险 IP。" },
+  { title: "避免 Gemini 降智的顶级原生 IP 选择逻辑", answer: "选择 Gemini 网络环境时，优先看 IP 是否为真实 ISP、是否长期稳定、是否多人共享、是否频繁更换归属地。顶级原生住宅 IP 的核心价值是降低平台对自动化、代理、批量请求的误判。" },
+  { title: "GitHub Copilot 连接不稳定、一直转圈的底层原因", answer: "Copilot 一直转圈通常与 IDE 内置请求、系统代理和终端代理不一致有关，也可能是出口链路到 GitHub 服务不稳定。使用固定低延迟住宅出口，并检查 IDE 代理设置，可以减少补全中断。" },
+  { title: "MAC / Ubuntu 终端全局代理 Proxy 设置无效的坑", answer: "macOS 和 Ubuntu 的图形应用、终端、后台服务不一定共享同一代理环境。需要分别检查 shell 配置、系统代理、应用启动方式和环境变量，确保 AI CLI 工具真正走到指定住宅出口。" },
+  { title: "TikTok 矩阵运营：如何利用大马 / 美国 ISP 伪装环境", answer: "TikTok 矩阵运营最怕账号环境漂移和 IP 归属异常。使用马来西亚、美国等目标市场 ISP 住宅网络，配合固定设备、固定时区、固定语言，可以降低零播放和异常登录风险。" },
+  { title: "Facebook 跨境电商账号零播放封号原理解析", answer: "Facebook 账号风控会综合判断 IP、设备、登录行为和广告操作频率。机房 IP、多人共享出口、频繁跨地区登录都容易触发限制，独享住宅 IP 更适合长期账号运营和广告账户养护。" },
+  { title: "Instagram Reels 跨境账号限流与住宅网络环境搭建", answer: "Instagram Reels 限流往往不是单一内容问题，账号网络环境也会影响推荐权重。建议用目标国家住宅 IP 登录、发布和互动，保持账号定位清晰，避免短时间跨地区切换。" },
+  { title: "YouTube Shorts 海外矩阵发布需要原生住宅 IP 吗", answer: "YouTube Shorts 矩阵发布需要稳定的账号环境和清晰地区信号。原生住宅 IP 能帮助账号保持目标市场属性，减少异常验证、推荐错区和后台登录风险。" },
+  { title: "X Twitter 账号频繁验证与登录风控解决方案", answer: "X / Twitter 频繁验证通常与 IP 信誉、设备指纹和登录行为异常有关。固定住宅出口、减少批量操作、保持 Cookie 和浏览器环境稳定，是降低风控的基础。" },
+  { title: "Reddit 账号养号发帖需要纯净住宅 IP 的原因", answer: "Reddit 对新号、批量发帖和异常 IP 非常敏感。纯净住宅 IP 能减少代理特征，让账号更接近真实用户环境，适合长期养号、社区互动和跨境内容发布。" },
+  { title: "Pinterest 跨境引流账号异常登录风控排查", answer: "Pinterest 异常登录多与账号地区、IP 归属和设备环境不一致有关。使用目标市场住宅网络，并保持登录设备固定，可以提升跨境引流账号的稳定性。" },
+  { title: "Shopify 店铺后台登录触发风控的网络环境优化", answer: "Shopify 后台涉及支付、订单和店铺安全，登录环境异常容易触发验证。建议店铺运营团队使用固定住宅 IP 或企业专线出口，避免多人多地随意登录后台。" },
+  { title: "Amazon / Etsy / eBay 跨境店铺登录 IP 隔离方案", answer: "跨境店铺平台最怕账号关联，同一 IP 登录多个店铺可能增加关联风险。通过账号独立住宅 IP、浏览器环境隔离和固定登录习惯，可以降低店铺风控与关联概率。" },
+  { title: "WhatsApp Business 海外账号注册与长期在线环境", answer: "WhatsApp Business 注册和长期在线需要稳定的号码、设备和网络环境。使用目标地区住宅 IP，避免频繁切换代理和设备，有利于减少封号和二次验证。" },
+  { title: "Telegram 批量账号运营如何避免 IP 关联", answer: "Telegram 批量账号如果共用同一出口，很容易形成 IP 关联。建议按账号分组使用独立住宅出口，并控制登录频率、设备指纹和操作节奏。" },
+  { title: "Discord 社群运营账号风控与住宅代理选择", answer: "Discord 社群运营涉及多账号、机器人和频道管理时，网络环境稳定性很重要。选择低延迟住宅 IP，避免高风险机房代理，可以减少登录验证和账号锁定。" },
+  { title: "Midjourney / Poe / Perplexity 访问受限的网络解决办法", answer: "Midjourney、Poe、Perplexity 等 AI 平台常根据 IP 地区和风险等级限制访问。使用支持地区的静态住宅 IP，并保持浏览器会话稳定，能降低不可用、转圈和验证码问题。" },
+  { title: "AI 自动化脚本请求被墙？BGP 中转专线配置实例", answer: "AI 自动化脚本对连接稳定性要求更高，普通代理容易在高并发下超时。BGP 中转专线配合海外住宅出口，可以改善跨境链路质量，让 API、CLI 和浏览器自动化更稳定。" },
+  { title: "跨境自媒体 SP 平台账号冷启动网络环境搭建指南", answer: "跨境自媒体 SP 平台冷启动时，应先固定账号地区、设备环境和住宅网络出口。稳定的纯净住宅 IP 能帮助平台识别账号为真实本地用户，减少冷启动限流、登录验证和异常封禁。" },
+];
+
 export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [landingImages, setLandingImages] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [faqs, setFaqs] = useState<{ q: string; a: string }[]>(defaultFaqs);
+  const [activeSeoTopic, setActiveSeoTopic] = useState<(typeof seoTopics)[number] | null>(null);
 
   useEffect(() => {
     (supabase as any)
@@ -61,6 +95,8 @@ export default function LandingPage() {
   const toggleFaq = (index: number) => {
     setActiveFaq(activeFaq === index ? null : index);
   };
+
+  const closeSeoTopic = () => setActiveSeoTopic(null);
 
   return (
     <>
@@ -132,9 +168,10 @@ export default function LandingPage() {
         .lp-feature-icon svg { width: 35px; height: 35px; }
         .lp-feature-card h3 { font-size: 1.4rem; margin-bottom: 15px; color: var(--lp-text-dark); }
         .lp-feature-card p { color: var(--lp-text-gray); font-size: 1rem; }
-        .lp-seo-section { padding: 60px 5%; background-color: var(--lp-bg); max-width: 1000px; margin: 0 auto; }
+        .lp-seo-section { padding: 60px 5%; background-color: var(--lp-bg); max-width: 1200px; margin: 0 auto; }
         .lp-seo-title { text-align: center; font-size: 1.8rem; margin-bottom: 30px; color: var(--lp-text-dark); }
-        .lp-faq-item { background: white; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid #e2e8f0; }
+        .lp-faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; align-items: start; }
+        .lp-faq-item { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow: hidden; border: 1px solid #e2e8f0; }
         .dark .lp-faq-item { background: #161b22; border-color: #21262d; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
         .lp-faq-question { padding: 20px; font-size: 1.1rem; font-weight: 600; color: var(--lp-text-dark); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s; }
         .lp-faq-question:hover { background-color: #f8fafc; }
@@ -147,10 +184,25 @@ export default function LandingPage() {
         .dark .lp-faq-answer-inner { border-top-color: #21262d; }
         .lp-faq-answer-inner p { margin-bottom: 10px; }
         .lp-faq-item.active .lp-faq-answer { max-height: 500px; }
+        .lp-seo-topics-section { background: #0b1220; padding: 28px 5% 34px; }
+        .lp-seo-topics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 56px; row-gap: 18px; max-width: 1450px; margin: 0 auto; }
+        .lp-seo-topic-title { display: flex; align-items: flex-start; gap: 10px; width: 100%; color: #c7d7ee; font-size: 1rem; line-height: 1.45; background: transparent; border: 0; padding: 0; text-align: left; cursor: pointer; font-family: inherit; }
+        .lp-seo-topic-title:hover { color: #ffffff; }
+        .lp-seo-topic-title svg { width: 15px; height: 15px; margin-top: 3px; flex-shrink: 0; color: #94a3b8; }
+        .lp-seo-topic-modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(3, 7, 18, 0.72); display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .lp-seo-topic-modal { position: relative; width: min(760px, 100%); max-height: min(80vh, 680px); overflow-y: auto; background: #ffffff; color: #1f2937; border-radius: 12px; box-shadow: 0 24px 70px rgba(0,0,0,0.35); padding: 34px 36px 30px; border: 1px solid rgba(148,163,184,0.3); }
+        .dark .lp-seo-topic-modal { background: #161b22; color: #e6edf3; border-color: #30363d; }
+        .lp-seo-topic-modal h3 { font-size: 1.35rem; line-height: 1.35; margin: 0 36px 16px 0; color: var(--lp-text-dark); }
+        .lp-seo-topic-modal p { color: var(--lp-text-gray); font-size: 1rem; line-height: 1.8; }
+        .lp-seo-topic-modal-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .lp-seo-topic-modal-close:hover { background: #eef2f7; color: #111827; }
+        .dark .lp-seo-topic-modal-close { background: #21262d; border-color: #30363d; color: #c9d1d9; }
+        .dark .lp-seo-topic-modal-close:hover { background: #30363d; color: #ffffff; }
         .lp-footer { text-align: center; padding: 40px 20px; background-color: #1a202c; color: #a0aec0; }
         .dark .lp-footer { background-color: #010409; color: #8b949e; }
         @media (max-width: 992px) {
           .lp-features-grid { grid-template-columns: repeat(2, 1fr); }
+          .lp-seo-topics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
           .lp-hero { flex-direction: column-reverse; text-align: center; padding: 40px 5%; }
           .lp-hero-content { max-width: 100%; }
           .lp-hero-features { text-align: left; display: inline-block; }
@@ -161,6 +213,10 @@ export default function LandingPage() {
         }
         @media (max-width: 768px) {
           .lp-features-grid { grid-template-columns: 1fr; }
+          .lp-faq-grid { grid-template-columns: 1fr; }
+          .lp-seo-topics-grid { grid-template-columns: 1fr; row-gap: 14px; }
+          .lp-seo-topic-modal { padding: 28px 22px 24px; }
+          .lp-seo-topic-modal h3 { font-size: 1.15rem; }
           .lp-hero h1 { font-size: 2rem; }
           .lp-header { flex-wrap: nowrap; justify-content: space-between; gap: 8px; padding: 10px 3%; }
           .lp-header-center { position: static; transform: none; }
@@ -325,18 +381,47 @@ export default function LandingPage() {
         {/* FAQ */}
         <section className="lp-seo-section">
           <h2 className="lp-seo-title">关于静态住宅IP与AI降智、跨境出海的常见疑问</h2>
-          {faqs.map((faq, i) => (
-            <div key={i} className={`lp-faq-item ${activeFaq === i ? "active" : ""}`}>
-              <div className="lp-faq-question" onClick={() => toggleFaq(i)}>
-                {faq.q}
-                <svg className="lp-faq-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" /></svg>
+          <div className="lp-faq-grid">
+            {faqs.map((faq, i) => (
+              <div key={i} className={`lp-faq-item ${activeFaq === i ? "active" : ""}`}>
+                <div className="lp-faq-question" onClick={() => toggleFaq(i)}>
+                  {faq.q}
+                  <svg className="lp-faq-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" /></svg>
+                </div>
+                <div className="lp-faq-answer">
+                  <div className="lp-faq-answer-inner" dangerouslySetInnerHTML={{ __html: faq.a.includes('<') ? faq.a : faq.a.replace(/\n/g, '<br/>') }} />
+                </div>
               </div>
-              <div className="lp-faq-answer">
-                <div className="lp-faq-answer-inner" dangerouslySetInnerHTML={{ __html: faq.a.includes('<') ? faq.a : faq.a.replace(/\n/g, '<br/>') }} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
+
+        {/* SEO Topics */}
+        <section className="lp-seo-topics-section" aria-label="静态住宅IP与跨境AI平台网络问题专题">
+          <div className="lp-seo-topics-grid">
+            {seoTopics.map((topic, i) => (
+              <button key={i} type="button" className="lp-seo-topic-title" onClick={() => setActiveSeoTopic(topic)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6" />
+                  <path d="M8 13h8" />
+                  <path d="M8 17h6" />
+                </svg>
+                <span>{topic.title}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {activeSeoTopic && (
+          <div className="lp-seo-topic-modal-backdrop" onClick={closeSeoTopic}>
+            <div className="lp-seo-topic-modal" role="dialog" aria-modal="true" aria-labelledby="seo-topic-title" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="lp-seo-topic-modal-close" onClick={closeSeoTopic} aria-label="关闭">×</button>
+              <h3 id="seo-topic-title">{activeSeoTopic.title}</h3>
+              <p>{activeSeoTopic.answer}</p>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="lp-footer">
