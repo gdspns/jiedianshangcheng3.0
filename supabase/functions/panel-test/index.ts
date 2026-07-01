@@ -104,7 +104,7 @@ async function testPanelConnection(
 
     // Test API endpoint
     const baseUrl = panelUrl.replace(/\/+$/, "");
-    const res = await fetchUnsafe(`${baseUrl}/api/inbounds/list`, {
+    const res = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/list`, {
       method: "GET",
       headers: {
         "Cookie": login.cookie,
