@@ -368,6 +368,97 @@ export type Database = {
         }
         Relationships: []
       }
+      panel_connection_tests: {
+        Row: {
+          created_at: string
+          details: Json | null
+          error_message: string | null
+          id: string
+          panel_id: string
+          response_time_ms: number | null
+          success: boolean
+          test_time: string
+          test_trigger: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          panel_id: string
+          response_time_ms?: number | null
+          success: boolean
+          test_time?: string
+          test_trigger?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          panel_id?: string
+          response_time_ms?: number | null
+          success?: boolean
+          test_time?: string
+          test_trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panel_connection_tests_panel_id_fkey"
+            columns: ["panel_id"]
+            isOneToOne: false
+            referencedRelation: "panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      panel_test_config: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          enabled: boolean
+          id: string
+          last_test_time: string | null
+          notify_email: string | null
+          notify_on_failure: boolean
+          panel_id: string
+          test_interval_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_test_time?: string | null
+          notify_email?: string | null
+          notify_on_failure?: boolean
+          panel_id: string
+          test_interval_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_test_time?: string | null
+          notify_email?: string | null
+          notify_on_failure?: boolean
+          panel_id?: string
+          test_interval_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panel_test_config_panel_id_fkey"
+            columns: ["panel_id"]
+            isOneToOne: true
+            referencedRelation: "panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panels: {
         Row: {
           created_at: string
@@ -659,7 +750,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      trigger_auto_test_panels: {
+        Args: never
+        Returns: {
+          failures: number
+          message: string
+          success: boolean
+          tested: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

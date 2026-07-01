@@ -106,6 +106,9 @@ async function resetClientToDefault(
     for (const c of settings.clients || []) {
       if (c.email === email) {
         c.totalGB = defaultBytes;
+        // Re-enable client — 3x-ui auto-disables clients when traffic exceeds limit.
+        // Resetting totalGB alone does NOT flip enable back to true.
+        c.enable = true;
         found = true;
         break;
       }
