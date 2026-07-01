@@ -217,12 +217,12 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               <input
                 type="number"
                 value={testConfig.test_interval_minutes}
-                onChange={(e) => handleConfigChange("test_interval_minutes", parseInt(e.target.value) || 30)}
-                min="5"
+                onChange={(e) => handleConfigChange("test_interval_minutes", Math.max(1, parseInt(e.target.value) || 1))}
+                min="1"
                 max="1440"
                 className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
               />
-              <p className="text-[10px] text-muted-foreground mt-1">范围: 5 - 1440 分钟</p>
+              <p className="text-[10px] text-muted-foreground mt-1">范围: 1 - 1440 分钟（自定义任意分钟数，例如 1 = 每分钟检测一次）</p>
             </div>
 
             <div className="flex items-center gap-2">
