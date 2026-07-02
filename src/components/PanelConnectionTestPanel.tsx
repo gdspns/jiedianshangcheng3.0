@@ -116,6 +116,40 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
     setTesting(false);
   }
 
+  async function handleTestAllPanels() {
+    if (panels.length === 0) {
+      setError("暂无面板可测试");
+      return;
+    }
+    setTesting(true);
+    setError("");
+    setSuccessMsg("");
+    let ok = 0;
+    let fail = 0;
+    const failedNames: string[] = [];
+    for (const p of panels) {
+      try {
+        const res = await testPanelConnectionManual(token, p.id);
+        if (res?.test?.success) ok++;
+        else {
+          fail++;
+          failedNames.push(p.name);
+        }
+      } catch {
+        fail++;
+        failedNames.push(p.name);
+      }
+    }
+    if (fail === 0) {
+      setSuccessMsg(`✅ 全部 ${ok} 个面板连接成功`);
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } else {
+      setError(`成功 ${ok} 个，失败 ${fail} 个：${failedNames.join("、")}`);
+    }
+    if (selectedPanelId) await loadHistory(selectedPanelId);
+    setTesting(false);
+  }
+
   async function handleConfigChange(field: string, value: any) {
     if (!testConfig) return;
     const newConfig = { ...testConfig, [field]: value };
@@ -159,6 +193,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       {/* Panel selector and test button */}
       <div className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1.5">选择面板</label>
             <select
@@ -180,11 +215,22 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               className="w-full text-xs bg-admin-primary hover:bg-admin-primary/90 text-white px-3 py-2 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-1"
             >
               <RefreshCw className={`w-3 h-3 ${testing ? "animate-spin" : ""}`} />
-              {testing ? "测试中..." : "立即测试"}
+              {testing ? "测试中..." : "测试当前面板"}
+            </button>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleTestAllPanels}
+              disabled={testing}
+              className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${testing ? "animate-spin" : ""}`} />
+              {testing ? "测试中..." : `测试全部面板 (${panels.length})`}
             </button>
           </div>
         </div>
       </div>
+
 
       {/* Config section */}
       <div className="mb-4 pb-4 border-b border-border">
