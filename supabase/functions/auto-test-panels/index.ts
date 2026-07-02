@@ -210,7 +210,14 @@ Deno.serve(async (req) => {
     const configByPanel = new Map<string, any>();
     for (const c of existingConfigs || []) configByPanel.set(c.panel_id, c);
 
-    // Auto-create default config for any panel that doesn't have one (enabled by default).
+    // Determine template config: inherit primary panel's config so new panels use the same interval/notify settings.
+    const primaryPanel = (allPanels || []).find((p) => p.is_primary);
+    const primaryConfig = primaryPanel ? configByPanel.get(primaryPanel.id) : null;
+    const templateInterval = primaryConfig?.test_interval_minutes ?? 30;
+    const templateNotifyOnFailure = primaryConfig?.notify_on_failure ?? true;
+    const templateNotifyEmail = primaryConfig?.notify_email ?? defaultNotifyEmail;
+
+    // Auto-create default config for any panel that doesn't have one (enabled by default, inherit primary settings).
     const missing = (allPanels || []).filter((p) => !configByPanel.has(p.id));
     if (missing.length > 0) {
       const { data: inserted } = await supabase
@@ -218,13 +225,14 @@ Deno.serve(async (req) => {
         .insert(missing.map((p) => ({
           panel_id: p.id,
           enabled: true,
-          test_interval_minutes: 30,
-          notify_on_failure: true,
-          notify_email: defaultNotifyEmail,
+          test_interval_minutes: templateInterval,
+          notify_on_failure: templateNotifyOnFailure,
+          notify_email: templateNotifyEmail,
         })))
         .select();
       for (const c of inserted || []) configByPanel.set(c.panel_id, c);
     }
+
 
     let tested = 0;
     let failures = 0;
