@@ -180,16 +180,16 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get all enabled test configurations
-    const { data: testConfigs, error: configError } = await supabase
-      .from("panel_test_config")
+    // Load ALL enabled panels — auto-detection covers every panel added, not just those with a config row.
+    const { data: allPanels, error: panelsError } = await supabase
+      .from("panels")
       .select("*")
       .eq("enabled", true);
 
-    if (configError) {
-      console.error("获取测试配置失败:", configError);
+    if (panelsError) {
+      console.error("获取面板列表失败:", panelsError);
       return new Response(
-        JSON.stringify({ error: String(configError) }),
+        JSON.stringify({ error: String(panelsError) }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -201,10 +201,37 @@ Deno.serve(async (req) => {
       .single();
 
     const adminConfig = adminConfigRes.data;
+    const defaultNotifyEmail = adminConfig?.notify_email || null;
+
+    // Load existing configs, index by panel_id
+    const { data: existingConfigs } = await supabase
+      .from("panel_test_config")
+      .select("*");
+    const configByPanel = new Map<string, any>();
+    for (const c of existingConfigs || []) configByPanel.set(c.panel_id, c);
+
+    // Auto-create default config for any panel that doesn't have one (enabled by default).
+    const missing = (allPanels || []).filter((p) => !configByPanel.has(p.id));
+    if (missing.length > 0) {
+      const { data: inserted } = await supabase
+        .from("panel_test_config")
+        .insert(missing.map((p) => ({
+          panel_id: p.id,
+          enabled: true,
+          test_interval_minutes: 30,
+          notify_on_failure: true,
+          notify_email: defaultNotifyEmail,
+        })))
+        .select();
+      for (const c of inserted || []) configByPanel.set(c.panel_id, c);
+    }
+
     let tested = 0;
     let failures = 0;
 
-    for (const config of testConfigs || []) {
+    for (const panel of allPanels || []) {
+      const config = configByPanel.get(panel.id);
+      if (!config || !config.enabled) continue;
       try {
         // Check if we should test this panel
         const lastTestTime = config.last_test_time ? new Date(config.last_test_time).getTime() : 0;
