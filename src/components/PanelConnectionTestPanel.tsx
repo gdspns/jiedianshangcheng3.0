@@ -180,11 +180,22 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               className="w-full text-xs bg-admin-primary hover:bg-admin-primary/90 text-white px-3 py-2 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-1"
             >
               <RefreshCw className={`w-3 h-3 ${testing ? "animate-spin" : ""}`} />
-              {testing ? "测试中..." : "立即测试"}
+              {testing ? "测试中..." : "测试当前面板"}
+            </button>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleTestAllPanels}
+              disabled={testing}
+              className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${testing ? "animate-spin" : ""}`} />
+              {testing ? "测试中..." : `测试全部面板 (${panels.length})`}
             </button>
           </div>
         </div>
       </div>
+
 
       {/* Config section */}
       <div className="mb-4 pb-4 border-b border-border">
