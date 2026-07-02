@@ -193,6 +193,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       {/* Panel selector and test button */}
       <div className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1.5">选择面板</label>
             <select
