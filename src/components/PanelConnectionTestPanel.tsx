@@ -297,6 +297,20 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               />
             </div>
 
+            <div className="pt-2 border-t border-border">
+              <button
+                onClick={handleSyncConfigToAll}
+                className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded font-medium"
+                title="将当前面板的检测间隔、失败通知、通知邮箱应用到所有面板"
+              >
+                📋 同步当前配置到所有面板 ({panels.length} 个)
+              </button>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                把当前面板的"检测间隔/失败通知/通知邮箱"同步到所有面板，避免逐个设置。
+              </p>
+            </div>
+
+
             {testConfig.last_test_time && (
               <div className="text-xs text-muted-foreground">
                 <p>上次测试: {fmt(testConfig.last_test_time)}</p>
