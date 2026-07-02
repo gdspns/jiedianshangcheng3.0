@@ -150,6 +150,28 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
     setTesting(false);
   }
 
+  async function handleSyncConfigToAll() {
+    if (!testConfig || !selectedPanelId) return;
+    if (!confirm(`确定把当前配置（检测间隔 ${testConfig.test_interval_minutes} 分钟、通知邮箱 ${testConfig.notify_email || "-"}）应用到全部 ${panels.length} 个面板？`)) return;
+    try {
+      await updatePanelTestConfig(
+        token,
+        selectedPanelId,
+        {
+          enabled: testConfig.enabled,
+          test_interval_minutes: testConfig.test_interval_minutes,
+          notify_on_failure: testConfig.notify_on_failure,
+          notify_email: testConfig.notify_email,
+        },
+        true,
+      );
+      setSuccessMsg(`✅ 已同步到 ${panels.length} 个面板`);
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (e: any) {
+      setError(e?.message || "同步失败");
+    }
+  }
+
   async function handleConfigChange(field: string, value: any) {
     if (!testConfig) return;
     const newConfig = { ...testConfig, [field]: value };
