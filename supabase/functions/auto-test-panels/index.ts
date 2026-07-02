@@ -243,17 +243,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get panel info
-        const { data: panel, error: panelError } = await supabase
-          .from("panels")
-          .select("*")
-          .eq("id", config.panel_id)
-          .single();
+        // panel is already loaded from allPanels
 
-        if (panelError || !panel) {
-          console.error(`面板 ${config.panel_id} 不存在`);
-          continue;
-        }
 
         // Test connection
         const testResult = await testPanelConnection(
