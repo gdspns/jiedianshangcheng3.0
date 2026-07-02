@@ -417,17 +417,27 @@ Deno.serve(async (req) => {
       if (notify_on_failure !== undefined) updateData.notify_on_failure = notify_on_failure;
       if (notify_email !== undefined) updateData.notify_email = notify_email;
 
-      const { error: updateError } = await supabase
-        .from("panel_test_config")
-        .update(updateData)
-        .eq("panel_id", panel_id);
+      const applyToAll = body.apply_to_all === true;
 
-      if (updateError) throw updateError;
+      if (applyToAll) {
+        const { error: updateError } = await supabase
+          .from("panel_test_config")
+          .update(updateData)
+          .not("panel_id", "is", null);
+        if (updateError) throw updateError;
+      } else {
+        const { error: updateError } = await supabase
+          .from("panel_test_config")
+          .update(updateData)
+          .eq("panel_id", panel_id);
+        if (updateError) throw updateError;
+      }
 
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ success: true, applied_to_all: applyToAll }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     return new Response(JSON.stringify({ error: "未知操作" }), {
       status: 400,

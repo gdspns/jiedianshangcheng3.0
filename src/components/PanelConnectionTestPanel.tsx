@@ -150,6 +150,28 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
     setTesting(false);
   }
 
+  async function handleSyncConfigToAll() {
+    if (!testConfig || !selectedPanelId) return;
+    if (!confirm(`确定把当前配置（检测间隔 ${testConfig.test_interval_minutes} 分钟、通知邮箱 ${testConfig.notify_email || "-"}）应用到全部 ${panels.length} 个面板？`)) return;
+    try {
+      await updatePanelTestConfig(
+        token,
+        selectedPanelId,
+        {
+          enabled: testConfig.enabled,
+          test_interval_minutes: testConfig.test_interval_minutes,
+          notify_on_failure: testConfig.notify_on_failure,
+          notify_email: testConfig.notify_email,
+        },
+        true,
+      );
+      setSuccessMsg(`✅ 已同步到 ${panels.length} 个面板`);
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (e: any) {
+      setError(e?.message || "同步失败");
+    }
+  }
+
   async function handleConfigChange(field: string, value: any) {
     if (!testConfig) return;
     const newConfig = { ...testConfig, [field]: value };
@@ -296,6 +318,20 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                 className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
               />
             </div>
+
+            <div className="pt-2 border-t border-border">
+              <button
+                onClick={handleSyncConfigToAll}
+                className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded font-medium"
+                title="将当前面板的检测间隔、失败通知、通知邮箱应用到所有面板"
+              >
+                📋 同步当前配置到所有面板 ({panels.length} 个)
+              </button>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                把当前面板的"检测间隔/失败通知/通知邮箱"同步到所有面板，避免逐个设置。
+              </p>
+            </div>
+
 
             {testConfig.last_test_time && (
               <div className="text-xs text-muted-foreground">

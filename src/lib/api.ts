@@ -365,12 +365,14 @@ export async function updatePanelTestConfig(
     test_interval_minutes?: number;
     notify_on_failure?: boolean;
     notify_email?: string;
-  }
+  },
+  applyToAll: boolean = false,
 ) {
   return callEdgeFunction("panel-test", {
     action: "update-config",
     token,
     panel_id: panelId,
+    apply_to_all: applyToAll,
     ...config,
   });
 }
