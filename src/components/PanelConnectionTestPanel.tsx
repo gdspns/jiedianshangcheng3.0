@@ -202,10 +202,11 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
 
   useEffect(() => {
     if (selectedPanelId) {
-      loadConfig(selectedPanelId);
+      if (selectedPanelId !== "__all__") loadConfig(selectedPanelId);
       loadHistory(selectedPanelId);
     }
   }, [selectedPanelId]);
+
 
   return (
     <div className="bg-muted/40 rounded-xl border border-border p-4 mt-4">
