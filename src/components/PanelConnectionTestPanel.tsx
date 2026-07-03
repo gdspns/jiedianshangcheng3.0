@@ -55,6 +55,8 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
   const [showConfig, setShowConfig] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [allHistoryLimit, setAllHistoryLimit] = useState<number>(50);
+
 
   async function loadPanels() {
     try {
