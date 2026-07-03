@@ -235,7 +235,9 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                   {p.name} {p.is_primary ? "（主面板）" : ""}
                 </option>
               ))}
+              <option value="__all__">🌐 全部面板（连接历史汇总）</option>
             </select>
+
           </div>
           <div className="flex items-end">
             <button
