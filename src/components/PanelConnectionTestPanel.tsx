@@ -77,7 +77,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
     if (!panelId) return;
     try {
       if (panelId === "__all__") {
-        const res = await getAllPanelConnectionHistory();
+        const res = await getAllPanelConnectionHistory(allHistoryLimit);
         if (res?.history) setTestHistory(res.history);
       } else {
         const res = await getPanelConnectionHistory(panelId);
@@ -87,6 +87,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       setError(e?.message || "加载历史失败");
     }
   }
+
 
 
   async function loadConfig(panelId: string) {
