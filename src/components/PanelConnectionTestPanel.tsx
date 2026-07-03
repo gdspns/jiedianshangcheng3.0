@@ -370,6 +370,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="text-left py-1.5 pr-3">#</th>
                   <th className="text-left py-1.5 pr-3">测试时间</th>
+                  {selectedPanelId === "__all__" && <th className="text-left py-1.5 pr-3">面板</th>}
                   <th className="text-left py-1.5 pr-3">触发方式</th>
                   <th className="text-left py-1.5 pr-3">响应时间</th>
                   <th className="text-left py-1.5 pr-3">错误信息</th>
@@ -379,7 +380,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               <tbody>
                 {testHistory.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-3 text-muted-foreground text-center">
+                    <td colSpan={selectedPanelId === "__all__" ? 7 : 6} className="py-3 text-muted-foreground text-center">
                       暂无连接记录
                     </td>
                   </tr>
@@ -388,6 +389,12 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                   <tr key={test.id} className="border-b border-border/60 hover:bg-muted/50">
                     <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
                     <td className="py-1.5 pr-3">{fmt(test.test_time)}</td>
+                    {selectedPanelId === "__all__" && (
+                      <td className="py-1.5 pr-3 font-medium">
+                        {test.panel_name || panels.find((p) => p.id === test.panel_id)?.name || test.panel_id.slice(0, 8)}
+                      </td>
+                    )}
+
                     <td className="py-1.5 pr-3">
                       <span
                         className={`px-1.5 py-0.5 rounded text-[10px] ${
