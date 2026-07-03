@@ -330,6 +330,33 @@ Deno.serve(async (req) => {
       });
     }
 
+    // List test history across ALL panels
+    if (action === "get-all-history") {
+      const { data: history, error: historyError } = await supabase
+        .from("panel_connection_tests")
+        .select("*")
+        .order("test_time", { ascending: false })
+        .limit(50);
+
+      if (historyError) throw historyError;
+
+      // Attach panel name for display
+      const { data: panels } = await supabase.from("panels").select("id, name");
+      const nameById = new Map((panels || []).map((p: any) => [p.id, p.name]));
+      const enriched = (history || []).map((h: any) => ({
+        ...h,
+        panel_name: nameById.get(h.panel_id) || h.panel_id,
+      }));
+
+      return new Response(JSON.stringify({
+        success: true,
+        history: enriched,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     // Get or create test config
     if (action === "get-config") {
       const configId = verifyToken(token || "");
