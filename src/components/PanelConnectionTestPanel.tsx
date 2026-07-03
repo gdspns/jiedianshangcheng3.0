@@ -208,7 +208,8 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       if (selectedPanelId !== "__all__") loadConfig(selectedPanelId);
       loadHistory(selectedPanelId);
     }
-  }, [selectedPanelId]);
+  }, [selectedPanelId, allHistoryLimit]);
+
 
 
   return (
