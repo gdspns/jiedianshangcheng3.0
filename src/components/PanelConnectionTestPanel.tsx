@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { testPanelConnectionManual, getPanelConnectionHistory, getPanelTestConfig, updatePanelTestConfig, adminListPanels } from "@/lib/api";
+import { testPanelConnectionManual, getPanelConnectionHistory, getAllPanelConnectionHistory, getPanelTestConfig, updatePanelTestConfig, adminListPanels } from "@/lib/api";
 import { RefreshCw, Zap, History as HistoryIcon, Settings } from "lucide-react";
 
 interface Panel {
