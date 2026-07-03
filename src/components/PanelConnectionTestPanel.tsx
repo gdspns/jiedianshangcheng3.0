@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { testPanelConnectionManual, getPanelConnectionHistory, getPanelTestConfig, updatePanelTestConfig, adminListPanels } from "@/lib/api";
+import { testPanelConnectionManual, getPanelConnectionHistory, getAllPanelConnectionHistory, getPanelTestConfig, updatePanelTestConfig, adminListPanels } from "@/lib/api";
 import { RefreshCw, Zap, History as HistoryIcon, Settings } from "lucide-react";
 
 interface Panel {
@@ -15,6 +15,7 @@ interface Panel {
 interface ConnectionTest {
   id: string;
   panel_id: string;
+  panel_name?: string;
   test_time: string;
   success: boolean;
   response_time_ms: number | null;
@@ -23,6 +24,7 @@ interface ConnectionTest {
   details: any;
   created_at: string;
 }
+
 
 interface TestConfig {
   id: string;
@@ -72,14 +74,18 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
   async function loadHistory(panelId: string) {
     if (!panelId) return;
     try {
-      const res = await getPanelConnectionHistory(panelId);
-      if (res?.history) {
-        setTestHistory(res.history);
+      if (panelId === "__all__") {
+        const res = await getAllPanelConnectionHistory();
+        if (res?.history) setTestHistory(res.history);
+      } else {
+        const res = await getPanelConnectionHistory(panelId);
+        if (res?.history) setTestHistory(res.history);
       }
     } catch (e: any) {
       setError(e?.message || "加载历史失败");
     }
   }
+
 
   async function loadConfig(panelId: string) {
     if (!panelId) return;
@@ -196,10 +202,11 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
 
   useEffect(() => {
     if (selectedPanelId) {
-      loadConfig(selectedPanelId);
+      if (selectedPanelId !== "__all__") loadConfig(selectedPanelId);
       loadHistory(selectedPanelId);
     }
   }, [selectedPanelId]);
+
 
   return (
     <div className="bg-muted/40 rounded-xl border border-border p-4 mt-4">
@@ -228,7 +235,9 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                   {p.name} {p.is_primary ? "（主面板）" : ""}
                 </option>
               ))}
+              <option value="__all__">🌐 全部面板（连接历史汇总）</option>
             </select>
+
           </div>
           <div className="flex items-end">
             <button
@@ -361,6 +370,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                 <tr className="border-b border-border text-muted-foreground">
                   <th className="text-left py-1.5 pr-3">#</th>
                   <th className="text-left py-1.5 pr-3">测试时间</th>
+                  {selectedPanelId === "__all__" && <th className="text-left py-1.5 pr-3">面板</th>}
                   <th className="text-left py-1.5 pr-3">触发方式</th>
                   <th className="text-left py-1.5 pr-3">响应时间</th>
                   <th className="text-left py-1.5 pr-3">错误信息</th>
@@ -370,7 +380,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
               <tbody>
                 {testHistory.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-3 text-muted-foreground text-center">
+                    <td colSpan={selectedPanelId === "__all__" ? 7 : 6} className="py-3 text-muted-foreground text-center">
                       暂无连接记录
                     </td>
                   </tr>
@@ -379,6 +389,12 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
                   <tr key={test.id} className="border-b border-border/60 hover:bg-muted/50">
                     <td className="py-1.5 pr-3 text-muted-foreground">{i + 1}</td>
                     <td className="py-1.5 pr-3">{fmt(test.test_time)}</td>
+                    {selectedPanelId === "__all__" && (
+                      <td className="py-1.5 pr-3 font-medium">
+                        {test.panel_name || panels.find((p) => p.id === test.panel_id)?.name || test.panel_id.slice(0, 8)}
+                      </td>
+                    )}
+
                     <td className="py-1.5 pr-3">
                       <span
                         className={`px-1.5 py-0.5 rounded text-[10px] ${

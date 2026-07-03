@@ -353,6 +353,11 @@ export async function getPanelConnectionHistory(panelId: string) {
   return callEdgeFunction("panel-test", { action: "get-history", panel_id: panelId });
 }
 
+export async function getAllPanelConnectionHistory() {
+  return callEdgeFunction("panel-test", { action: "get-all-history" });
+}
+
+
 export async function getPanelTestConfig(token: string, panelId: string) {
   return callEdgeFunction("panel-test", { action: "get-config", token, panel_id: panelId });
 }
