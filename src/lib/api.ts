@@ -353,9 +353,10 @@ export async function getPanelConnectionHistory(panelId: string) {
   return callEdgeFunction("panel-test", { action: "get-history", panel_id: panelId });
 }
 
-export async function getAllPanelConnectionHistory() {
-  return callEdgeFunction("panel-test", { action: "get-all-history" });
+export async function getAllPanelConnectionHistory(limit: number = 50) {
+  return callEdgeFunction("panel-test", { action: "get-all-history", limit });
 }
+
 
 
 export async function getPanelTestConfig(token: string, panelId: string) {

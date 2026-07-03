@@ -55,6 +55,8 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
   const [showConfig, setShowConfig] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [allHistoryLimit, setAllHistoryLimit] = useState<number>(50);
+
 
   async function loadPanels() {
     try {
@@ -75,7 +77,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
     if (!panelId) return;
     try {
       if (panelId === "__all__") {
-        const res = await getAllPanelConnectionHistory();
+        const res = await getAllPanelConnectionHistory(allHistoryLimit);
         if (res?.history) setTestHistory(res.history);
       } else {
         const res = await getPanelConnectionHistory(panelId);
@@ -85,6 +87,7 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       setError(e?.message || "加载历史失败");
     }
   }
+
 
 
   async function loadConfig(panelId: string) {
@@ -205,7 +208,8 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
       if (selectedPanelId !== "__all__") loadConfig(selectedPanelId);
       loadHistory(selectedPanelId);
     }
-  }, [selectedPanelId]);
+  }, [selectedPanelId, allHistoryLimit]);
+
 
 
   return (
@@ -356,13 +360,31 @@ export default function PanelConnectionTestPanel({ token }: { token: string }) {
 
       {/* History section */}
       <div>
-        <button
-          onClick={() => setShowHistory(!showHistory)}
-          className="text-xs flex items-center gap-1 text-admin-primary hover:underline"
-        >
-          <HistoryIcon className="w-3 h-3" />
-          {showHistory ? "隐藏连接历史" : `查看连接历史（最近 ${testHistory.length} 次）`}
-        </button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-xs flex items-center gap-1 text-admin-primary hover:underline"
+          >
+            <HistoryIcon className="w-3 h-3" />
+            {showHistory ? "隐藏连接历史" : `查看连接历史（最近 ${testHistory.length} 次）`}
+          </button>
+          {selectedPanelId === "__all__" && (
+            <label className="text-xs flex items-center gap-1.5 text-muted-foreground">
+              显示条数：
+              <select
+                value={allHistoryLimit}
+                onChange={(e) => setAllHistoryLimit(parseInt(e.target.value))}
+                className="text-xs border border-border rounded px-2 py-1 bg-background"
+              >
+                <option value={50}>最近 50 条</option>
+                <option value={100}>最近 100 条</option>
+                <option value={200}>最近 200 条</option>
+                <option value={500}>最近 500 条</option>
+              </select>
+            </label>
+          )}
+        </div>
+
         {showHistory && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-xs">
