@@ -15,6 +15,7 @@ interface Panel {
 interface ConnectionTest {
   id: string;
   panel_id: string;
+  panel_name?: string;
   test_time: string;
   success: boolean;
   response_time_ms: number | null;
@@ -23,6 +24,7 @@ interface ConnectionTest {
   details: any;
   created_at: string;
 }
+
 
 interface TestConfig {
   id: string;
