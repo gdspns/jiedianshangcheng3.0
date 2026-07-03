@@ -332,11 +332,14 @@ Deno.serve(async (req) => {
 
     // List test history across ALL panels
     if (action === "get-all-history") {
+      const reqLimit = Number(body.limit);
+      const safeLimit = Number.isFinite(reqLimit) ? Math.min(500, Math.max(1, Math.floor(reqLimit))) : 50;
       const { data: history, error: historyError } = await supabase
         .from("panel_connection_tests")
         .select("*")
         .order("test_time", { ascending: false })
-        .limit(50);
+        .limit(safeLimit);
+
 
       if (historyError) throw historyError;
 
