@@ -397,10 +397,18 @@ async function extendExpiry(
 ): Promise<boolean> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
 
-  // Calculate new expiry using actual duration_days
+  // Calculate new expiry using actual duration_days.
+  // 续费时把"时分秒"重置为续费时刻，确保当天的流量重置点还在未来 —— 否则
+  // 用户在原到期时分之后续费，会导致 auto-reset-traffic 已错过今日重置窗口，
+  // 出现"到期时间已续但流量未重置"的情况。
   const now = Date.now();
   const baseTime = currentExpiry > 0 && currentExpiry > now ? currentExpiry : now;
-  const newExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
+  const rawExpiry = baseTime + durationDays * 24 * 60 * 60 * 1000;
+  // Combine: date part from rawExpiry, time-of-day from `now`
+  const rawDate = new Date(rawExpiry);
+  const nowDate = new Date(now);
+  rawDate.setHours(nowDate.getHours(), nowDate.getMinutes(), nowDate.getSeconds(), nowDate.getMilliseconds());
+  const newExpiry = rawDate.getTime();
 
   if (isSocks5) {
     // SOCKS5: if already over quota, start the renewed period fresh.
