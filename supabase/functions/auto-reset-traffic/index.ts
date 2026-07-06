@@ -387,14 +387,19 @@ Deno.serve(async (req) => {
         if (anchor <= 0) break;
       }
       if (anchor <= 0 || anchor > now) { results.push({ uuid: rec.uuid, skipped: "no-anchor" }); continue; }
-      // Only reset if the anchor falls within the last hour (i.e. it's "this hour's" anchor).
-      // Prevents back-filling past anchors that were missed because the client was created later.
-      const ONE_HOUR = 3600 * 1000;
-      if (now - anchor > ONE_HOUR) {
-        results.push({ uuid: rec.uuid, skipped: "not-due-this-hour", anchor: new Date(anchor).toISOString() });
+      // Catch up on missed resets: reset whenever the current anchor hasn't been
+      // processed yet, regardless of how long ago the anchor was. This fixes the
+      // bug where a single missed cron tick would leave a client on their
+      // creation-time totalGB (often 0 = unlimited) for the whole month.
+      // Guard against back-filling brand-new clients that were created AFTER the
+      // anchor — they were never supposed to be reset at that anchor.
+      const createdMs = rec.created_at ? new Date(rec.created_at).getTime() : 0;
+      const lastReset = Number(rec.last_reset_expiry) || 0;
+      if (lastReset === 0 && createdMs > anchor) {
+        results.push({ uuid: rec.uuid, skipped: "created-after-anchor" });
         continue;
       }
-      if (Number(rec.last_reset_expiry) >= Number(anchor)) {
+      if (lastReset >= anchor) {
         results.push({ uuid: rec.uuid, skipped: "already-reset" });
         continue;
       }
