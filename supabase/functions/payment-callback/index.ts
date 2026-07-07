@@ -474,9 +474,11 @@ async function extendExpiry(
   const currentTotal = normalizeTrafficLimitBytes(targetClient.totalGB || clientStats?.total) || normalizeTrafficLimitBytes(observedTotalBytes);
   const currentUsed = Math.max(trafficUsedBytes(clientStats?.up, clientStats?.down), Number(observedUsedBytes || 0));
   const currentEnable = clientStats?.enable ?? targetClient.enable;
-  // 续费仅延长有效期，不重置流量；保留 enable=true 以便有效期内仍可使用剩余流量
+  // 续费仅延长有效期，不重置流量；只有未超出当前总流量时才保持可用。
+  // 如果已超流量，续费不应绕过限额，需购买流量包或等月度重置。
   const isOverQuota = false;
-  void currentTotal; void currentUsed; void currentEnable;
+  const hasTrafficRemaining = currentTotal <= 0 || currentUsed < currentTotal;
+  void currentEnable;
 
   let found = false;
   let updatedClient: any = null;
@@ -491,7 +493,7 @@ async function extendExpiry(
     const entryEmail = entry.email || "";
     if (entry === targetClient) {
       entry.expiryTime = newExpiry;
-      entry.enable = true;
+      entry.enable = hasTrafficRemaining;
       if (isOverQuota && renewalDefaultBytes > 0) entry.totalGB = renewalDefaultBytes;
       clientKey = entry.id || entry.password || entry.email || "";
       // Update remark to reflect new expiry date — works for both 自助 prefixed
@@ -520,7 +522,8 @@ async function extendExpiry(
     });
     const clientBody = await clientRes.json();
     console.log("Renew update client result:", clientBody);
-    if (clientBody?.success === true) return !isOverQuota || resetOk;
+    // Continue to a full inbound save below. Some 3x-ui versions only enforce
+    // traffic enable/disable after the same save path as manual "编辑→保存".
   }
 
   const formData = new URLSearchParams();
@@ -581,8 +584,13 @@ async function addClientTraffic(
     let clientKey = "";
     for (const entry of settings.clients || []) {
       if (entry.email === email) {
-        entry.totalGB = (Number(entry.totalGB) || 0) + addBytes;
-        entry.enable = true;
+        const statKeys = [entry.email, entry.id, entry.password, entry.pass, email]
+          .filter((v): v is string => typeof v === "string" && v.length > 0);
+        const clientStats = inbound.clientStats?.find((s: any) => typeof s?.email === "string" && statKeys.includes(s.email));
+        const currentUsed = trafficUsedBytes(clientStats?.up, clientStats?.down);
+        const updatedTotal = (Number(entry.totalGB) || 0) + addBytes;
+        entry.totalGB = updatedTotal;
+        entry.enable = updatedTotal <= 0 || currentUsed < updatedTotal;
         updatedClient = entry;
         clientKey = entry.id || entry.password || entry.email || "";
         found = true;
@@ -600,7 +608,8 @@ async function addClientTraffic(
       });
       const clientBody = await clientRes.json();
       console.log("Add traffic update client result:", clientBody);
-      if (clientBody?.success === true) return true;
+      // Continue to a full inbound save below so the running panel applies the
+      // same quota check/reload as a manual client edit followed by Save.
     }
   }
 
