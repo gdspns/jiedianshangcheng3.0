@@ -167,6 +167,21 @@ async function disableClientIfOverQuota(
   isSocks5: boolean,
 ): Promise<{ disabled?: boolean; overQuota?: boolean; skipped?: string; error?: string; used?: number; total?: number }> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
+  if (!Array.isArray(inbound.clientStats)) {
+    try {
+      const listRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/list`, {
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+      const listBody = await safeJson(listRes);
+      const listedInbound = Array.isArray(listBody?.obj)
+        ? listBody.obj.find((item: any) => Number(item?.id) === Number(inbound.id))
+        : null;
+      if (listedInbound) {
+        inbound = { ...inbound, ...listedInbound, settings: inbound.settings || listedInbound.settings };
+        try { settings = JSON.parse(inbound.settings || "{}"); } catch {}
+      }
+    } catch (e) { console.error("quota stats list err:", e); }
+  }
   let newSettingsStr = inbound.settings || "{}";
   let inboundEnable = inbound.enable;
   let used = 0;
