@@ -23,6 +23,20 @@ async function safeJson(res: Response): Promise<any> {
   try { const t = await res.text(); return t ? JSON.parse(t) : null; } catch { return null; }
 }
 
+const GB = 1073741824;
+
+function normalizeTrafficLimitBytes(value: any): number {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1024 * 1024 ? n * GB : n;
+}
+
+function trafficUsedBytes(up: any, down: any): number {
+  const u = Number(up || 0);
+  const d = Number(down || 0);
+  return (Number.isFinite(u) ? u : 0) + (Number.isFinite(d) ? d : 0);
+}
+
 async function login3xui(panelUrl: string, username: string, password: string): Promise<string | null> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
   try {
@@ -139,6 +153,103 @@ async function resetClientToDefault(
   });
   const body = await safeJson(res);
   return body?.success === true;
+}
+
+// 3x-ui may not immediately enforce over-quota clients until the inbound/client
+// is saved. During hourly checks, explicitly disable clients that are already
+// over their current totalGB and save the inbound, matching the manual "编辑→保存" effect.
+async function disableClientIfOverQuota(
+  panelUrl: string,
+  cookie: string,
+  inbound: any,
+  settings: any,
+  email: string,
+  isSocks5: boolean,
+): Promise<{ disabled?: boolean; overQuota?: boolean; skipped?: string; error?: string; used?: number; total?: number }> {
+  const baseUrl = panelUrl.replace(/\/+$/, "");
+  if (!Array.isArray(inbound.clientStats)) {
+    try {
+      const listRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/list`, {
+        headers: { Cookie: cookie, Accept: "application/json" },
+      });
+      const listBody = await safeJson(listRes);
+      const listedInbound = Array.isArray(listBody?.obj)
+        ? listBody.obj.find((item: any) => Number(item?.id) === Number(inbound.id))
+        : null;
+      if (listedInbound) {
+        inbound = { ...inbound, ...listedInbound, settings: inbound.settings || listedInbound.settings };
+        try { settings = JSON.parse(inbound.settings || "{}"); } catch {}
+      }
+    } catch (e) { console.error("quota stats list err:", e); }
+  }
+  let newSettingsStr = inbound.settings || "{}";
+  let inboundEnable = inbound.enable;
+  let used = 0;
+  let total = 0;
+
+  if (isSocks5) {
+    used = trafficUsedBytes(inbound.up, inbound.down);
+    total = normalizeTrafficLimitBytes(inbound.total);
+    if (total <= 0) return { skipped: "unlimited" };
+    if (used < total) return { skipped: "under-quota", used, total };
+    if (inbound.enable === false) return { overQuota: true, skipped: "already-disabled", used, total };
+    inboundEnable = false;
+  } else {
+    const clients = Array.isArray(settings.clients) ? settings.clients : [];
+    const target = clients.find((c: any) => c?.email === email);
+    if (!target) return { error: "client-not-found" };
+
+    const keys = [target.email, target.id, target.password, target.pass, email]
+      .filter((v: any): v is string => typeof v === "string" && v.length > 0);
+    const clientStats = inbound.clientStats?.find((s: any) => {
+      const statsKey = typeof s?.email === "string" ? s.email : "";
+      return statsKey.length > 0 && keys.includes(statsKey);
+    });
+
+    used = trafficUsedBytes(clientStats?.up, clientStats?.down);
+    total = normalizeTrafficLimitBytes(target.totalGB || clientStats?.total);
+    if (total <= 0) return { skipped: "unlimited" };
+    if (used < total) return { skipped: "under-quota", used, total };
+    if (target.enable === false) return { overQuota: true, skipped: "already-disabled", used, total };
+
+    target.enable = false;
+    newSettingsStr = JSON.stringify(settings);
+
+    const clientKey = target.id || target.password || target.email || "";
+    if (clientKey) {
+      try {
+        await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+          method: "POST",
+          headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ id: inbound.id, settings: JSON.stringify({ clients: [target] }) }),
+        });
+      } catch (e) { console.error("quota disable updateClient err:", e); }
+    }
+  }
+
+  const formData = new URLSearchParams();
+  formData.append("up", String(inbound.up));
+  formData.append("down", String(inbound.down));
+  formData.append("total", String(inbound.total));
+  formData.append("remark", inbound.remark || "");
+  formData.append("enable", String(inboundEnable));
+  formData.append("expiryTime", String(inbound.expiryTime || 0));
+  formData.append("listen", inbound.listen || "");
+  formData.append("port", String(inbound.port));
+  formData.append("protocol", inbound.protocol);
+  formData.append("settings", newSettingsStr);
+  formData.append("streamSettings", inbound.streamSettings || "");
+  formData.append("sniffing", inbound.sniffing || "");
+  formData.append("allocate", inbound.allocate || "");
+
+  const res = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inbound.id}`, {
+    method: "POST",
+    headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+    body: formData.toString(),
+  });
+  const body = await safeJson(res);
+  if (body?.success === true) return { disabled: true, overQuota: true, used, total };
+  return { error: "quota-disable-failed", used, total };
 }
 
 Deno.serve(async (req) => {
@@ -268,9 +379,11 @@ Deno.serve(async (req) => {
 
 
     // Load all client records
-    const { data: records } = await supabase
+    let recordsQuery = supabase
       .from("client_records")
       .select("*");
+    if (body?.uuid && typeof body.uuid === "string") recordsQuery = recordsQuery.eq("uuid", body.uuid);
+    const { data: records } = await recordsQuery;
 
     // Load rules + plans + plan_regions for default-GB resolution
     const { data: rules } = await supabase
@@ -375,7 +488,13 @@ Deno.serve(async (req) => {
       if (effectiveGB <= 0) { results.push({ uuid: rec.uuid, skipped: "unlimited" }); continue; }
 
       const expiry = found.expiryTime || 0;
-      if (expiry <= 0) { results.push({ uuid: rec.uuid, skipped: "no-expiry" }); continue; }
+      async function pushSkipWithQuotaCheck(reason: string) {
+        const quota = await disableClientIfOverQuota(rec.panel_url, cookie!, found.inbound, found.settings, found.email, rec.is_socks5);
+        if (quota?.error) results.push({ uuid: rec.uuid, skipped: reason, reset: false, error: quota.error, used: quota.used, total: quota.total });
+        else results.push({ uuid: rec.uuid, skipped: reason, quotaDisabled: quota.disabled === true, overQuota: quota.overQuota === true, used: quota.used, total: quota.total });
+      }
+
+      if (expiry <= 0) { await pushSkipWithQuotaCheck("no-expiry"); continue; }
 
       // Compute most recent monthly anchor at or before now, derived from expiry.
       // E.g. expiry = July 4 19:00 → anchors at June 4 19:00, May 4 19:00, ...
@@ -386,7 +505,7 @@ Deno.serve(async (req) => {
         anchor = d.getTime();
         if (anchor <= 0) break;
       }
-      if (anchor <= 0 || anchor > now) { results.push({ uuid: rec.uuid, skipped: "no-anchor" }); continue; }
+      if (anchor <= 0 || anchor > now) { await pushSkipWithQuotaCheck("no-anchor"); continue; }
       // Catch up on missed resets: reset whenever the current anchor hasn't been
       // processed yet, regardless of how long ago the anchor was. This fixes the
       // bug where a single missed cron tick would leave a client on their
@@ -396,11 +515,11 @@ Deno.serve(async (req) => {
       const createdMs = rec.created_at ? new Date(rec.created_at).getTime() : 0;
       const lastReset = Number(rec.last_reset_expiry) || 0;
       if (lastReset === 0 && createdMs > anchor) {
-        results.push({ uuid: rec.uuid, skipped: "created-after-anchor" });
+        await pushSkipWithQuotaCheck("created-after-anchor");
         continue;
       }
       if (lastReset >= anchor) {
-        results.push({ uuid: rec.uuid, skipped: "already-reset" });
+        await pushSkipWithQuotaCheck("already-reset");
         continue;
       }
 
@@ -421,6 +540,7 @@ Deno.serve(async (req) => {
     }
 
     const resetCount = results.filter((r: any) => r.reset === true).length;
+    const quotaDisabledCount = results.filter((r: any) => r.quotaDisabled === true).length;
     const failedCount = results.filter((r: any) => r.reset === false || r.error).length;
     const skippedCount = results.filter((r: any) => r.skipped).length;
     const triggerSource = (body && body.source) ? String(body.source) : (req.headers.get("user-agent")?.includes("pg_net") ? "cron" : "manual");
@@ -432,13 +552,14 @@ Deno.serve(async (req) => {
         skipped_count: skippedCount,
         failed_count: failedCount,
         trigger_source: triggerSource,
-        details: { results: results.slice(0, 200) },
+        details: { quotaDisabled: quotaDisabledCount, results: results.slice(0, 200) },
       });
     } catch (_) {}
     return new Response(JSON.stringify({
       success: true,
       checked: records?.length || 0,
       reset: resetCount,
+      quotaDisabled: quotaDisabledCount,
       skipped: skippedCount,
       failed: failedCount,
       results,
