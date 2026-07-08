@@ -1,0 +1,2 @@
+UPDATE public.orders SET inbound_id = 90, inbound_remark = '美国住宅独享233' WHERE id = '6fffe0c0-7b2d-4d94-8275-f003eb17906b';
+UPDATE public.client_records SET inbound_id = 90, plan_id = '9fe1a141-9dc4-4ba9-b708-6ae3697f30ed', default_traffic_gb = 50 WHERE uuid = 'dd251731-40d3-4823-80b9-4d2a315a225a';
