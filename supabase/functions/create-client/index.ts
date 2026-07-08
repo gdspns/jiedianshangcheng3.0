@@ -306,11 +306,40 @@ Deno.serve(async (req) => {
     let salesProtocol = (config as any).sales_protocol ?? "mixed";
 
     // Try to find the correct inbound_id from inbound_plans mapping
-    // 1. Find which plan was purchased by matching plan_name
-    const { data: matchedPlans } = await supabase
-      .from("plans")
-      .select("id, traffic_gb, region_id")
-      .eq("title", order.plan_name);
+    // 1. Find which plan was purchased by matching plan_name + price + duration
+    //    (title alone collides across price tiers, e.g. 50元/80元 both named "独享一个月")
+    let matchedPlans: any[] | null = null;
+    {
+      const orderAmount = Number((order as any).amount);
+      const orderDuration = Number((order as any).duration_days);
+      // Strictest match first: title + price + duration
+      const { data: strict } = await supabase
+        .from("plans")
+        .select("id, traffic_gb, region_id, price, duration_days")
+        .eq("title", order.plan_name)
+        .eq("price", orderAmount)
+        .eq("duration_days", orderDuration);
+      if (strict && strict.length > 0) {
+        matchedPlans = strict;
+      } else {
+        // Fallback: title + price only
+        const { data: byPrice } = await supabase
+          .from("plans")
+          .select("id, traffic_gb, region_id, price, duration_days")
+          .eq("title", order.plan_name)
+          .eq("price", orderAmount);
+        if (byPrice && byPrice.length > 0) {
+          matchedPlans = byPrice;
+        } else {
+          // Last resort: title only (legacy behavior)
+          const { data: byTitle } = await supabase
+            .from("plans")
+            .select("id, traffic_gb, region_id, price, duration_days")
+            .eq("title", order.plan_name);
+          matchedPlans = byTitle || null;
+        }
+      }
+    }
 
     let planTrafficGB = Math.max(0, Math.floor(Number((matchedPlans && matchedPlans[0] && (matchedPlans[0] as any).traffic_gb) || 0)));
     let matchedPlanId: string | null = matchedPlans && matchedPlans[0] ? (matchedPlans[0] as any).id : null;
