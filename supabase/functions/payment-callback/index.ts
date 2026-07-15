@@ -702,15 +702,15 @@ Deno.serve(async (req) => {
         return new Response("fail", { headers: corsHeaders });
       }
 
-      // Get order
-      const { data: order, error: orderError } = await supabase
+      // Load the order first so we can verify the callback signature even if
+      // Hupi retries a notification after the order has already been handled.
+      const { data: existingOrder, error: orderError } = await supabase
         .from("orders")
         .select("*")
         .eq("trade_no", tradeOrderNo)
-        .eq("status", "pending")
-        .single();
+        .maybeSingle();
 
-      if (orderError || !order) {
+      if (orderError || !existingOrder) {
         console.error("Order not found:", tradeOrderNo);
         return new Response("fail", { headers: corsHeaders });
       }
@@ -721,22 +721,39 @@ Deno.serve(async (req) => {
 
       // Determine which app secret to use
       const appSecret =
-        order.payment_method === "wechat" ? config.hupi_wechat_app_secret : config.hupi_alipay_app_secret;
+        existingOrder.payment_method === "wechat" ? config.hupi_wechat_app_secret : config.hupi_alipay_app_secret;
 
       if (appSecret && !(await verifyHupiSign(params, appSecret))) {
         console.error("Invalid Hupi signature");
         return new Response("fail", { headers: corsHeaders });
       }
 
-      // Mark order as paid
-      await supabase
+      // Atomically claim the pending order. If Hupi sends duplicate callbacks
+      // concurrently, only one request can move pending -> paid and continue.
+      const { data: order, error: claimError } = await supabase
         .from("orders")
         .update({
           status: "paid",
           paid_at: new Date().toISOString(),
           notify_data: params,
         })
-        .eq("id", order.id);
+        .eq("id", existingOrder.id)
+        .eq("status", "pending")
+        .select("*")
+        .maybeSingle();
+
+      if (claimError) {
+        console.error("Failed to claim Hupi order:", tradeOrderNo, claimError);
+        return new Response("fail", { headers: corsHeaders });
+      }
+
+      if (!order) {
+        console.log(
+          "Duplicate Hupi callback ignored:",
+          JSON.stringify({ tradeOrderNo, currentStatus: existingOrder.status }),
+        );
+        return new Response("success", { headers: corsHeaders });
+      }
 
       // Use order_type field to determine handling
       const isBuyNewOrder = order.order_type === "buy_new";
@@ -820,6 +837,12 @@ Deno.serve(async (req) => {
             }).eq("id", order.id);
             finalStatus = "paid_unfulfilled";
           }
+        } else {
+          await supabase
+            .from("orders")
+            .update({ status: "paid_unfulfilled" })
+            .eq("id", order.id);
+          finalStatus = "paid_unfulfilled";
         }
       } else {
         console.log("Buy-new order detected, triggering create-client from callback.");
