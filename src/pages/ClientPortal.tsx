@@ -307,6 +307,25 @@ export default function ClientPortal() {
   // Track orders currently being fulfilled to prevent duplicate create-client calls
   const inFlightCreateRef = useRef<Set<string>>(new Set());
 
+  const clearPortalSession = (message?: string) => {
+    try {
+      localStorage.removeItem("portal_uuid");
+      localStorage.removeItem("portal_login_input");
+    } catch {}
+    setLogged(false);
+    setUuid("");
+    setLoginInput("");
+    setClientDataLoaded(false);
+    setOrders([]);
+    setCheckoutData(null);
+    setPayStatus(null);
+    if (message) setError(message);
+  };
+
+  const handleMissingClient = () => {
+    clearPortalSession("当前节点已不存在，请重新输入有效凭证登录。");
+  };
+
   const refreshStockData = async () => {
     try {
       const [plans, regions, planRegions, inbounds, inboundPlans] = await Promise.all([
@@ -389,9 +408,13 @@ export default function ClientPortal() {
             inboundRemark: res.inboundRemark || "",
           });
           setClientDataLoaded(true);
+        } else {
+          handleMissingClient();
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Keep the cached login if the panel/API is temporarily unreachable.
+      });
   }, []);
 
   useEffect(() => {
@@ -961,6 +984,20 @@ export default function ClientPortal() {
     setOrderCreating(true);
     setPayStatus("creating");
     try {
+      if (checkoutData.type !== "buy_new") {
+        try {
+          const activeClient = await lookupClient(uuid);
+          if (!activeClient?.success) {
+            handleMissingClient();
+            return;
+          }
+        } catch {
+          setPayStatus("error");
+          setError("验证节点状态失败，请稍后重试");
+          return;
+        }
+      }
+
       const isCrypto = ["usdt", "trx"].includes(selectedMethod);
       const res = await createOrder({
         uuid,
