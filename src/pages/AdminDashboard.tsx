@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Server, QrCode, Bitcoin, CheckCircle2, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText } from "lucide-react";
+import { Settings, Server, QrCode, Bitcoin, CheckCircle2, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText, CalendarDays, WalletCards } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
+import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminGetOrderRevenueStats, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
 import CronStatusPanel from "@/components/CronStatusPanel";
 import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
@@ -110,6 +110,11 @@ interface Order {
   client_remark?: string;
 }
 
+interface RevenueStat {
+  totalAmount: number;
+  totalCount: number;
+}
+
 const defaultConfig: AdminConfigData = {
   panelUrl: "http://127.0.0.1:2053",
   panelUser: "admin",
@@ -163,6 +168,15 @@ export default function AdminDashboard() {
   const [ordersSearch, setOrdersSearch] = useState("");
   const [ordersStatus, setOrdersStatus] = useState("all");
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [revenueStats, setRevenueStats] = useState<Record<"day" | "month" | "year" | "custom", RevenueStat>>({
+    day: { totalAmount: 0, totalCount: 0 },
+    month: { totalAmount: 0, totalCount: 0 },
+    year: { totalAmount: 0, totalCount: 0 },
+    custom: { totalAmount: 0, totalCount: 0 },
+  });
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [customRevenueStart, setCustomRevenueStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customRevenueEnd, setCustomRevenueEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [assignRegionId, setAssignRegionId] = useState<string | null>(null);
   const [expandedPlanIds, setExpandedPlanIds] = useState<Set<string>>(new Set());
@@ -363,6 +377,58 @@ export default function AdminDashboard() {
     setOrdersLoading(false);
   };
 
+  const dayRange = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  const monthRange = (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  const yearRange = (date: Date) => {
+    const start = new Date(date.getFullYear(), 0, 1, 0, 0, 0, 0);
+    const end = new Date(date.getFullYear(), 11, 31, 23, 59, 59, 999);
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  const customRange = () => {
+    const start = new Date(`${customRevenueStart}T00:00:00`);
+    const end = new Date(`${customRevenueEnd}T23:59:59.999`);
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  const loadRevenueStats = async () => {
+    setRevenueLoading(true);
+    try {
+      const now = new Date();
+      const ranges = {
+        day: dayRange(now),
+        month: monthRange(now),
+        year: yearRange(now),
+        custom: customRange(),
+      };
+      const [day, month, year, custom] = await Promise.all([
+        adminGetOrderRevenueStats(token, ranges.day.start, ranges.day.end),
+        adminGetOrderRevenueStats(token, ranges.month.start, ranges.month.end),
+        adminGetOrderRevenueStats(token, ranges.year.start, ranges.year.end),
+        adminGetOrderRevenueStats(token, ranges.custom.start, ranges.custom.end),
+      ]);
+      setRevenueStats({
+        day: { totalAmount: Number(day?.totalAmount || 0), totalCount: Number(day?.totalCount || 0) },
+        month: { totalAmount: Number(month?.totalAmount || 0), totalCount: Number(month?.totalCount || 0) },
+        year: { totalAmount: Number(year?.totalAmount || 0), totalCount: Number(year?.totalCount || 0) },
+        custom: { totalAmount: Number(custom?.totalAmount || 0), totalCount: Number(custom?.totalCount || 0) },
+      });
+    } catch {}
+    setRevenueLoading(false);
+  };
+
   const handleDeleteOrder = async (orderId: string) => {
     if (!confirm("确定删除该订单？")) return;
     try {
@@ -370,6 +436,7 @@ export default function AdminDashboard() {
       setOrders(orders.filter(o => o.id !== orderId));
       setOrdersTotal(prev => prev - 1);
       setSelectedOrders(prev => { const s = new Set(prev); s.delete(orderId); return s; });
+      loadRevenueStats();
     } catch {}
   };
 
@@ -383,6 +450,7 @@ export default function AdminDashboard() {
       setOrdersTotal(prev => prev - selectedOrders.size);
       setSelectedOrders(new Set());
       setBtnStatus(prev => ({ ...prev, batchDel: "✅ 已删除" }));
+      loadRevenueStats();
     } catch {
       setBtnStatus(prev => ({ ...prev, batchDel: "❌ 失败" }));
     }
@@ -859,7 +927,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="products" className="rounded-xl data-[state=active]:bg-client-primary data-[state=active]:text-client-primary-foreground font-bold text-xs sm:text-sm">
               <Package className="w-4 h-4 mr-1 sm:mr-2" /> 商品管理
             </TabsTrigger>
-            <TabsTrigger value="orders" className="rounded-xl data-[state=active]:bg-accent data-[state=active]:text-accent-foreground font-bold text-xs sm:text-sm" onClick={() => { if (orders.length === 0) loadOrders(); }}>
+            <TabsTrigger value="orders" className="rounded-xl data-[state=active]:bg-accent data-[state=active]:text-accent-foreground font-bold text-xs sm:text-sm" onClick={() => { if (orders.length === 0) loadOrders(); loadRevenueStats(); }}>
               <ClipboardList className="w-4 h-4 mr-1 sm:mr-2" /> 订单管理
             </TabsTrigger>
             <TabsTrigger value="tutorials" className="rounded-xl data-[state=active]:bg-client-primary data-[state=active]:text-client-primary-foreground font-bold text-xs sm:text-sm">
@@ -1987,6 +2055,65 @@ export default function AdminDashboard() {
               <h2 className="text-xl font-bold mb-6 flex items-center text-accent border-b border-border pb-3">
                 <ClipboardList className="w-5 h-5 mr-2" /> 订单管理
               </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                {[
+                  { key: "day", label: "今日收入", hint: "今天已支付/已完成订单" },
+                  { key: "month", label: "本月收入", hint: "本月已支付/已完成订单" },
+                  { key: "year", label: "今年收入", hint: "今年已支付/已完成订单" },
+                ].map((item) => {
+                  const stat = revenueStats[item.key as "day" | "month" | "year"];
+                  return (
+                    <div key={item.key} className="rounded-xl border border-border bg-muted/30 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold text-foreground">{item.label}</span>
+                        <WalletCards className="w-4 h-4 text-accent" />
+                      </div>
+                      <div className="text-2xl font-black text-accent">¥{stat.totalAmount.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{item.hint} · {stat.totalCount} 单</div>
+                    </div>
+                  );
+                })}
+
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-foreground">自定义收入</span>
+                    <CalendarDays className="w-4 h-4 text-accent" />
+                  </div>
+                  <div className="text-2xl font-black text-accent">¥{revenueStats.custom.totalAmount.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">已支付/已完成订单 · {revenueStats.custom.totalCount} 单</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row md:items-end gap-3 mb-4 rounded-xl border border-border bg-background p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    开始日期
+                    <input
+                      type="date"
+                      value={customRevenueStart}
+                      onChange={(e) => setCustomRevenueStart(e.target.value)}
+                      className="mt-1 w-full border border-input px-3 py-2 rounded-lg bg-background text-sm focus:ring-2 focus:ring-accent outline-none"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    结束日期
+                    <input
+                      type="date"
+                      value={customRevenueEnd}
+                      onChange={(e) => setCustomRevenueEnd(e.target.value)}
+                      className="mt-1 w-full border border-input px-3 py-2 rounded-lg bg-background text-sm focus:ring-2 focus:ring-accent outline-none"
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={loadRevenueStats}
+                  disabled={revenueLoading}
+                  className="bg-accent text-accent-foreground px-4 py-2 rounded-lg font-bold hover:opacity-90 transition-colors text-sm disabled:opacity-70"
+                >
+                  {revenueLoading ? "统计中..." : "查询收入"}
+                </button>
+              </div>
 
               {/* Search & Filter */}
               <div className="flex flex-col sm:flex-row gap-3 mb-4">

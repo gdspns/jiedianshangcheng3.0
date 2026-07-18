@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, token, page, pageSize, search, statusFilter, orderId, orderIds } = await req.json();
+    const { action, token, page, pageSize, search, statusFilter, orderId, orderIds, startDate, endDate } = await req.json();
 
     const configId = verifyToken(token);
     if (!configId) {
@@ -141,6 +141,45 @@ Deno.serve(async (req) => {
       }));
 
       return new Response(JSON.stringify({ orders: enrichedOrders, total: ordersResult.count }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "stats") {
+      const paidStatuses = ["paid", "fulfilled"];
+      const start = startDate ? new Date(startDate).getTime() : Number.NEGATIVE_INFINITY;
+      const end = endDate ? new Date(endDate).getTime() : Number.POSITIVE_INFINITY;
+      let totalAmount = 0;
+      let totalCount = 0;
+      const pageSize = 1000;
+
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("id, amount, status, created_at, paid_at, fulfilled_at")
+          .in("status", paidStatuses)
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        for (const order of data || []) {
+          const revenueTime = new Date(order.paid_at || order.fulfilled_at || order.created_at).getTime();
+          if (!Number.isFinite(revenueTime) || revenueTime < start || revenueTime > end) continue;
+          totalAmount += Number(order.amount || 0);
+          totalCount += 1;
+        }
+
+        if (!data || data.length < pageSize) break;
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+        totalCount,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        statuses: paidStatuses,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
