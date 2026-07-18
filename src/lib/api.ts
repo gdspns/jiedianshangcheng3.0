@@ -326,6 +326,10 @@ export async function backfillClientRecords() {
   return callEdgeFunction("auto-reset-traffic", { backfill: true });
 }
 
+export async function enforceDisabledQuota() {
+  return callEdgeFunction("auto-reset-traffic", { enforceQuota: true });
+}
+
 export async function getCronStatus() {
   return callEdgeFunction("cron-status", {});
 }

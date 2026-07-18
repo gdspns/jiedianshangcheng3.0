@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const WATCHED = [
   "auto-reset-traffic-hourly",
+  "enforce-disabled-quota-every-5min",
   "auto-backfill-client-records-daily",
   "auto-fulfill-every-minute",
 ];
@@ -81,10 +82,11 @@ Deno.serve(async (req) => {
       }));
     }
     const history = await loadHistory("auto-reset-traffic");
+    const enforceQuotaHistory = await loadHistory("enforce-disabled-quota");
     const backfillHistory = await loadHistory("auto-backfill-client-records");
 
     return new Response(
-      JSON.stringify({ success: true, jobs, history, backfillHistory, now: new Date().toISOString() }),
+      JSON.stringify({ success: true, jobs, history, enforceQuotaHistory, backfillHistory, now: new Date().toISOString() }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
