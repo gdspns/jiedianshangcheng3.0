@@ -252,6 +252,151 @@ async function disableClientIfOverQuota(
   return { error: "quota-disable-failed", used, total };
 }
 
+async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
+  const { data: panels } = await supabase.from("panels").select("*").eq("enabled", true);
+  const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
+  const allPanels: any[] = [...(panels || [])];
+  if (cfg?.panel_url && !allPanels.some((p) => p.panel_url === cfg.panel_url)) {
+    allPanels.push({ panel_url: cfg.panel_url, panel_user: cfg.panel_user, panel_pass: cfg.panel_pass });
+  }
+
+  const results: any[] = [];
+  let checked = 0;
+  let enforced = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const panel of allPanels) {
+    const cookie = await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass);
+    if (!cookie) {
+      failed++;
+      results.push({ panel: panel.panel_url, error: "login-failed" });
+      continue;
+    }
+
+    const baseUrl = panel.panel_url.replace(/\/+$/, "");
+    const listRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/list`, {
+      headers: { Cookie: cookie, Accept: "application/json" },
+    });
+    const listBody = await safeJson(listRes);
+    if (!listBody?.success || !Array.isArray(listBody.obj)) {
+      failed++;
+      results.push({ panel: panel.panel_url, error: "list-failed" });
+      continue;
+    }
+
+    for (const inbound of listBody.obj) {
+      let settings: any = {};
+      try { settings = JSON.parse(inbound.settings || "{}"); } catch {}
+      let changed = false;
+
+      const clients = Array.isArray(settings.clients) ? settings.clients : [];
+      for (const c of clients) {
+        const identifier = c.id || c.password || c.email || "";
+        if (!identifier) continue;
+        checked++;
+        const statKeys = [c.email, c.id, c.password, c.pass, identifier]
+          .filter((v: any): v is string => typeof v === "string" && v.length > 0);
+        const stats = inbound.clientStats?.find((s: any) =>
+          typeof s?.email === "string" && statKeys.includes(s.email)
+        );
+        const used = trafficUsedBytes(stats?.up, stats?.down);
+        const total = normalizeTrafficLimitBytes(c.totalGB || stats?.total);
+        if (total <= 0 || used < total) {
+          skipped++;
+          continue;
+        }
+        if (c.enable !== false) {
+          c.enable = false;
+          changed = true;
+        }
+        enforced++;
+        results.push({
+          panel: panel.panel_url,
+          inboundId: inbound.id,
+          identifier,
+          remark: c.email || "",
+          used,
+          total,
+          alreadyDisabled: c.enable === false && !changed,
+        });
+      }
+
+      const accounts = Array.isArray(settings.accounts) ? settings.accounts : [];
+      for (const a of accounts) {
+        const identifier = a.user || a.username || a.pass || a.password || "";
+        if (!identifier) continue;
+        checked++;
+        const used = trafficUsedBytes(inbound.up, inbound.down);
+        const total = normalizeTrafficLimitBytes(inbound.total);
+        if (total <= 0 || used < total) {
+          skipped++;
+          continue;
+        }
+        if (inbound.enable !== false) {
+          inbound.enable = false;
+          changed = true;
+        }
+        enforced++;
+        results.push({
+          panel: panel.panel_url,
+          inboundId: inbound.id,
+          identifier,
+          remark: inbound.remark || "",
+          used,
+          total,
+          socks5: true,
+          alreadyDisabled: inbound.enable === false && !changed,
+        });
+      }
+
+      if (!changed && !results.some((r) => r.panel === panel.panel_url && Number(r.inboundId) === Number(inbound.id))) {
+        continue;
+      }
+
+      const formData = new URLSearchParams();
+      formData.append("up", String(inbound.up));
+      formData.append("down", String(inbound.down));
+      formData.append("total", String(inbound.total));
+      formData.append("remark", inbound.remark || "");
+      formData.append("enable", String(inbound.enable));
+      formData.append("expiryTime", String(inbound.expiryTime || 0));
+      formData.append("listen", inbound.listen || "");
+      formData.append("port", String(inbound.port));
+      formData.append("protocol", inbound.protocol);
+      formData.append("settings", JSON.stringify(settings));
+      formData.append("streamSettings", inbound.streamSettings || "");
+      formData.append("sniffing", inbound.sniffing || "");
+      formData.append("allocate", inbound.allocate || "");
+
+      const updateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/update/${inbound.id}`, {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+      });
+      const updateBody = await safeJson(updateRes);
+      if (updateBody?.success !== true) {
+        failed++;
+        results.push({ panel: panel.panel_url, inboundId: inbound.id, error: "inbound-save-failed" });
+      }
+    }
+  }
+
+  try {
+    await supabase.from("cron_execution_logs").insert({
+      job_name: "enforce-disabled-quota",
+      checked,
+      reset_count: enforced,
+      skipped_count: skipped,
+      failed_count: failed,
+      trigger_source: triggerSource,
+      details: { panels: allPanels.length, results: results.slice(0, 200) },
+    });
+  } catch {}
+
+  return { success: true, enforceQuota: true, panels: allPanels.length, checked, enforced, skipped, failed, results };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -263,6 +408,14 @@ Deno.serve(async (req) => {
 
     let body: any = {};
     try { body = await req.json(); } catch {}
+
+    if (body?.enforceQuota === true) {
+      const triggerSource = body?.source === "cron" ? "cron" : "manual";
+      const result = await enforceQuotaOnAllPanels(supabase, triggerSource);
+      return new Response(JSON.stringify({ ...result, ranAt: new Date().toISOString() }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ===== Backfill: scan ALL inbounds on ALL configured panels and record every client =====
     if (body?.backfill === true) {
