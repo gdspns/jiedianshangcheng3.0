@@ -223,6 +223,10 @@ export async function adminGetOrders(token: string, params?: { page?: number; pa
   return callEdgeFunction("admin-orders", { action: "list", token, ...params });
 }
 
+export async function adminGetOrderRevenueStats(token: string, startDate: string, endDate: string) {
+  return callEdgeFunction("admin-orders", { action: "stats", token, startDate, endDate });
+}
+
 export async function adminDeleteOrder(token: string, orderId: string) {
   return callEdgeFunction("admin-orders", { action: "delete", token, orderId });
 }
