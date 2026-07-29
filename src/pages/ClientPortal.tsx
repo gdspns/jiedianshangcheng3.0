@@ -228,7 +228,7 @@ export default function ClientPortal() {
   const [inboundPlansData, setInboundPlansData] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<{ months: number; durationDays: number; price: number; planName: string; type: string; regionId?: string | null } | null>(null);
+  const [checkoutData, setCheckoutData] = useState<{ months: number; durationDays: number; price: number; planName: string; type: string; regionId?: string | null; planId?: string | null } | null>(null);
   const [newClientCredentials, setNewClientCredentials] = useState<Record<string, string> | null>(null);
   const [newClientConnectionInfo, setNewClientConnectionInfo] = useState<Record<string, any> | null>(null);
   const [newClientRemark, setNewClientRemark] = useState("");
@@ -418,6 +418,13 @@ export default function ClientPortal() {
   }, []);
 
   useEffect(() => {
+    if (!uuid || uuid === "游客_未登录") return;
+    getOrders(uuid)
+      .then((data) => setOrders(data || []))
+      .catch(() => {});
+  }, [uuid]);
+
+  useEffect(() => {
     const refresh = () => refreshStockData();
     const channel = supabase
       .channel("portal-stock-realtime")
@@ -496,22 +503,52 @@ export default function ClientPortal() {
     return result;
   }, [dynamicPlanRegions, inboundPlansData, regionInbounds]);
 
+  const purchasedInboundIds = useMemo(() => {
+    const ids = new Set<number>();
+    if (clientData?.inboundId != null) ids.add(Number(clientData.inboundId));
+    for (const order of orders || []) {
+      if (order?.status === "fulfilled" && order?.inbound_id != null) {
+        ids.add(Number(order.inbound_id));
+      }
+    }
+    return ids;
+  }, [clientData?.inboundId, orders]);
+
+  const hasAvailableInbound = (inbounds: any[]) =>
+    inbounds.some((ri) => {
+      if (purchasedInboundIds.has(Number(ri.inbound_id))) return false;
+      return !ri.max_clients || ri.max_clients <= 0 || (ri.current_clients || 0) < ri.max_clients;
+    });
+
+  const getAvailableInboundsForPlan = (planId: string | null | undefined, regionId: string | null | undefined, extraPurchased = new Set<number>()) => {
+    const blocked = new Set([...Array.from(purchasedInboundIds), ...Array.from(extraPurchased)]);
+    const mappedRiIds = planId
+      ? inboundPlansData.filter(ip => ip.plan_id === planId).map(ip => ip.region_inbound_id)
+      : [];
+    const mappedRis = regionInbounds.filter(ri => mappedRiIds.includes(ri.id));
+    const pool = mappedRis.length > 0
+      ? mappedRis.filter(ri => !regionId || ri.region_id === regionId)
+      : regionInbounds.filter(ri => !regionId || ri.region_id === regionId);
+    return pool.filter((ri) => {
+      if (blocked.has(Number(ri.inbound_id))) return false;
+      return !ri.max_clients || ri.max_clients <= 0 || (ri.current_clients || 0) < ri.max_clients;
+    });
+  };
+
   // Compute sold-out per region based on region_inbounds capacity
   const isRegionSoldOut = useMemo(() => {
     const map: Record<string, boolean> = {};
     for (const region of dynamicRegions) {
       const rInbounds = regionInbounds.filter(ri => ri.region_id === region.id);
       if (rInbounds.length > 0) {
-        // Sold out if ALL inbounds for this region are full (max_clients=0 means unlimited)
-        const allFull = rInbounds.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
-        map[region.id] = allFull;
+        map[region.id] = !hasAvailableInbound(rInbounds);
       } else {
         // Fallback to region-level check
         map[region.id] = region.max_clients > 0 && region.current_clients >= region.max_clients;
       }
     }
     return map;
-  }, [dynamicRegions, regionInbounds]);
+  }, [dynamicRegions, regionInbounds, purchasedInboundIds]);
 
   // Compute sold-out per (plan, region): a plan is sold out in a region if every
   // region_inbound mapped to that plan in that region has reached max_clients.
@@ -527,7 +564,7 @@ export default function ClientPortal() {
         const inRegion = mappedRis.filter(ri => ri.region_id === region.id);
         let soldOut: boolean;
         if (inRegion.length > 0) {
-          soldOut = inRegion.every(ri => ri.max_clients > 0 && ri.current_clients >= ri.max_clients);
+          soldOut = !hasAvailableInbound(inRegion);
         } else {
           // No specific mapping in this region: fall back to region-level check
           soldOut = isRegionSoldOut[region.id] || false;
@@ -536,7 +573,7 @@ export default function ClientPortal() {
       }
     }
     return map;
-  }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut]);
+  }, [dynamicPlans, dynamicRegions, regionInbounds, inboundPlansData, isRegionSoldOut, purchasedInboundIds]);
 
   // Determine the user's region from their inbound id (parsed at login).
   // Strategy: 1) match by inbound_id in region_inbounds; 2) fallback by inbound remark
@@ -739,13 +776,13 @@ export default function ClientPortal() {
 
   useEffect(() => () => cleanupPolling(), []);
 
-  const initiateCheckout = (months: number, price: number, planName: string, type = "renew", regionId?: string | null, durationDays?: number) => {
+  const initiateCheckout = (months: number, price: number, planName: string, type = "renew", regionId?: string | null, durationDays?: number, planId?: string | null) => {
     if ((type === "renew" || type === "topup_traffic") && isSelfServiceBlocked) {
       setTopupBlockedOpen(true);
       return;
     }
     cleanupPolling();
-    setCheckoutData({ months, durationDays: durationDays ?? months * 30, price, planName, type, regionId });
+    setCheckoutData({ months, durationDays: durationDays ?? months * 30, price, planName, type, regionId, planId });
     setSelectedMethod("");
     setPayStatus(null);
     setOrderId("");
@@ -758,11 +795,39 @@ export default function ClientPortal() {
     setTab("checkout");
   };
 
+  const ensureBuyNewInboundAvailable = async () => {
+    if (!checkoutData || checkoutData.type !== "buy_new") return true;
+    const contact = checkoutEmail.trim();
+    if (!contact) {
+      alert("购买开通必须填写邮箱/手机号，方便后续查单找回");
+      return false;
+    }
+    const contactPurchased = new Set<number>();
+    try {
+      const contactOrders = await lookupOrdersByEmail(contact);
+      for (const order of contactOrders || []) {
+        if (order?.status === "fulfilled" && order?.inbound_id != null) {
+          contactPurchased.add(Number(order.inbound_id));
+        }
+      }
+    } catch {}
+    const available = getAvailableInboundsForPlan(checkoutData.planId, checkoutData.regionId, contactPurchased);
+    if (available.length === 0) {
+      setPayStatus("error");
+      setError("该联系方式在当前地区/套餐已没有可分配的新入站，请选择其他地区或联系客服补货。");
+      return false;
+    }
+    return true;
+  };
+
   const handleSelectCrypto = async (method: string) => {
     setSelectedMethod(method);
     if (!checkoutData) return;
     if (checkoutData.type === "buy_new" && !checkoutEmail.trim()) {
       alert("购买开通必须填写邮箱/手机号，方便后续查单找回");
+      return;
+    }
+    if (checkoutData.type === "buy_new" && !(await ensureBuyNewInboundAvailable())) {
       return;
     }
 
@@ -979,6 +1044,9 @@ export default function ClientPortal() {
     if (!checkoutData || !selectedMethod) return;
     if (checkoutData.type === "buy_new" && !checkoutEmail.trim()) {
       alert("购买开通必须填写邮箱/手机号，方便后续查单找回");
+      return;
+    }
+    if (checkoutData.type === "buy_new" && !(await ensureBuyNewInboundAvailable())) {
       return;
     }
     setOrderCreating(true);
@@ -2022,7 +2090,7 @@ export default function ClientPortal() {
                                         <li className="flex items-center"><ChevronRight className="w-4 h-4 text-client-primary mr-1 shrink-0" /> 有效期 {plan.duration_days} 天</li>
                                       </ul>
                                       <button
-                                        onClick={() => !isSoldOut && initiateCheckout(plan.duration_months, plan.price, plan.title, "buy_new", activeRegionId, plan.duration_days)}
+                                        onClick={() => !isSoldOut && initiateCheckout(plan.duration_months, plan.price, plan.title, "buy_new", activeRegionId, plan.duration_days, plan.id)}
                                         disabled={isSoldOut}
                                         className={`w-full font-bold py-3 rounded-xl transition-colors ${isSoldOut ? "bg-muted text-muted-foreground cursor-not-allowed" : plan.featured ? "bg-client-primary text-client-primary-foreground hover:opacity-90 shadow-md" : "bg-client-primary/10 text-client-primary hover:bg-client-primary hover:text-client-primary-foreground"}`}>
                                         {isSoldOut ? "暂无库存，等待客服添加" : "购买开通"}
@@ -2060,7 +2128,7 @@ export default function ClientPortal() {
                                         <li className="flex items-center"><ChevronRight className="w-4 h-4 text-success mr-1 shrink-0" /> 有效期 {plan.duration_days} 天</li>
                                       </ul>
                                       <button
-                                        onClick={() => !isSoldOut && initiateCheckout(plan.duration_months, plan.price, plan.title, "buy_new", activeRegionId, plan.duration_days)}
+                                        onClick={() => !isSoldOut && initiateCheckout(plan.duration_months, plan.price, plan.title, "buy_new", activeRegionId, plan.duration_days, plan.id)}
                                         disabled={isSoldOut}
                                         className={`w-full font-bold py-3 rounded-xl transition-colors ${isSoldOut ? "bg-muted text-muted-foreground cursor-not-allowed" : plan.featured ? "bg-success text-success-foreground hover:opacity-90 shadow-md" : "bg-success/10 text-success hover:bg-success hover:text-success-foreground"}`}>
                                         {isSoldOut ? "暂无库存，等待客服添加" : "购买开通"}
