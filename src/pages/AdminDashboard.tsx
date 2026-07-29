@@ -2196,6 +2196,7 @@ export default function AdminDashboard() {
                               </div>
                               {order.inbound_remark && <div className="text-xs text-muted-foreground mt-0.5">📡 入站: {order.inbound_remark}</div>}
                               {order.client_remark && <div className="text-xs text-muted-foreground">👤 客户端: {order.client_remark}</div>}
+                              <div className="text-xs text-muted-foreground">邮箱/手机号: {order.email || "未填写"}</div>
                             </td>
                             <td className="py-3 px-2">
                               <span className="font-medium">{order.plan_name}</span>
