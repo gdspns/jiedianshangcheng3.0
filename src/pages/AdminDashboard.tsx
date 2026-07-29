@@ -106,6 +106,7 @@ interface Order {
   duration_days?: number;
   order_type?: string;
   remark?: string;
+  inbound_id?: number | null;
   inbound_remark?: string;
   client_remark?: string;
 }
@@ -2194,7 +2195,8 @@ export default function AdminDashboard() {
                                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                                 </button>
                               </div>
-                              {order.inbound_remark && <div className="text-xs text-muted-foreground mt-0.5">📡 入站: {order.inbound_remark}</div>}
+                              {order.inbound_id != null && <div className="text-xs text-muted-foreground mt-0.5">入站ID: {order.inbound_id}</div>}
+                              {order.inbound_remark && <div className="text-xs text-muted-foreground">📡 入站备注: {order.inbound_remark}</div>}
                               {order.client_remark && <div className="text-xs text-muted-foreground">👤 客户端: {order.client_remark}</div>}
                               <div className="text-xs text-muted-foreground">邮箱/手机号: {order.email || "未填写"}</div>
                             </td>
