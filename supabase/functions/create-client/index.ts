@@ -301,6 +301,31 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("rollback lock failed", e); }
     };
 
+    const previouslyUsedInboundIds = new Set<number>();
+    const addUsedInboundRows = (rows: any[] | null | undefined) => {
+      for (const row of rows || []) {
+        if (row?.inbound_id != null) previouslyUsedInboundIds.add(Number(row.inbound_id));
+      }
+    };
+    if (order.uuid && order.uuid !== "游客_未登录") {
+      const { data: byUuid } = await supabase
+        .from("orders")
+        .select("inbound_id")
+        .eq("uuid", order.uuid)
+        .eq("status", "fulfilled")
+        .not("inbound_id", "is", null);
+      addUsedInboundRows(byUuid);
+    }
+    if (order.email) {
+      const { data: byEmail } = await supabase
+        .from("orders")
+        .select("inbound_id")
+        .eq("email", order.email)
+        .eq("status", "fulfilled")
+        .not("inbound_id", "is", null);
+      addUsedInboundRows(byEmail);
+    }
+
     // Determine inbound_id and protocol
     let salesInboundId = (config as any).sales_inbound_id ?? 1;
     let salesProtocol = (config as any).sales_protocol ?? "mixed";
@@ -373,6 +398,7 @@ Deno.serve(async (req) => {
             ? candidateInbounds.filter((ri: any) => ri.region_id === regionId)
             : candidateInbounds;
           if (pool.length === 0) pool = candidateInbounds;
+          pool = pool.filter((ri: any) => !previouslyUsedInboundIds.has(Number(ri.inbound_id)));
           stockPoolIds = pool.map((ri: any) => ri.id);
           
           // Pick first inbound with available stock (max_clients=0 means unlimited)
@@ -381,9 +407,9 @@ Deno.serve(async (req) => {
           );
           
           if (!available) {
-            // All inbounds for this plan are full — block purchase
+            // All inbounds for this plan are full or already used by this buyer — block purchase
             await rollbackLock();
-            return new Response(JSON.stringify({ error: "该套餐已售罄，请联系客服补货" }), {
+            return new Response(JSON.stringify({ error: "该地区/套餐暂无可分配的新入站，请选择其他地区或联系客服补货" }), {
               status: 409,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
@@ -443,6 +469,13 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (previouslyUsedInboundIds.has(Number(salesInboundId))) {
+      await rollbackLock();
+      return new Response(JSON.stringify({ error: "该地区/套餐暂无可分配的新入站，请选择其他地区或联系客服补货" }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Login to 3x-ui
     const cookie = await login3xui(config.panel_url, config.panel_user, config.panel_pass);
