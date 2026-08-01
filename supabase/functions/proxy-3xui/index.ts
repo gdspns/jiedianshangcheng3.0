@@ -172,7 +172,7 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
           down: clientStats?.down || 0,
           total: entry.totalGB || clientStats?.total || 0,
           inboundId: inbound.id,
-          enable: clientStats?.enable ?? entry.enable ?? true,
+          enable: entry.enable ?? clientStats?.enable ?? true,
           protocol: inbound.protocol || "",
           inboundPort: Number(inbound.port || 0),
           inboundRemark: inbound.remark || "",
