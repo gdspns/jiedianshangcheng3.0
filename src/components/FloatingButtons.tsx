@@ -18,11 +18,9 @@ export default function FloatingButtons() {
 
   useEffect(() => {
     (supabase as any)
-      .from("admin_config")
-      .select("tawk_id, qq_qrcode_url, telegram_link")
-      .limit(1)
-      .single()
-      .then(({ data }: any) => {
+      .rpc("get_public_config")
+      .then(({ data: rows }: any) => {
+        const data = Array.isArray(rows) ? rows[0] : rows;
         if (data) {
           setCfg({
             tawk_id: data.tawk_id || DEFAULTS.tawk_id,

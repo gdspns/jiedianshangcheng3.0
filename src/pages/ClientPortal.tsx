@@ -375,12 +375,10 @@ export default function ClientPortal() {
     // Fetch video embed
     import("@/integrations/supabase/client").then(({ supabase }) => {
       (supabase as any)
-        .from("admin_config")
-        .select("video_embed")
-        .limit(1)
-        .single()
+        .rpc("get_public_config")
         .then(({ data }: any) => {
-          if (data?.video_embed) setVideoEmbed(data.video_embed);
+          const row = Array.isArray(data) ? data[0] : data;
+          if (row?.video_embed) setVideoEmbed(row.video_embed);
         });
     });
     // Load jsQR
