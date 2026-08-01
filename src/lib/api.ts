@@ -301,14 +301,9 @@ export async function createClientOnPanel(orderId: string, regionId?: string | n
 
 // Get orders for a UUID
 export async function getOrders(uuid: string) {
-  const { data, error } = await (supabase as any)
-    .from("orders")
-    .select("*")
-    .eq("uuid", uuid)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const { data, error } = await (supabase as any).rpc("get_orders_by_uuid", { p_uuid: uuid });
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 // Manually trigger expired-client traffic reset (admin)
