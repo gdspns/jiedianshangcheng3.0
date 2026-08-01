@@ -78,15 +78,9 @@ export async function createOrder(params: {
 
 // Look up orders by email
 export async function lookupOrdersByEmail(email: string) {
-  const { data, error } = await (supabase as any)
-    .from("orders")
-    .select("*")
-    .eq("email", email)
-    .in("status", ["fulfilled", "paid", "processing"])
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const { data, error } = await (supabase as any).rpc("get_orders_by_email", { p_email: email });
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function checkOrderStatus(orderId: string) {
