@@ -747,81 +747,7 @@ export type Database = {
       }
     }
     Views: {
-      public_config: {
-        Row: {
-          crypto_address: string | null
-          crypto_trx: boolean | null
-          crypto_usdt: boolean | null
-          hupi_alipay: boolean | null
-          hupi_wechat: boolean | null
-          landing_image: string | null
-          price_exclusive_month: number | null
-          price_exclusive_quarter: number | null
-          price_exclusive_year: number | null
-          price_month: number | null
-          price_quarter: number | null
-          price_shared_month: number | null
-          price_shared_quarter: number | null
-          price_shared_year: number | null
-          price_year: number | null
-          qq_qrcode_url: string | null
-          tawk_id: string | null
-          telegram_link: string | null
-          topup_blacklist: string | null
-          topup_min_gb: number | null
-          topup_price: number | null
-          video_embed: string | null
-        }
-        Insert: {
-          crypto_address?: string | null
-          crypto_trx?: boolean | null
-          crypto_usdt?: boolean | null
-          hupi_alipay?: boolean | null
-          hupi_wechat?: boolean | null
-          landing_image?: string | null
-          price_exclusive_month?: number | null
-          price_exclusive_quarter?: number | null
-          price_exclusive_year?: number | null
-          price_month?: number | null
-          price_quarter?: number | null
-          price_shared_month?: number | null
-          price_shared_quarter?: number | null
-          price_shared_year?: number | null
-          price_year?: number | null
-          qq_qrcode_url?: string | null
-          tawk_id?: string | null
-          telegram_link?: string | null
-          topup_blacklist?: string | null
-          topup_min_gb?: number | null
-          topup_price?: number | null
-          video_embed?: string | null
-        }
-        Update: {
-          crypto_address?: string | null
-          crypto_trx?: boolean | null
-          crypto_usdt?: boolean | null
-          hupi_alipay?: boolean | null
-          hupi_wechat?: boolean | null
-          landing_image?: string | null
-          price_exclusive_month?: number | null
-          price_exclusive_quarter?: number | null
-          price_exclusive_year?: number | null
-          price_month?: number | null
-          price_quarter?: number | null
-          price_shared_month?: number | null
-          price_shared_quarter?: number | null
-          price_shared_year?: number | null
-          price_year?: number | null
-          qq_qrcode_url?: string | null
-          tawk_id?: string | null
-          telegram_link?: string | null
-          topup_blacklist?: string | null
-          topup_min_gb?: number | null
-          topup_price?: number | null
-          video_embed?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       get_orders_by_email: {
@@ -858,6 +784,33 @@ export type Database = {
           plan_name: string
           status: string
           uuid: string
+        }[]
+      }
+      get_public_config: {
+        Args: never
+        Returns: {
+          crypto_address: string
+          crypto_trx: boolean
+          crypto_usdt: boolean
+          hupi_alipay: boolean
+          hupi_wechat: boolean
+          landing_image: string
+          price_exclusive_month: number
+          price_exclusive_quarter: number
+          price_exclusive_year: number
+          price_month: number
+          price_quarter: number
+          price_shared_month: number
+          price_shared_quarter: number
+          price_shared_year: number
+          price_year: number
+          qq_qrcode_url: string
+          tawk_id: string
+          telegram_link: string
+          topup_blacklist: string
+          topup_min_gb: number
+          topup_price: number
+          video_embed: string
         }[]
       }
       trigger_auto_test_panels: {
