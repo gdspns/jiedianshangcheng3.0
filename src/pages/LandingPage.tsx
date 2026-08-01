@@ -60,13 +60,11 @@ export default function LandingPage() {
 
   useEffect(() => {
     (supabase as any)
-      .from("admin_config")
-      .select("landing_image")
-      .limit(1)
-      .single()
+      .rpc("get_public_config")
       .then(({ data }: any) => {
-        if (data?.landing_image) {
-          setLandingImages(parseLandingImages(data.landing_image));
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row?.landing_image) {
+          setLandingImages(parseLandingImages(row.landing_image));
         }
       });
 

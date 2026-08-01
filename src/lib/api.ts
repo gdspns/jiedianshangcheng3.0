@@ -50,13 +50,9 @@ export async function adminDeletePanel(token: string, panelId: string) {
 
 // Client APIs
 export async function getPublicConfig() {
-  const { data, error } = await (supabase as any)
-    .from("admin_config")
-    .select("price_month, price_quarter, price_year, price_exclusive_month, price_exclusive_quarter, price_exclusive_year, price_shared_month, price_shared_quarter, price_shared_year, hupi_wechat, hupi_alipay, crypto_usdt, crypto_trx, crypto_address, tawk_id, qq_qrcode_url, telegram_link, landing_image, topup_min_gb, topup_price, topup_blacklist")
-    .limit(1)
-    .single();
+  const { data, error } = await (supabase as any).rpc("get_public_config");
   if (error) throw error;
-  return data;
+  return Array.isArray(data) ? data[0] : data;
 }
 
 export async function lookupClient(uuid: string) {
@@ -82,15 +78,9 @@ export async function createOrder(params: {
 
 // Look up orders by email
 export async function lookupOrdersByEmail(email: string) {
-  const { data, error } = await (supabase as any)
-    .from("orders")
-    .select("*")
-    .eq("email", email)
-    .in("status", ["fulfilled", "paid", "processing"])
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const { data, error } = await (supabase as any).rpc("get_orders_by_email", { p_email: email });
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export async function checkOrderStatus(orderId: string) {
@@ -311,14 +301,9 @@ export async function createClientOnPanel(orderId: string, regionId?: string | n
 
 // Get orders for a UUID
 export async function getOrders(uuid: string) {
-  const { data, error } = await (supabase as any)
-    .from("orders")
-    .select("*")
-    .eq("uuid", uuid)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const { data, error } = await (supabase as any).rpc("get_orders_by_uuid", { p_uuid: uuid });
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 // Manually trigger expired-client traffic reset (admin)

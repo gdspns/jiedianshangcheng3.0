@@ -750,6 +750,69 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_orders_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          amount: number
+          created_at: string
+          currency: string
+          duration_days: number
+          fulfilled_at: string
+          id: string
+          months: number
+          order_type: string
+          paid_at: string
+          payment_method: string
+          plan_name: string
+          status: string
+          uuid: string
+        }[]
+      }
+      get_orders_by_uuid: {
+        Args: { p_uuid: string }
+        Returns: {
+          amount: number
+          created_at: string
+          currency: string
+          duration_days: number
+          fulfilled_at: string
+          id: string
+          months: number
+          order_type: string
+          paid_at: string
+          payment_method: string
+          plan_name: string
+          status: string
+          uuid: string
+        }[]
+      }
+      get_public_config: {
+        Args: never
+        Returns: {
+          crypto_address: string
+          crypto_trx: boolean
+          crypto_usdt: boolean
+          hupi_alipay: boolean
+          hupi_wechat: boolean
+          landing_image: string
+          price_exclusive_month: number
+          price_exclusive_quarter: number
+          price_exclusive_year: number
+          price_month: number
+          price_quarter: number
+          price_shared_month: number
+          price_shared_quarter: number
+          price_shared_year: number
+          price_year: number
+          qq_qrcode_url: string
+          tawk_id: string
+          telegram_link: string
+          topup_blacklist: string
+          topup_min_gb: number
+          topup_price: number
+          video_embed: string
+        }[]
+      }
       trigger_auto_test_panels: {
         Args: never
         Returns: {
