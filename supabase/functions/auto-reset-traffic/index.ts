@@ -306,11 +306,35 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
           skipped++;
           continue;
         }
-        if (c.enable !== false) {
+
+        const wasEnabledInSettings = c.enable !== false;
+        const runtimeMayStillBeEnabled = stats?.enable !== false;
+        if (wasEnabledInSettings) {
           c.enable = false;
           changed = true;
         }
-        enforced++;
+        const clientKey = c.id || c.password || c.email || "";
+        let updateClientApplied = false;
+        let updateClientError = "";
+        if (clientKey && (wasEnabledInSettings || runtimeMayStillBeEnabled)) {
+          try {
+            const clientUpdateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
+              method: "POST",
+              headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
+              body: JSON.stringify({ id: inbound.id, settings: JSON.stringify({ clients: [c] }) }),
+            });
+            const clientUpdateBody = await safeJson(clientUpdateRes);
+            updateClientApplied = clientUpdateBody?.success === true;
+            if (!updateClientApplied) updateClientError = "update-client-failed";
+          } catch (e) {
+            updateClientError = String(e);
+          }
+        }
+
+        if (wasEnabledInSettings || updateClientApplied) enforced++;
+        else skipped++;
+        if (updateClientError) failed++;
+
         results.push({
           panel: panel.panel_url,
           inboundId: inbound.id,
@@ -318,7 +342,10 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
           remark: c.email || "",
           used,
           total,
-          alreadyDisabled: c.enable === false && !changed,
+          runtimeEnable: stats?.enable,
+          alreadyDisabled: !wasEnabledInSettings && !runtimeMayStillBeEnabled,
+          updateClientApplied,
+          error: updateClientError || undefined,
         });
       }
 
