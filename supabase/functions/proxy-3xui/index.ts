@@ -164,6 +164,15 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
           remark = clientStats?.email || entry.email || "";
         }
 
+        // 优先读取 settings.clients[].enable，避免 clientStats.enable 仍为 true 造成前台误判
+        const settingsEnable = typeof entry.enable === "boolean" ? entry.enable : undefined;
+        const usedBytes = (clientStats?.up || 0) + (clientStats?.down || 0);
+        const totalBytes = Number(entry.totalGB || clientStats?.total || 0);
+        const overQuota = totalBytes > 0 && usedBytes >= totalBytes;
+        const resolvedEnable = settingsEnable === false ? false
+          : overQuota ? false
+          : (settingsEnable ?? clientStats?.enable ?? true);
+
         return {
           found: true,
           email: remark,
@@ -172,7 +181,7 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
           down: clientStats?.down || 0,
           total: entry.totalGB || clientStats?.total || 0,
           inboundId: inbound.id,
-          enable: entry.enable ?? clientStats?.enable ?? true,
+          enable: resolvedEnable,
           protocol: inbound.protocol || "",
           inboundPort: Number(inbound.port || 0),
           inboundRemark: inbound.remark || "",
@@ -181,6 +190,7 @@ function findClientByIdentifier(inboundsData: any, identifier: string) {
           username: entry?.user || entry?.username || "",
           password: entry?.pass || entry?.password || "",
         };
+
       }
     } catch {}
   }
