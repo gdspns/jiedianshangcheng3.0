@@ -316,12 +316,14 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         const clientKey = c.id || c.password || c.email || "";
         let updateClientApplied = false;
         let updateClientError = "";
-        if (clientKey && (wasEnabledInSettings || runtimeMayStillBeEnabled)) {
+        // 无论 settings 里是否已经是 enable=false，都强制调用 updateClient，
+        // 让 3x-ui / Xray 立即应用关闭状态（旧逻辑会漏掉 alreadyDisabled 的在线连接）
+        if (clientKey) {
           try {
             const clientUpdateRes = await fetchUnsafe(`${baseUrl}/panel/api/inbounds/updateClient/${encodeURIComponent(clientKey)}`, {
               method: "POST",
               headers: { Cookie: cookie, "Content-Type": "application/json", Accept: "application/json" },
-              body: JSON.stringify({ id: inbound.id, settings: JSON.stringify({ clients: [c] }) }),
+              body: JSON.stringify({ id: inbound.id, settings: JSON.stringify({ clients: [{ ...c, enable: false }] }) }),
             });
             const clientUpdateBody = await safeJson(clientUpdateRes);
             updateClientApplied = clientUpdateBody?.success === true;
@@ -334,6 +336,7 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         if (wasEnabledInSettings || updateClientApplied) enforced++;
         else skipped++;
         if (updateClientError) failed++;
+
 
         results.push({
           panel: panel.panel_url,
