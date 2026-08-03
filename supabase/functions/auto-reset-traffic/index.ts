@@ -266,7 +266,23 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
   let skipped = 0;
   let failed = 0;
 
+  // 上一次强制关闭时记录的已用流量，用于判断「已禁用但仍在跑流量」的客户端
+  const prevUsed = new Map<string, number>();
+  try {
+    const { data: lastLog } = await supabase
+      .from("cron_execution_logs")
+      .select("details")
+      .eq("job_name", "enforce-disabled-quota")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    for (const r of (lastLog?.details?.results || [])) {
+      if (r?.identifier && typeof r.used === "number") prevUsed.set(String(r.identifier), r.used);
+    }
+  } catch {}
+
   for (const panel of allPanels) {
+    let needXrayRestart = false;
     const cookie = await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass);
     if (!cookie) {
       failed++;
