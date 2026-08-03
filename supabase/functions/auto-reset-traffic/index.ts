@@ -330,10 +330,11 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
           changed = true;
           needXrayRestart = true; // 新关闭：需要重启 Xray 才能踢掉已建立的连接
         }
-        // 已经是 enable=false，但流量仍在增长 → 说明旧连接还活着，必须重启 Xray
+        // 已经是 enable=false，但流量仍在增长 → 说明旧连接还活着，必须整条 inbound 保存并重启 Xray
         const before = prevUsed.get(String(identifier));
         if (!wasEnabledInSettings && typeof before === "number" && used > before) {
           needXrayRestart = true;
+          changed = true; // 触发 /panel/api/inbounds/update，等同于面板里手动「编辑→保存」
         }
         const clientKey = c.id || c.password || c.email || "";
         let updateClientApplied = false;
