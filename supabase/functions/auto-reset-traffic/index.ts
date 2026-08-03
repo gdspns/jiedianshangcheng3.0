@@ -266,7 +266,23 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
   let skipped = 0;
   let failed = 0;
 
+  // 上一次强制关闭时记录的已用流量，用于判断「已禁用但仍在跑流量」的客户端
+  const prevUsed = new Map<string, number>();
+  try {
+    const { data: lastLog } = await supabase
+      .from("cron_execution_logs")
+      .select("details")
+      .eq("job_name", "enforce-disabled-quota")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    for (const r of (lastLog?.details?.results || [])) {
+      if (r?.identifier && typeof r.used === "number") prevUsed.set(String(r.identifier), r.used);
+    }
+  } catch {}
+
   for (const panel of allPanels) {
+    let needXrayRestart = false;
     const cookie = await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass);
     if (!cookie) {
       failed++;
@@ -312,6 +328,13 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         if (wasEnabledInSettings) {
           c.enable = false;
           changed = true;
+          needXrayRestart = true; // 新关闭：需要重启 Xray 才能踢掉已建立的连接
+        }
+        // 已经是 enable=false，但流量仍在增长 → 说明旧连接还活着，必须整条 inbound 保存并重启 Xray
+        const before = prevUsed.get(String(identifier));
+        if (!wasEnabledInSettings && typeof before === "number" && used > before) {
+          needXrayRestart = true;
+          changed = true; // 触发 /panel/api/inbounds/update，等同于面板里手动「编辑→保存」
         }
         const clientKey = c.id || c.password || c.email || "";
         let updateClientApplied = false;
@@ -410,7 +433,28 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         results.push({ panel: panel.panel_url, inboundId: inbound.id, error: "inbound-save-failed" });
       }
     }
+
+    // 重启 Xray：3x-ui 只有重启内核才会踢掉超额客户端已建立的连接
+    if (needXrayRestart) {
+      let restarted = false;
+      let restartError = "";
+      for (const path of ["/panel/setting/restartXrayService", "/server/restartXrayService"]) {
+        try {
+          const res = await fetchUnsafe(`${baseUrl}${path}`, {
+            method: "POST",
+            headers: { Cookie: cookie, Accept: "application/json" },
+          });
+          const body = await safeJson(res);
+          if (body?.success === true) { restarted = true; break; }
+          restartError = `${path}:${res.status}`;
+        } catch (e) {
+          restartError = String(e).slice(0, 120);
+        }
+      }
+      results.push({ panel: panel.panel_url, xrayRestarted: restarted, error: restarted ? undefined : `restart-failed ${restartError}` });
+    }
   }
+
 
   try {
     await supabase.from("cron_execution_logs").insert({
