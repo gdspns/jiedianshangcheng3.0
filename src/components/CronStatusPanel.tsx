@@ -38,34 +38,63 @@ function fmt(d: string | Date | null): string {
   } catch { return String(d); }
 }
 
-// Compute next trigger from a simple cron schedule
+// Expand a cron field (supports *, */n, a-b, lists, single values) to allowed values
+function expandField(field: string, min: number, max: number): number[] | null {
+  const out = new Set<number>();
+  for (const part of field.split(",")) {
+    const [range, stepStr] = part.split("/");
+    const step = stepStr ? Number(stepStr) : 1;
+    if (!step || Number.isNaN(step)) return null;
+    let start = min, end = max;
+    if (range !== "*") {
+      if (range.includes("-")) {
+        const [a, b] = range.split("-").map(Number);
+        if (Number.isNaN(a) || Number.isNaN(b)) return null;
+        start = a; end = b;
+      } else {
+        const v = Number(range);
+        if (Number.isNaN(v)) return null;
+        start = v;
+        end = stepStr ? max : v;
+      }
+    }
+    for (let v = start; v <= end; v += step) out.add(v);
+  }
+  const arr = [...out].filter((v) => v >= min && v <= max).sort((a, b) => a - b);
+  return arr.length ? arr : null;
+}
+
+// Compute next trigger from a cron schedule (pg_cron schedules run in UTC)
 function nextRun(schedule: string): Date | null {
   const parts = schedule.trim().split(/\s+/);
   if (parts.length !== 5) return null;
-  const [m, h] = parts;
-  const now = new Date();
-  const next = new Date(now);
-  next.setSeconds(0, 0);
-  if (m === "*" && h === "*") {
-    // every minute
-    next.setMinutes(now.getMinutes() + 1);
-    return next;
-  }
-  if (m === "0" && h === "*") {
-    // hourly at minute 0
-    next.setMinutes(0);
-    next.setHours(now.getHours() + 1);
-    return next;
-  }
-  if (/^\d+$/.test(m) && /^\d+$/.test(h)) {
-    // daily at HH:MM (UTC in pg_cron)
-    const target = new Date();
-    target.setUTCHours(Number(h), Number(m), 0, 0);
-    if (target.getTime() <= now.getTime()) target.setUTCDate(target.getUTCDate() + 1);
-    return target;
+  const [mF, hF, domF, monF, dowF] = parts;
+  const mins = expandField(mF, 0, 59);
+  const hours = expandField(hF, 0, 23);
+  const doms = expandField(domF, 1, 31);
+  const mons = expandField(monF, 1, 12);
+  const dows = expandField(dowF === "7" ? "0" : dowF, 0, 6);
+  if (!mins || !hours || !doms || !mons || !dows) return null;
+
+  const d = new Date();
+  d.setUTCSeconds(0, 0);
+  d.setUTCMinutes(d.getUTCMinutes() + 1);
+  // search up to ~366 days ahead in minute steps (bounded loop)
+  for (let i = 0; i < 366 * 24 * 60; i++) {
+    const domOk = doms.includes(d.getUTCDate());
+    const dowOk = dows.includes(d.getUTCDay());
+    const dayOk = domF === "*" || dowF === "*" ? domOk && dowOk : domOk || dowOk;
+    if (
+      mins.includes(d.getUTCMinutes()) &&
+      hours.includes(d.getUTCHours()) &&
+      mons.includes(d.getUTCMonth() + 1) &&
+      dayOk
+    ) return new Date(d);
+    d.setUTCMinutes(d.getUTCMinutes() + 1);
   }
   return null;
 }
+
 
 function countdown(d: Date | null): string {
   if (!d) return "—";
