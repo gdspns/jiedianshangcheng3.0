@@ -432,7 +432,28 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         results.push({ panel: panel.panel_url, inboundId: inbound.id, error: "inbound-save-failed" });
       }
     }
+
+    // 重启 Xray：3x-ui 只有重启内核才会踢掉超额客户端已建立的连接
+    if (needXrayRestart) {
+      let restarted = false;
+      let restartError = "";
+      for (const path of ["/panel/setting/restartXrayService", "/server/restartXrayService"]) {
+        try {
+          const res = await fetchUnsafe(`${baseUrl}${path}`, {
+            method: "POST",
+            headers: { Cookie: cookie, Accept: "application/json" },
+          });
+          const body = await safeJson(res);
+          if (body?.success === true) { restarted = true; break; }
+          restartError = `${path}:${res.status}`;
+        } catch (e) {
+          restartError = String(e).slice(0, 120);
+        }
+      }
+      results.push({ panel: panel.panel_url, xrayRestarted: restarted, error: restarted ? undefined : `restart-failed ${restartError}` });
+    }
   }
+
 
   try {
     await supabase.from("cron_execution_logs").insert({
