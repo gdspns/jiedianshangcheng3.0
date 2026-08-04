@@ -438,7 +438,14 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
     if (needXrayRestart) {
       let restarted = false;
       let restartError = "";
-      for (const path of ["/panel/setting/restartXrayService", "/server/restartXrayService"]) {
+      // 3x-ui has moved this route across versions. Try current API routes first,
+      // then retain legacy routes for older installations.
+      for (const path of [
+        "/panel/api/server/restartXrayService",
+        "/panel/api/setting/restartXrayService",
+        "/panel/setting/restartXrayService",
+        "/server/restartXrayService",
+      ]) {
         try {
           const res = await fetchUnsafe(`${baseUrl}${path}`, {
             method: "POST",
