@@ -440,30 +440,46 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
 
     // 重启 Xray：3x-ui 只有重启内核才会踢掉超额客户端已建立的连接
     if (needXrayRestart) {
-      let restarted = false;
-      let restartError = "";
       // 3x-ui has moved this route across versions. Try current API routes first,
       // then retain legacy routes for older installations.
-      for (const path of [
+      const restartPaths = [
         "/panel/api/server/restartXrayService",
         "/panel/api/setting/restartXrayService",
         "/panel/setting/restartXrayService",
         "/server/restartXrayService",
-      ]) {
-        try {
-          const res = await fetchUnsafe(`${baseUrl}${path}`, {
-            method: "POST",
-            headers: { Cookie: cookie, Accept: "application/json" },
-          });
-          const body = await safeJson(res);
-          if (body?.success === true) { restarted = true; break; }
-          restartError = `${path}:${res.status}`;
-        } catch (e) {
-          restartError = String(e).slice(0, 120);
+      ];
+      const doRestart = async (): Promise<{ ok: boolean; err: string }> => {
+        let err = "";
+        for (const path of restartPaths) {
+          try {
+            const res = await fetchUnsafe(`${baseUrl}${path}`, {
+              method: "POST",
+              headers: { Cookie: cookie, Accept: "application/json" },
+            });
+            const body = await safeJson(res);
+            if (body?.success === true) return { ok: true, err: "" };
+            err = `${path}:${res.status}`;
+          } catch (e) {
+            err = String(e).slice(0, 120);
+          }
         }
-      }
-      results.push({ panel: panel.panel_url, xrayRestarted: restarted, error: restarted ? undefined : `restart-failed ${restartError}` });
+        return { ok: false, err };
+      };
+
+      // 第一次重启后，3x-ui 自己还会因为刚才的 inbound 保存做一次延迟的配置重建，
+      // 可能把旧连接重新带起来；等待几秒后再重启一次，确保按最新配置生效。
+      const first = await doRestart();
+      await new Promise((r) => setTimeout(r, 5000));
+      const second = await doRestart();
+      const restarted = first.ok || second.ok;
+      results.push({
+        panel: panel.panel_url,
+        xrayRestarted: restarted,
+        xrayRestartCount: (first.ok ? 1 : 0) + (second.ok ? 1 : 0),
+        error: restarted ? undefined : `restart-failed ${second.err || first.err}`,
+      });
     }
+
   }
 
 
