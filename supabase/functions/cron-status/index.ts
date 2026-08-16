@@ -9,13 +9,16 @@ const corsHeaders = {
 const WATCHED = [
   "auto-reset-traffic-hourly",
   "enforce-disabled-quota-every-5min",
+  "auto-test-panels-every-5min",
   "auto-backfill-client-records-daily",
   "auto-fulfill-every-minute",
 ];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const client = new Client(Deno.env.get("SUPABASE_DB_URL")!);
+  const databaseUrl = Deno.env.get("SUPABASE_DB_URL") || Deno.env.get("DATABASE_URL");
+  if (!databaseUrl) throw new Error("Missing DATABASE_URL secret");
+  const client = new Client(databaseUrl);
   try {
     await client.connect();
 
