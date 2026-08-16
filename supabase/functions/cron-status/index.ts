@@ -7,11 +7,11 @@ const corsHeaders = {
 };
 
 const WATCHED = [
-  "auto-reset-traffic-hourly",
-  "enforce-disabled-quota-every-5min",
-  "auto-test-panels-every-5min",
-  "auto-backfill-client-records-daily",
-  "auto-fulfill-every-minute",
+  "面板连接检测-每5分钟",
+  "超额流量强制关闭-每5分钟",
+  "到期自动重置流量-每小时",
+  "同步历史客户记录-每天",
+  "订单自动补单-每分钟",
 ];
 
 Deno.serve(async (req) => {
