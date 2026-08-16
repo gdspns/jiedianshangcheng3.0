@@ -360,6 +360,49 @@ async function findClient(panelUrl: string, cookie: string, identifier: string) 
   return null;
 }
 
+async function findExistingClientForOrder(supabase: any, identifier: string) {
+  if (!identifier || identifier === "游客_未登录") {
+    return { client: null, checkedPanels: 0, hadPanelError: false };
+  }
+
+  const { data: panelsList } = await supabase
+    .from("panels")
+    .select("*")
+    .eq("enabled", true)
+    .order("is_primary", { ascending: false })
+    .order("sort_order", { ascending: true });
+
+  let panelsToTry = Array.isArray(panelsList) ? panelsList.filter((p: any) => p?.panel_url) : [];
+  if (panelsToTry.length === 0) {
+    const { data: config } = await supabase
+      .from("admin_config")
+      .select("panel_url, panel_user, panel_pass")
+      .limit(1)
+      .maybeSingle();
+    if (config?.panel_url) panelsToTry = [config];
+  }
+
+  let checkedPanels = 0;
+  let hadPanelError = false;
+  for (const panel of panelsToTry) {
+    checkedPanels += 1;
+    try {
+      const cookie = await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass);
+      if (!cookie) {
+        hadPanelError = true;
+        continue;
+      }
+      const client = await findClient(panel.panel_url, cookie, identifier);
+      if (client) return { client, checkedPanels, hadPanelError };
+    } catch (err) {
+      hadPanelError = true;
+      console.error("Failed to validate client before order:", err);
+    }
+  }
+
+  return { client: null, checkedPanels, hadPanelError };
+}
+
 // Extend client expiry via 3x-ui API
 async function resetClientTrafficByKeys(baseUrl: string, cookie: string, inboundId: number, keys: string[], label: string): Promise<boolean> {
   const uniqueKeys = [...new Set(keys.filter((v) => typeof v === "string" && v.length > 0))];
@@ -940,6 +983,13 @@ Deno.serve(async (req) => {
         let finalDurationDays = durationDays || (months * 30);
         let finalCryptoAmount = cryptoAmount;
         if (normalizedOrderType === "topup_traffic") {
+          if (!uuid || uuid === "游客_未登录") {
+            return new Response(JSON.stringify({ error: "请先登录有效账户后再购买流量包" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
           const gbNum = Number(gb);
           const { data: cfg } = await supabase
             .from("admin_config")
@@ -960,6 +1010,26 @@ Deno.serve(async (req) => {
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
+
+          const validation = await findExistingClientForOrder(supabase, uuid);
+          if (!validation.client) {
+            const message = validation.hadPanelError
+              ? "无法校验账户有效期，请稍后重试或联系管理员"
+              : "未找到该客户端，无法购买流量包，请重新登录或联系管理员";
+            return new Response(JSON.stringify({ error: message }), {
+              status: validation.hadPanelError ? 503 : 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          const expiryTime = Number(validation.client.expiryTime || 0);
+          if (expiryTime > 0 && expiryTime <= Date.now()) {
+            return new Response(JSON.stringify({ error: "账户有效期已到期，不能购买流量包，请先在线续费或联系管理员处理" }), {
+              status: 403,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
           // unitPrice is per minGb; recompute server-side
           finalAmount = Number((unitPrice * (gbNum / minGb)).toFixed(2));
           finalPlanName = `流量充值 ${gbNum}GB`;
