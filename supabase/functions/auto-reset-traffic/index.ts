@@ -37,6 +37,32 @@ function trafficUsedBytes(up: any, down: any): number {
   return (Number.isFinite(u) ? u : 0) + (Number.isFinite(d) ? d : 0);
 }
 
+function isLocalPanelUrl(panelUrl: string | null | undefined): boolean {
+  const raw = String(panelUrl || "").trim().toLowerCase();
+  if (!raw) return true;
+  try {
+    const host = new URL(raw).hostname;
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  } catch {
+    return raw.includes("127.0.0.1") || raw.includes("localhost");
+  }
+}
+
+async function loadEnabledPanels(supabase: any): Promise<any[]> {
+  const { data: panels } = await supabase.from("panels").select("*").eq("enabled", true);
+  const configuredPanels = (panels || []).filter((p: any) => !isLocalPanelUrl(p?.panel_url));
+  if (configuredPanels.length > 0) return configuredPanels;
+
+  // Older installs stored one fallback panel in admin_config. Only use it
+  // when the panels table has no usable enabled panel.
+  const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
+  if (cfg?.panel_url && !isLocalPanelUrl(cfg.panel_url)) {
+    return [{ panel_url: cfg.panel_url, panel_user: cfg.panel_user, panel_pass: cfg.panel_pass }];
+  }
+
+  return [];
+}
+
 async function login3xui(panelUrl: string, username: string, password: string): Promise<string | null> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
   try {
@@ -253,12 +279,7 @@ async function disableClientIfOverQuota(
 }
 
 async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
-  const { data: panels } = await supabase.from("panels").select("*").eq("enabled", true);
-  const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
-  const allPanels: any[] = [...(panels || [])];
-  if (cfg?.panel_url && !allPanels.some((p) => p.panel_url === cfg.panel_url)) {
-    allPanels.push({ panel_url: cfg.panel_url, panel_user: cfg.panel_user, panel_pass: cfg.panel_pass });
-  }
+  const allPanels = await loadEnabledPanels(supabase);
 
   const results: any[] = [];
   let checked = 0;
@@ -523,12 +544,7 @@ Deno.serve(async (req) => {
       const { data: existing } = await supabase.from("client_records").select("uuid, inbound_id, panel_url");
       const existSet = new Set((existing || []).map((r: any) => `${r.panel_url}::${r.inbound_id}::${r.uuid}`));
 
-      const { data: panels } = await supabase.from("panels").select("*").eq("enabled", true);
-      const { data: cfg } = await supabase.from("admin_config").select("panel_url, panel_user, panel_pass").limit(1).single();
-      const allPanels: any[] = [...(panels || [])];
-      if (cfg?.panel_url && !allPanels.some((p) => p.panel_url === cfg.panel_url)) {
-        allPanels.push({ panel_url: cfg.panel_url, panel_user: cfg.panel_user, panel_pass: cfg.panel_pass });
-      }
+      const allPanels = await loadEnabledPanels(supabase);
 
       // Lookup tables for enriching records when we can match orders → plan
       const { data: orders } = await supabase

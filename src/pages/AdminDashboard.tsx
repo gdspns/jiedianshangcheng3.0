@@ -117,7 +117,7 @@ interface RevenueStat {
 }
 
 const defaultConfig: AdminConfigData = {
-  panelUrl: "http://127.0.0.1:2053",
+  panelUrl: "",
   panelUser: "admin",
   panelPass: "",
   priceMonth: 15,
@@ -230,7 +230,7 @@ export default function AdminDashboard() {
       const maxSort = panels.length > 0 ? Math.max(...panels.map(p => p.sort_order)) : 0;
       await adminCreatePanel(token, {
         name: `面板 ${panels.length + 1}`,
-        panel_url: "http://127.0.0.1:2053",
+        panel_url: "",
         panel_user: "admin",
         panel_pass: "",
         enabled: true,
