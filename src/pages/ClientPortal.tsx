@@ -1600,12 +1600,23 @@ export default function ClientPortal() {
                 return (
                   <div className="mt-6 bg-client-primary/5 p-6 rounded-2xl border border-client-primary/20">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                      <div className="text-client-primary font-bold flex items-center">
-                        <ShoppingCart className="w-5 h-5 mr-2" /> 购买流量包【续有效期用户点左边的““在线续费””】
+                      <div>
+                        <div className="text-client-primary font-bold flex items-center">
+                          <ShoppingCart className="w-5 h-5 mr-2" /> 购买流量包
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          如需延长账户有效期，请点击左侧「在线续费」
+                        </p>
                       </div>
                       <div className="text-sm text-muted-foreground">
                         单价：<span className="font-bold text-foreground">¥{unitPrice}</span> / {minGb}GB
                       </div>
+                    </div>
+                    <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-300/70 bg-amber-50 px-3.5 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                      <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>
+                        购买增加的流量<strong>每个月会自动清零</strong>，建议按需购买、少量多次。
+                      </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
                       <div className="flex-1">
