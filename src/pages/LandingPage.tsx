@@ -425,6 +425,20 @@ export default function LandingPage() {
         <footer className="lp-footer">
           <p>© 2024-2026 静态住址服务提供商. 版权所有.</p>
           <p style={{ marginTop: "10px", fontSize: "0.85rem", color: "#718096" }}>合规经营，符合国家网络安全规范 | 专业解决 AI 降智、防跨境电商限流</p>
+          <p
+            title={`完整构建时间：${new Date(__BUILD_TIME__).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}`}
+            style={{ marginTop: "12px", fontSize: "0.75rem", color: "#64748b", letterSpacing: "0.02em" }}
+          >
+            版本 v{__APP_VERSION__} · {__GIT_COMMIT__} · 发布于 {new Date(__BUILD_TIME__).toLocaleString("zh-CN", {
+              timeZone: "Asia/Shanghai",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+          </p>
         </footer>
 
       </div>
