@@ -32,6 +32,28 @@ const dateTime = (value: string) => new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
 }).format(new Date(value));
 
+const pageName = (rawPath: string) => {
+  const path = (rawPath || "/").split("?")[0].replace(/\/+$/, "") || "/";
+  if (path === "/") return "网站落地页";
+  if (path === "/portal") return "用户解析登录 / 用户中心";
+  if (path === "/3075554556") return "管理员登录";
+  if (path === "/3075554556/dashboard") return "管理员后台";
+  if (path === "/analytics-deploy-test" || path === "/live-analytics-verification") return "访问统计部署测试";
+  return `其他页面（${path}）`;
+};
+
+const referrerName = (referrer: string | null) => {
+  if (!referrer) return "直接访问";
+  try {
+    const url = new URL(referrer);
+    if (url.hostname === "ip520.top" || url.hostname === "www.ip520.top") return `站内跳转 · ${pageName(url.pathname)}`;
+    if (/baidu/i.test(url.hostname)) return "百度搜索";
+    if (/google/i.test(url.hostname)) return "Google 搜索";
+    if (/bing/i.test(url.hostname)) return "必应搜索";
+    return `外部来源 · ${url.hostname}`;
+  } catch { return "外部来源"; }
+};
+
 export default function VisitorAnalyticsPanel({ token }: { token: string }) {
   const [records, setRecords] = useState<VisitRecord[]>([]);
   const [stats, setStats] = useState({ visits: 0, uniqueVisitors: 0, todayVisits: 0, pageViews: 0, averageDuration: 0 });
@@ -76,7 +98,7 @@ export default function VisitorAnalyticsPanel({ token }: { token: string }) {
 
     <div className="bg-card p-5 rounded-2xl border border-border shadow-sm">
       <form onSubmit={(e) => { e.preventDefault(); void load(1); }} className="flex gap-2 mb-4"><div className="relative flex-1 max-w-md"><Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索 IP 或访问页面" className="w-full border border-input bg-background rounded-lg pl-9 pr-3 py-2 text-sm" /></div><button className="px-4 py-2 rounded-lg bg-secondary font-bold text-sm">查询</button></form>
-      <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-sm"><thead><tr className="border-b border-border text-left text-muted-foreground"><th className="p-3">访客 IP / 地区</th><th className="p-3">访问时间</th><th className="p-3">停留时间</th><th className="p-3">访问页面</th><th className="p-3">来源</th><th className="p-3">设备</th></tr></thead><tbody>{records.map((r) => <tr key={r.id} className="border-b border-border/60 hover:bg-muted/30 align-top"><td className="p-3"><div className="font-mono font-bold">{r.ip_address || "未知"}</div><div className="text-xs text-muted-foreground mt-1">{[r.country, r.region, r.city].filter(Boolean).join(" · ") || "地区未知"}</div></td><td className="p-3"><div>{dateTime(r.first_seen_at)}</div><div className="text-xs text-muted-foreground mt-1">最后活跃：{dateTime(r.last_seen_at)}</div></td><td className="p-3 font-bold">{formatDuration(r.duration_seconds)}<div className="text-xs text-muted-foreground font-normal mt-1">{r.page_views} 次页面浏览</div></td><td className="p-3"><div className="font-mono break-all">{r.entry_path}</div>{r.last_path !== r.entry_path && <div className="text-xs text-muted-foreground mt-1 break-all">最后：{r.last_path}</div>}</td><td className="p-3 max-w-[220px] break-all text-xs">{r.referrer || "直接访问"}</td><td className="p-3"><div className="flex items-center"><MonitorSmartphone className="w-4 h-4 mr-1" />{r.device_type || "未知"}</div><div className="text-xs text-muted-foreground mt-1">{[r.operating_system, r.browser].filter(Boolean).join(" · ")}</div></td></tr>)}{!loading && records.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-12">暂无访问记录</td></tr>}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-sm"><thead><tr className="border-b border-border text-left text-muted-foreground"><th className="p-3">访客 IP / 地区</th><th className="p-3">访问时间</th><th className="p-3">停留时间</th><th className="p-3">访问页面</th><th className="p-3">来源</th><th className="p-3">设备</th></tr></thead><tbody>{records.map((r) => <tr key={r.id} className="border-b border-border/60 hover:bg-muted/30 align-top"><td className="p-3"><div className="font-mono font-bold">{r.ip_address || "未知"}</div><div className="text-xs text-muted-foreground mt-1">{[r.country, r.region, r.city].filter(Boolean).join(" · ") || "地区未知"}</div></td><td className="p-3"><div>{dateTime(r.first_seen_at)}</div><div className="text-xs text-muted-foreground mt-1">最后活跃：{dateTime(r.last_seen_at)}</div></td><td className="p-3 font-bold">{formatDuration(r.duration_seconds)}<div className="text-xs text-muted-foreground font-normal mt-1">{r.page_views} 次页面浏览</div></td><td className="p-3"><div className="font-bold">{pageName(r.entry_path)}</div>{r.last_path !== r.entry_path && <div className="text-xs text-muted-foreground mt-1">最后访问：{pageName(r.last_path)}</div>}</td><td className="p-3 max-w-[220px] text-xs">{referrerName(r.referrer)}</td><td className="p-3"><div className="flex items-center"><MonitorSmartphone className="w-4 h-4 mr-1" />{r.device_type || "未知"}</div><div className="text-xs text-muted-foreground mt-1">{[r.operating_system, r.browser].filter(Boolean).join(" · ")}</div></td></tr>)}{!loading && records.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-12">暂无访问记录</td></tr>}</tbody></table></div>
       <div className="flex items-center justify-between mt-4 text-sm"><span className="text-muted-foreground">共 {total} 条，第 {page}/{pages} 页</span><div className="flex gap-2"><button disabled={page <= 1 || loading} onClick={() => void load(page - 1)} className="px-3 py-1.5 border rounded disabled:opacity-40">上一页</button><button disabled={page >= pages || loading} onClick={() => void load(page + 1)} className="px-3 py-1.5 border rounded disabled:opacity-40">下一页</button></div></div>
     </div>
   </div>;
