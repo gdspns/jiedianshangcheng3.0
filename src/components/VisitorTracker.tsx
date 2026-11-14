@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "visitor_analytics_session";
+let visitorNetwork: Promise<{ ip: string; country: string }> | null = null;
 
 function sessionId() {
   let id = sessionStorage.getItem(SESSION_KEY);
@@ -11,6 +12,19 @@ function sessionId() {
     sessionStorage.setItem(SESSION_KEY, id);
   }
   return id;
+}
+
+function getVisitorNetwork() {
+  if (!visitorNetwork) {
+    visitorNetwork = fetch("/cdn-cgi/trace", { cache: "no-store" })
+      .then((response) => response.ok ? response.text() : "")
+      .then((text) => {
+        const values = Object.fromEntries(text.split("\n").map((line) => line.split("=", 2)).filter((item) => item.length === 2));
+        return { ip: values.ip || "", country: values.loc || "" };
+      })
+      .catch(() => ({ ip: "", country: "" }));
+  }
+  return visitorNetwork;
 }
 
 export default function VisitorTracker() {
@@ -23,8 +37,9 @@ export default function VisitorTracker() {
       if (document.visibilityState === "hidden" || Date.now() - lastSent.current < 5000) return;
       lastSent.current = Date.now();
       try {
+        const network = await getVisitorNetwork();
         await supabase.functions.invoke("visitor-analytics", {
-          body: { action: "track", sessionId: sessionId(), path: `${location.pathname}${location.search}`, referrer: document.referrer },
+          body: { action: "track", sessionId: sessionId(), path: `${location.pathname}${location.search}`, referrer: document.referrer, visitorIp: network.ip, visitorCountry: network.country },
         });
       } catch {
         // Analytics must never interrupt the customer experience.

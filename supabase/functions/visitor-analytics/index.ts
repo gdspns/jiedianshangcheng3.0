@@ -11,6 +11,11 @@ function clientIp(req: Request) {
   return /^[0-9a-f:.]+$/i.test(value) ? value : null;
 }
 
+function validIp(value: unknown) {
+  const ip = clean(value, 64);
+  return ip && /^[0-9a-f:.]+$/i.test(ip) ? ip : null;
+}
+
 function parseAgent(agent: string) {
   const browser = /Edg\//.test(agent) ? "Edge" : /OPR\//.test(agent) ? "Opera" : /Chrome\//.test(agent) ? "Chrome" : /Firefox\//.test(agent) ? "Firefox" : /Safari\//.test(agent) ? "Safari" : "其他";
   const operatingSystem = /Windows/i.test(agent) ? "Windows" : /Android/i.test(agent) ? "Android" : /iPhone|iPad|iPod/i.test(agent) ? "iOS" : /Mac OS/i.test(agent) ? "macOS" : /Linux/i.test(agent) ? "Linux" : "其他";
@@ -42,6 +47,8 @@ Deno.serve(async (req) => {
         .eq("session_id", body.sessionId).maybeSingle();
       const agent = clean(req.headers.get("user-agent"), 1000);
       const parsed = parseAgent(agent);
+      const reportedIp = validIp(body.visitorIp);
+      const reportedCountry = clean(body.visitorCountry, 8);
 
       if (existing) {
         const first = new Date(existing.first_seen_at).getTime();
@@ -52,13 +59,15 @@ Deno.serve(async (req) => {
           duration_seconds: duration,
           last_path: path,
           page_views: Number(existing.page_views || 1) + (changedPage ? 1 : 0),
+          ...(reportedIp ? { ip_address: reportedIp } : {}),
+          ...(reportedCountry ? { country: reportedCountry } : {}),
           updated_at: now.toISOString(),
         }).eq("id", existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("visitor_sessions").insert({
           session_id: body.sessionId,
-          ip_address: clientIp(req),
+          ip_address: reportedIp || clientIp(req),
           entry_path: path,
           last_path: path,
           referrer: clean(body.referrer, 1000) || null,
@@ -66,7 +75,7 @@ Deno.serve(async (req) => {
           browser: parsed.browser,
           operating_system: parsed.operatingSystem,
           device_type: parsed.deviceType,
-          country: clean(req.headers.get("cf-ipcountry"), 80) || null,
+          country: reportedCountry || clean(req.headers.get("cf-ipcountry"), 80) || null,
           region: clean(req.headers.get("cf-region"), 120) || null,
           city: clean(req.headers.get("cf-ipcity"), 120) || null,
         });

@@ -77,6 +77,10 @@ export default function VisitorAnalyticsPanel({ token }: { token: string }) {
   };
 
   useEffect(() => { void load(1); }, [days]);
+  useEffect(() => {
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(page); }, 15000);
+    return () => window.clearInterval(timer);
+  }, [page, days, search]);
   const pages = Math.max(1, Math.ceil(total / 25));
   const cards = [
     ["访问会话", stats.visits, Globe2], ["独立访客 IP", stats.uniqueVisitors, Users], ["今日访问", stats.todayVisits, BarChart3],
@@ -86,7 +90,7 @@ export default function VisitorAnalyticsPanel({ token }: { token: string }) {
   return <div className="space-y-5">
     <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
-        <div><h2 className="text-xl font-bold flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-indigo-500" />访问统计</h2><p className="text-sm text-muted-foreground mt-1">停留时间每 15 秒更新；管理员后台访问不会计入统计。</p></div>
+        <div><h2 className="text-xl font-bold flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-indigo-500" />访问统计</h2><p className="text-sm text-muted-foreground mt-1">数据与停留时间每 15 秒自动刷新；管理员后台访问不会计入统计。</p></div>
         <div className="flex flex-wrap gap-2">
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="border border-input bg-background rounded-lg px-3 py-2 text-sm"><option value={1}>最近 24 小时</option><option value={7}>最近 7 天</option><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option><option value={365}>最近一年</option></select>
           <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-lg bg-indigo-500 text-white text-sm font-bold disabled:opacity-50 flex items-center"><RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />刷新</button>
