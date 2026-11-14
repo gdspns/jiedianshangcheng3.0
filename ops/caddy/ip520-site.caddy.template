@@ -17,6 +17,9 @@ http://{{APEX_DOMAIN}}, https://{{APEX_DOMAIN}}, http://{{WWW_DOMAIN}}, https://
   handle_path /supabase/* {
     reverse_proxy https://{{SUPABASE_HOST}} {
       header_up Host {{SUPABASE_HOST}}
+      # Preserve the visitor IP supplied by Cloudflare before the second
+      # Cloudflare hop to Supabase replaces CF-Connecting-IP with the VPS IP.
+      header_up X-Visitor-IP {http.request.header.CF-Connecting-IP}
     }
   }
 

@@ -5,7 +5,7 @@ const clean = (value: unknown, max = 500) => typeof value === "string" ? value.t
 const validSessionId = (value: unknown) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 function clientIp(req: Request) {
-  const direct = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip");
+  const direct = req.headers.get("x-visitor-ip") || req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip");
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const value = direct || forwarded || "";
   return /^[0-9a-f:.]+$/i.test(value) ? value : null;
