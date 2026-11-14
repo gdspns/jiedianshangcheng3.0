@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeRichHtml } from "@/lib/sanitize";
+import { publicImageUrl } from "@/lib/publicImage";
 
 function parseLandingImages(raw: string): string[] {
   if (!raw) return [];
@@ -297,7 +298,7 @@ export default function LandingPage() {
               landingImages.map((img, idx) => (
                 <img
                   key={idx}
-                  src={img}
+                  src={publicImageUrl(img)}
                   alt="企业级静态住宅IP，专业解决AI降智、Claude封号、跨境短视频限流问题"
                   style={{
                     position: idx === 0 ? "relative" : "absolute",

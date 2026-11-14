@@ -8,6 +8,7 @@ import CronStatusPanel from "@/components/CronStatusPanel";
 import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
 import DataBackupPanel from "@/components/DataBackupPanel";
 import VisitorAnalyticsPanel from "@/components/VisitorAnalyticsPanel";
+import { publicImageUrl } from "@/lib/publicImage";
 
 interface Tutorial {
   id: string;
@@ -1296,7 +1297,7 @@ export default function AdminDashboard() {
                                   </button>
                                 </div>
                                 {img && (
-                                  <img src={img} alt={`着陆页图片${idx + 1}`} className="max-h-24 rounded border border-border" />
+                                  <img src={publicImageUrl(img)} alt={`着陆页图片${idx + 1}`} className="max-h-24 rounded border border-border" />
                                 )}
                               </div>
                             </div>
