@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Server, QrCode, Bitcoin, CheckCircle2, ShieldCheck, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText, CalendarDays, WalletCards } from "lucide-react";
+import { Settings, Server, QrCode, Bitcoin, CheckCircle2, ShieldCheck, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText, CalendarDays, WalletCards, BarChart3 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminGetOrderRevenueStats, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
 import CronStatusPanel from "@/components/CronStatusPanel";
 import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
 import DataBackupPanel from "@/components/DataBackupPanel";
+import VisitorAnalyticsPanel from "@/components/VisitorAnalyticsPanel";
 
 interface Tutorial {
   id: string;
@@ -1010,7 +1011,7 @@ export default function AdminDashboard() {
 
         {/* Tab Menu */}
         <Tabs defaultValue="panel" className="w-full">
-          <TabsList className="w-full grid grid-cols-7 h-12 bg-card border border-border rounded-2xl p-1">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto min-h-12 bg-card border border-border rounded-2xl p-1">
             <TabsTrigger value="panel" className="rounded-xl data-[state=active]:bg-admin-primary data-[state=active]:text-admin-primary-foreground font-bold text-xs sm:text-sm">
               <Server className="w-4 h-4 mr-1 sm:mr-2" /> 面板对接
             </TabsTrigger>
@@ -1031,6 +1032,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="articles" className="rounded-xl data-[state=active]:bg-amber-500 data-[state=active]:text-white font-bold text-xs sm:text-sm">
               <FileText className="w-4 h-4 mr-1 sm:mr-2" /> 文章管理
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-xl data-[state=active]:bg-indigo-500 data-[state=active]:text-white font-bold text-xs sm:text-sm">
+              <BarChart3 className="w-4 h-4 mr-1 sm:mr-2" /> 访问统计
             </TabsTrigger>
           </TabsList>
 
@@ -2779,6 +2783,9 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </TabsContent>
+          <TabsContent value="analytics">
+            <VisitorAnalyticsPanel token={token} />
           </TabsContent>
         </Tabs>
       </div>

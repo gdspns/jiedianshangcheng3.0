@@ -9,6 +9,7 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import FloatingButtons from "./components/FloatingButtons";
+import VisitorTracker from "./components/VisitorTracker";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
       <Toaster />
       <Sonner />
         <BrowserRouter>
+          <VisitorTracker />
           <FloatingButtons />
           <Routes>
             <Route path="/" element={<Index />} />

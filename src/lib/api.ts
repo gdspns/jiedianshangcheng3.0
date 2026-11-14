@@ -45,6 +45,14 @@ export async function restoreAdminSettings(token: string, backup: object) {
   return callEdgeFunction("admin-backup", { action: "restore", token, backup });
 }
 
+export async function adminGetVisitorAnalytics(token: string, params?: { page?: number; pageSize?: number; days?: number; search?: string }) {
+  return callEdgeFunction("visitor-analytics", { action: "list", token, ...params });
+}
+
+export async function adminCleanupVisitorAnalytics(token: string, retentionDays = 90) {
+  return callEdgeFunction("visitor-analytics", { action: "cleanup", token, retentionDays });
+}
+
 export async function testPanelConnection(token: string, panelUrl: string, panelUser: string, panelPass: string) {
   return callEdgeFunction("proxy-3xui", { action: "test", token, panelUrl, panelUser, panelPass });
 }
