@@ -926,7 +926,17 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const source = url.searchParams.get("source");
+    let source = url.searchParams.get("source");
+    let callbackFormParams: Record<string, string> | null = null;
+
+    // Alipay may strip the query string from notify_url and merge it into the
+    // application/x-www-form-urlencoded callback body. Detect that form before
+    // falling through to the JSON API branch.
+    if (!source && req.method === "POST" && (req.headers.get("content-type") || "").toLowerCase().includes("application/x-www-form-urlencoded")) {
+      const rawBody = await req.text();
+      callbackFormParams = Object.fromEntries(new URLSearchParams(rawBody).entries());
+      source = callbackFormParams.source || null;
+    }
 
     // === PAYMENT CALLBACKS ===
     if (["hupi", "wechat-official", "alipay-official"].includes(source || "")) {
@@ -937,13 +947,22 @@ Deno.serve(async (req) => {
       let tradeOrderNo = "";
 
       if (source === "hupi") {
-        const formData = await req.formData();
-        for (const [key, value] of formData.entries()) params[key] = String(value);
+        if (callbackFormParams) params = callbackFormParams;
+        else {
+          const formData = await req.formData();
+          for (const [key, value] of formData.entries()) params[key] = String(value);
+        }
+        delete params.source;
         tradeOrderNo = params.trade_order_id || params.trade_order_no || "";
         if (params.status !== "OD") return new Response("fail", { headers: corsHeaders });
       } else if (source === "alipay-official") {
-        const formData = await req.formData();
-        for (const [key, value] of formData.entries()) params[key] = String(value);
+        if (callbackFormParams) params = callbackFormParams;
+        else {
+          const formData = await req.formData();
+          for (const [key, value] of formData.entries()) params[key] = String(value);
+        }
+        // `source` is our routing marker, not an Alipay-signed field.
+        delete params.source;
         tradeOrderNo = params.out_trade_no || "";
         if (!["TRADE_SUCCESS", "TRADE_FINISHED"].includes(params.trade_status || "")) {
           return new Response("failure", { headers: corsHeaders });
