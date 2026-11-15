@@ -122,11 +122,16 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === "cleanup") {
+      const clearAll = body.clearAll === true;
       const retentionDays = Math.min(365, Math.max(7, Number(body.retentionDays) || 90));
       const before = new Date(Date.now() - retentionDays * 86400000).toISOString();
-      const { error, count } = await supabase.from("visitor_sessions").delete({ count: "exact" }).lt("last_seen_at", before);
+      let cleanupQuery = supabase.from("visitor_sessions").delete({ count: "exact" });
+      cleanupQuery = clearAll
+        ? cleanupQuery.not("id", "is", null)
+        : cleanupQuery.lt("last_seen_at", before);
+      const { error, count } = await cleanupQuery;
       if (error) throw error;
-      return json({ success: true, deleted: count || 0 });
+      return json({ success: true, deleted: count || 0, clearAll, retentionDays: clearAll ? null : retentionDays });
     }
 
     if (body.action === "delete") {

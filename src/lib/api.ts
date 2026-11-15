@@ -49,8 +49,8 @@ export async function adminGetVisitorAnalytics(token: string, params?: { page?: 
   return callEdgeFunction("visitor-analytics", { action: "list", token, ...params });
 }
 
-export async function adminCleanupVisitorAnalytics(token: string, retentionDays = 90) {
-  return callEdgeFunction("visitor-analytics", { action: "cleanup", token, retentionDays });
+export async function adminCleanupVisitorAnalytics(token: string, retentionDays = 90, clearAll = false) {
+  return callEdgeFunction("visitor-analytics", { action: "cleanup", token, retentionDays, clearAll });
 }
 
 export async function adminDeleteVisitorAnalytics(token: string, recordId: string) {

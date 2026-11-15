@@ -63,6 +63,8 @@ export default function VisitorAnalyticsPanel({ token }: { token: string }) {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cleanupRange, setCleanupRange] = useState("90");
+  const [cleaning, setCleaning] = useState(false);
 
   const load = async (targetPage = page) => {
     setLoading(true);
@@ -95,7 +97,8 @@ export default function VisitorAnalyticsPanel({ token }: { token: string }) {
         <div className="flex flex-wrap gap-2">
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="border border-input bg-background rounded-lg px-3 py-2 text-sm"><option value={1}>最近 24 小时</option><option value={7}>最近 7 天</option><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option><option value={365}>最近一年</option></select>
           <button onClick={() => void load()} disabled={loading} className="px-3 py-2 rounded-lg bg-indigo-500 text-white text-sm font-bold disabled:opacity-50 flex items-center"><RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />刷新</button>
-          <button onClick={async () => { if (!confirm("确定删除 90 天以前的访问记录吗？此操作不能恢复。")) return; try { const r = await adminCleanupVisitorAnalytics(token, 90); toast.success(`已清理 ${r.deleted || 0} 条记录`); void load(1); } catch (e) { toast.error(e instanceof Error ? e.message : "清理失败"); } }} className="px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-bold flex items-center"><Trash2 className="w-4 h-4 mr-1" />清理旧记录</button>
+          <select value={cleanupRange} onChange={(e) => setCleanupRange(e.target.value)} disabled={cleaning} className="border border-destructive/30 bg-background text-destructive rounded-lg px-3 py-2 text-sm disabled:opacity-50"><option value="7">清理 7 天以前</option><option value="30">清理 30 天以前</option><option value="90">清理 90 天以前</option><option value="all">清空全部记录</option></select>
+          <button disabled={cleaning} onClick={async () => { const clearAll = cleanupRange === "all"; const label = clearAll ? "全部访问记录" : `${cleanupRange} 天以前的访问记录`; if (!confirm(`确定删除${label}吗？此操作不能恢复。`)) return; setCleaning(true); try { const r = await adminCleanupVisitorAnalytics(token, clearAll ? 90 : Number(cleanupRange), clearAll); toast.success(`已清理 ${r.deleted || 0} 条记录`); await load(1); } catch (e) { toast.error(e instanceof Error ? e.message : "清理失败"); } finally { setCleaning(false); } }} className="px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-sm font-bold flex items-center disabled:opacity-50"><Trash2 className="w-4 h-4 mr-1" />{cleaning ? "清理中…" : "执行清理"}</button>
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{cards.map(([label, value, Icon]) => <div key={label} className="rounded-xl border border-border bg-muted/40 p-4"><Icon className="w-5 h-5 text-indigo-500 mb-2" /><div className="text-2xl font-black">{value}</div><div className="text-xs text-muted-foreground mt-1">{label}</div></div>)}</div>
