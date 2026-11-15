@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "react-router-dom";
 
 interface FabConfig {
   tawk_id: string;
@@ -14,9 +15,12 @@ const DEFAULTS: FabConfig = {
 };
 
 export default function FloatingButtons() {
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith("/3075554556");
   const [cfg, setCfg] = useState<FabConfig>(DEFAULTS);
 
   useEffect(() => {
+    if (isAdminPage) return;
     (supabase as any)
       .rpc("get_public_config")
       .then(({ data: rows }: any) => {
@@ -29,9 +33,15 @@ export default function FloatingButtons() {
           });
         }
       });
-  }, []);
+  }, [isAdminPage]);
 
   useEffect(() => {
+    const api = (window as any).Tawk_API;
+    if (isAdminPage) {
+      if (api && typeof api.hideWidget === "function") api.hideWidget();
+      return;
+    }
+    if (api && typeof api.showWidget === "function") api.showWidget();
     if (!cfg.tawk_id) return;
     if (!(window as any)._tawkLoaded) {
       (window as any).Tawk_API = (window as any).Tawk_API || {};
@@ -44,7 +54,9 @@ export default function FloatingButtons() {
       document.body.appendChild(s);
       (window as any)._tawkLoaded = true;
     }
-  }, [cfg.tawk_id]);
+  }, [cfg.tawk_id, isAdminPage]);
+
+  if (isAdminPage) return null;
 
   return (
     <>

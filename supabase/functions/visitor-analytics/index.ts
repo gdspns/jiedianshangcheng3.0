@@ -129,6 +129,17 @@ Deno.serve(async (req) => {
       return json({ success: true, deleted: count || 0 });
     }
 
+    if (body.action === "delete") {
+      const recordId = clean(body.recordId, 64);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recordId)) {
+        return json({ error: "访问记录编号无效" }, 400);
+      }
+      const { error, count } = await supabase.from("visitor_sessions").delete({ count: "exact" }).eq("id", recordId);
+      if (error) throw error;
+      if (!count) return json({ error: "访问记录不存在或已删除" }, 404);
+      return json({ success: true });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (error) {
     console.error("Visitor analytics error:", error);

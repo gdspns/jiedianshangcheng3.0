@@ -4,6 +4,15 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Sogou web spider
+Allow: /
+
+User-agent: 360Spider
+Allow: /
+
 User-agent: Twitterbot
 Allow: /
 
@@ -12,3 +21,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /portal
+Disallow: /3075554556
+Disallow: /supabase/
+
+Sitemap: https://www.ip520.top/sitemap.xml

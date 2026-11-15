@@ -53,6 +53,10 @@ export async function adminCleanupVisitorAnalytics(token: string, retentionDays 
   return callEdgeFunction("visitor-analytics", { action: "cleanup", token, retentionDays });
 }
 
+export async function adminDeleteVisitorAnalytics(token: string, recordId: string) {
+  return callEdgeFunction("visitor-analytics", { action: "delete", token, recordId });
+}
+
 export async function testPanelConnection(token: string, panelUrl: string, panelUser: string, panelPass: string) {
   return callEdgeFunction("proxy-3xui", { action: "test", token, panelUrl, panelUser, panelPass });
 }
