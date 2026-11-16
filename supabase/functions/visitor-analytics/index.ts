@@ -145,6 +145,40 @@ Deno.serve(async (req) => {
       return json({ success: true });
     }
 
+    if (body.action === "login_list") {
+      const page = Math.max(1, Number(body.page) || 1);
+      const pageSize = Math.min(100, Math.max(10, Number(body.pageSize) || 25));
+      const days = Math.min(365, Math.max(1, Number(body.days) || 30));
+      const from = new Date(Date.now() - days * 86400000).toISOString();
+      const start = (page - 1) * pageSize;
+      const search = clean(body.search, 100).replace(/[%_,()]/g, "");
+      let query = supabase.from("portal_login_events").select("*", { count: "exact" }).gte("logged_in_at", from);
+      if (search) query = query.or(`user_identifier.ilike.%${search}%,client_remark.ilike.%${search}%,inbound_remark.ilike.%${search}%,ip_address.eq.${validIp(search) || "0.0.0.0"}`);
+      const { data, count, error } = await query.order("logged_in_at", { ascending: false }).range(start, start + pageSize - 1);
+      if (error) throw error;
+      return json({ records: data || [], total: count || 0, page, pageSize, days });
+    }
+
+    if (body.action === "login_delete") {
+      const recordId = clean(body.recordId, 64);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recordId)) return json({ error: "登录记录编号无效" }, 400);
+      const { error, count } = await supabase.from("portal_login_events").delete({ count: "exact" }).eq("id", recordId);
+      if (error) throw error;
+      if (!count) return json({ error: "登录记录不存在或已删除" }, 404);
+      return json({ success: true });
+    }
+
+    if (body.action === "login_cleanup") {
+      const clearAll = body.clearAll === true;
+      const retentionDays = Math.min(365, Math.max(7, Number(body.retentionDays) || 90));
+      const before = new Date(Date.now() - retentionDays * 86400000).toISOString();
+      let query = supabase.from("portal_login_events").delete({ count: "exact" });
+      query = clearAll ? query.not("id", "is", null) : query.lt("logged_in_at", before);
+      const { error, count } = await query;
+      if (error) throw error;
+      return json({ success: true, deleted: count || 0 });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (error) {
     console.error("Visitor analytics error:", error);

@@ -722,7 +722,8 @@ export default function ClientPortal() {
     setLoading(true);
     setError("");
     try {
-      const res = await lookupClient(extracted);
+      const rawLogin = (loginInput || "").trim();
+      const res = await lookupClient(extracted, true, /^https?:\/\//i.test(rawLogin) ? "subscription" : "uuid");
       if (res?.success) {
         setClientData({
           expiryDate: res.expiryDate ?? 0,

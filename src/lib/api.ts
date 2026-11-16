@@ -57,6 +57,18 @@ export async function adminDeleteVisitorAnalytics(token: string, recordId: strin
   return callEdgeFunction("visitor-analytics", { action: "delete", token, recordId });
 }
 
+export async function adminGetPortalLoginEvents(token: string, params?: { page?: number; pageSize?: number; days?: number; search?: string }) {
+  return callEdgeFunction("visitor-analytics", { action: "login_list", token, ...params });
+}
+
+export async function adminDeletePortalLoginEvent(token: string, recordId: string) {
+  return callEdgeFunction("visitor-analytics", { action: "login_delete", token, recordId });
+}
+
+export async function adminCleanupPortalLoginEvents(token: string, retentionDays = 90, clearAll = false) {
+  return callEdgeFunction("visitor-analytics", { action: "login_cleanup", token, retentionDays, clearAll });
+}
+
 export async function testPanelConnection(token: string, panelUrl: string, panelUser: string, panelPass: string) {
   return callEdgeFunction("proxy-3xui", { action: "test", token, panelUrl, panelUser, panelPass });
 }
@@ -85,8 +97,8 @@ export async function getPublicConfig() {
   return Array.isArray(data) ? data[0] : data;
 }
 
-export async function lookupClient(uuid: string) {
-  return callEdgeFunction("proxy-3xui", { action: "lookup", uuid });
+export async function lookupClient(uuid: string, trackLogin = false, loginMethod: "uuid" | "subscription" = "uuid") {
+  return callEdgeFunction("proxy-3xui", { action: "lookup", uuid, trackLogin, loginMethod });
 }
 
 // Payment APIs

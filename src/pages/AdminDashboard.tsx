@@ -8,6 +8,7 @@ import CronStatusPanel from "@/components/CronStatusPanel";
 import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
 import DataBackupPanel from "@/components/DataBackupPanel";
 import VisitorAnalyticsPanel from "@/components/VisitorAnalyticsPanel";
+import PortalLoginAnalyticsPanel from "@/components/PortalLoginAnalyticsPanel";
 import { publicImageUrl } from "@/lib/publicImage";
 
 interface Tutorial {
@@ -2786,7 +2787,14 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
           <TabsContent value="analytics">
-            <VisitorAnalyticsPanel token={token} />
+            <Tabs defaultValue="visitors" className="w-full">
+              <TabsList className="mb-5 bg-card border border-border rounded-xl p-1 h-auto">
+                <TabsTrigger value="visitors" className="rounded-lg font-bold">网站访客</TabsTrigger>
+                <TabsTrigger value="portal-logins" className="rounded-lg font-bold">解析登录用户</TabsTrigger>
+              </TabsList>
+              <TabsContent value="visitors"><VisitorAnalyticsPanel token={token} /></TabsContent>
+              <TabsContent value="portal-logins"><PortalLoginAnalyticsPanel token={token} /></TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>

@@ -21,6 +21,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function requestIp(req: Request) {
+  const direct = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip");
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const value = direct || forwarded || "";
+  return /^[0-9a-f:.]+$/i.test(value) ? value : null;
+}
+
+function parseAgent(agent: string) {
+  const browser = /Edg\//.test(agent) ? "Edge" : /OPR\//.test(agent) ? "Opera" : /Chrome\//.test(agent) ? "Chrome" : /Firefox\//.test(agent) ? "Firefox" : /Safari\//.test(agent) ? "Safari" : "其他";
+  const operatingSystem = /Windows/i.test(agent) ? "Windows" : /Android/i.test(agent) ? "Android" : /iPhone|iPad|iPod/i.test(agent) ? "iOS" : /Mac OS/i.test(agent) ? "macOS" : /Linux/i.test(agent) ? "Linux" : "其他";
+  const deviceType = /iPad|Tablet/i.test(agent) ? "平板" : /Mobile|Android|iPhone|iPod/i.test(agent) ? "手机" : "电脑";
+  return { browser, operatingSystem, deviceType };
+}
+
 // Helper: Login to 3x-ui panel and get session cookie
 async function login3xui(panelUrl: string, username: string, password: string): Promise<{ cookie: string | null; error?: string }> {
   const baseUrl = panelUrl.replace(/\/+$/, "");
@@ -308,6 +322,25 @@ Deno.serve(async (req) => {
       const displayRemark = client.inboundRemark
         ? (client.email ? `${client.inboundRemark}-${client.email}` : client.inboundRemark)
         : client.email;
+
+      if (body.trackLogin === true) {
+        const userAgent = (req.headers.get("user-agent") || "").slice(0, 1000);
+        const parsed = parseAgent(userAgent);
+        const actualIdentifier = client.clientId || client.username || client.password || uuid;
+        const { error: loginEventError } = await supabase.from("portal_login_events").insert({
+          user_identifier: String(actualIdentifier).slice(0, 200),
+          client_remark: String(client.email || "").slice(0, 300) || null,
+          inbound_id: Number(client.inboundId) || null,
+          inbound_remark: String(client.inboundRemark || "").slice(0, 300) || null,
+          login_method: body.loginMethod === "subscription" ? "subscription" : "uuid",
+          ip_address: requestIp(req),
+          user_agent: userAgent || null,
+          browser: parsed.browser,
+          operating_system: parsed.operatingSystem,
+          device_type: parsed.deviceType,
+        });
+        if (loginEventError) console.error("Failed to record portal login:", loginEventError);
+      }
 
       return new Response(JSON.stringify({
         success: true,
