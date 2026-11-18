@@ -430,7 +430,8 @@ export default function ClientPortal() {
   useEffect(() => {
     const saved = localStorage.getItem("portal_uuid");
     if (!saved || saved === "游客_未登录") return;
-    lookupClient(saved)
+    const savedInput = (localStorage.getItem("portal_login_input") || "").trim();
+    lookupClient(saved, true, /^https?:\/\//i.test(savedInput) ? "subscription" : "uuid")
       .then((res: any) => {
         if (res?.success) {
           setClientData({
