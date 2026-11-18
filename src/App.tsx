@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import FloatingButtons from "./components/FloatingButtons";
 import VisitorTracker from "./components/VisitorTracker";
+import InAppBrowserGuide from "./components/InAppBrowserGuide";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
       <Sonner />
         <BrowserRouter>
           <VisitorTracker />
+          <InAppBrowserGuide />
           <FloatingButtons />
           <Routes>
             <Route path="/" element={<Index />} />
