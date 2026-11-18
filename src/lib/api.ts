@@ -74,6 +74,14 @@ export async function testPanelConnection(token: string, panelUrl: string, panel
 }
 
 // Multi-panel APIs
+export function adminPreviewPanelMirror(token: string, source: string, target: string) {
+  return callEdgeFunction("admin-panels", { action: "mirror-preview", token, source, target });
+}
+
+export function adminApplyPanelMirror(token: string, source: string, target: string, revision: string, allowDelete: boolean) {
+  return callEdgeFunction("admin-panels", { action: "mirror-apply", token, source, target, revision, allowDelete });
+}
+
 export function adminSyncPanels(token: string, settings: {
   source: string; target: string; sourceInbound: number; targetInbound: number; revision?: string; addMissing?: boolean;
 }, apply: boolean) {

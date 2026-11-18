@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAdminToken } from "../_shared/admin-security.ts";
-import { syncPanelClients } from "./sync.ts";
+import { applyPanelMirror, previewPanelMirror, syncPanelClients } from "./sync.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,11 +30,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    if (action === "sync-preview" || action === "sync-apply") {
+    if (["sync-preview", "sync-apply", "mirror-preview", "mirror-apply"].includes(action)) {
       const { source, target, sourceInbound, targetInbound } = body;
       const headers = { ...corsHeaders, "Content-Type": "application/json" };
       if (typeof source !== "string" || typeof target !== "string" || source === target ||
-          ![sourceInbound, targetInbound].every(id => Number.isSafeInteger(id) && id > 0)) {
+          (!action.startsWith("mirror-") && ![sourceInbound, targetInbound].every(id => Number.isSafeInteger(id) && id > 0))) {
         return new Response(JSON.stringify({ error: "请选择不同面板并填写有效入站 ID" }), { status: 400, headers });
       }
       const { data, error } = await supabase.from("panels")
@@ -45,7 +45,9 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "无法读取所选的已启用面板" }), { status: 400, headers });
       }
       try {
-        const result = await syncPanelClients(main, replica, sourceInbound, targetInbound, action === "sync-preview", body.revision, body.addMissing === true);
+        const result = action === "mirror-preview" ? await previewPanelMirror(main, replica)
+          : action === "mirror-apply" ? await applyPanelMirror(main, replica, body.revision, body.allowDelete === true)
+          : await syncPanelClients(main, replica, sourceInbound, targetInbound, action === "sync-preview", body.revision, body.addMissing === true);
         return new Response(JSON.stringify(result), { headers });
       } catch (error) {
         const message = error instanceof Error && /[\u4e00-\u9fff]/.test(error.message)

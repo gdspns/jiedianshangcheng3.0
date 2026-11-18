@@ -1,51 +1,52 @@
 import { useState } from "react";
-import { adminSyncPanels } from "@/lib/api";
+import { adminApplyPanelMirror, adminPreviewPanelMirror } from "@/lib/api";
 
 type Panel = { id: string; name: string; enabled: boolean };
-type Result = { matched: number; pending: number; additions: number; conflicts: number; unmatched: number; added: number; updated: number; failed: number; batchSize: number; revision: string };
-
 export default function PanelSync({ token, panels }: { token: string; panels: Panel[] }) {
   const [source, setSource] = useState("");
   const [target, setTarget] = useState("");
-  const [sourceId, setSourceId] = useState("");
-  const [targetId, setTargetId] = useState("");
-  const [addMissing, setAddMissing] = useState(false);
-  const [result, setResult] = useState<Result>();
-  const [previewed, setPreviewed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [mirror, setMirror] = useState<{ sourceCount: number; targetCount: number; create: string[]; update: string[]; remove: string[]; outboundsDiffer: boolean; routingDiffers: boolean; revision: string }>();
+  const [allowDelete, setAllowDelete] = useState(false);
+  const [mirrorDone, setMirrorDone] = useState<{ created: number; updated: number; removed: number; xrayUpdated: boolean }>();
   const available = panels.filter(panel => panel.enabled);
-  const valid = source !== target && available.some(panel => panel.id === source) &&
-    available.some(panel => panel.id === target) && [sourceId, targetId].every(id => /^[1-9]\d*$/.test(id));
+  const selected = source !== target && available.some(panel => panel.id === source) &&
+    available.some(panel => panel.id === target);
 
-  async function run(apply: boolean) {
-    if (!valid || busy) return;
-    if (apply && (!previewed || !window.confirm("确定执行这一批副面板客户端同步吗？"))) return;
+  async function previewMirror() {
     setBusy(true);
     setError("");
-    setPreviewed(false);
-    setResult(undefined);
+    setMirror(undefined);
     try {
-      setResult(await adminSyncPanels(token, {
-        source, target, sourceInbound: Number(sourceId), targetInbound: Number(targetId), addMissing, revision: apply ? result?.revision : undefined,
-      }, apply));
-      setPreviewed(!apply);
+      setMirror(await adminPreviewPanelMirror(token, source, target));
     } catch (error) {
-      setError(error instanceof Error ? error.message : "同步请求失败");
+      setError(error instanceof Error ? error.message : "整面板预览失败");
     } finally {
       setBusy(false);
     }
   }
 
+  async function applyMirror() {
+    if (!mirror || busy || (mirror.remove.length > 0 && !allowDelete)) return;
+    if (!window.confirm(`确定用主面板完整覆盖副面板吗？将新增 ${mirror.create.length}、更新 ${mirror.update.length}、删除 ${mirror.remove.length} 条入站，并同步出站和路由规则。`)) return;
+    setBusy(true); setError(""); setMirrorDone(undefined);
+    try {
+      setMirrorDone(await adminApplyPanelMirror(token, source, target, mirror.revision, allowDelete));
+      setMirror(undefined);
+    } catch (error) { setError(error instanceof Error ? error.message : "整面板同步失败"); }
+    finally { setBusy(false); }
+  }
+
   return (
     <section className="rounded-2xl border bg-card p-6 space-y-4">
       <h2 className="text-xl font-bold">3x-ui 主副面板同步</h2>
-      <p className="text-sm text-muted-foreground">主面板 ↓ 副面板。按相同 UUID 匹配，手动同步启用状态、到期时间和流量上限。</p>
-      <fieldset disabled={busy} onChange={() => { setPreviewed(false); setResult(undefined); setError(""); }} className="grid gap-3 sm:grid-cols-2">
+      <p className="text-sm text-muted-foreground">主面板 ↓ 副面板。无需填写入站 ID，可完整同步全部入站、客户端、出站和路由规则；副面板登录地址与账号不会改变。</p>
+      <fieldset disabled={busy} onChange={() => { setMirror(undefined); setMirrorDone(undefined); setAllowDelete(false); setError(""); }} className="grid gap-3 sm:grid-cols-2">
         {[
-          { label: "来源主面板", panel: source, setPanel: setSource, inbound: sourceId, setInbound: setSourceId },
-          { label: "目标副面板", panel: target, setPanel: setTarget, inbound: targetId, setInbound: setTargetId },
-        ].map(({ label, panel, setPanel, inbound, setInbound }) => (
+          { label: "来源主面板", panel: source, setPanel: setSource },
+          { label: "目标副面板", panel: target, setPanel: setTarget },
+        ].map(({ label, panel, setPanel }) => (
           <div key={label} className="rounded-xl border p-4 space-y-3">
             <label className="block text-sm font-semibold">{label}
               <select value={panel} onChange={event => setPanel(event.target.value)} className="mt-1 w-full rounded-lg border bg-background p-2">
@@ -53,30 +54,26 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
                 {available.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
-            <label className="block text-sm">入站 ID
-              <input inputMode="numeric" value={inbound} onChange={event => setInbound(event.target.value)} className="mt-1 w-full rounded-lg border bg-background p-2" />
-            </label>
           </div>
         ))}
-        <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <input type="checkbox" checked={addMissing} onChange={event => setAddMissing(event.target.checked)} />
-          同时在副面板补齐缺少的客户端
-        </label>
       </fieldset>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={!valid || busy} onClick={() => void run(false)} className="rounded-lg border px-4 py-2 disabled:opacity-50">预览同步</button>
-        <button type="button" disabled={!valid || busy || !previewed || !result?.pending} onClick={() => void run(true)} className="rounded-lg bg-admin-primary px-4 py-2 text-admin-primary-foreground disabled:opacity-50">执行同步</button>
+        <button type="button" disabled={!selected || busy} onClick={() => void previewMirror()} className="rounded-lg border px-4 py-2 disabled:opacity-50">预览整面板差异</button>
+        <button type="button" disabled={!mirror || busy || (mirror.remove.length > 0 && !allowDelete)} onClick={() => void applyMirror()} className="rounded-lg bg-admin-primary px-4 py-2 text-admin-primary-foreground disabled:opacity-50">执行整面板同步</button>
       </div>
       <div aria-live="polite" className="text-sm">
         {busy && "正在处理…"}
         {error && <p className="text-destructive">{error}</p>}
-        {result && (
-          <p>匹配 {result.matched} 个，主面板独有 {result.unmatched} 个，待新增 {result.additions} 个，待更新 {result.pending - result.additions} 个。已新增 {result.added} 个，已更新 {result.updated} 个。
-            {result.conflicts > 0 && ` 有 ${result.conflicts} 个客户端缺少备注或备注重复，已跳过。`}
-            {result.failed > 0 && "写入异常，已停止本批。请重新预览确认副面板状态。"}
-            {result.pending > result.updated + result.added && " 每批最多处理 " + result.batchSize + " 个，继续前请重新预览。"}
-          </p>
+        {mirror && (
+          <div className="space-y-1">
+            <p>主面板 {mirror.sourceCount} 条入站，副面板 {mirror.targetCount} 条入站。</p>
+            <p>主面板独有 {mirror.create.length} 条，配置有差异 {mirror.update.length} 条，副面板独有 {mirror.remove.length} 条。</p>
+            {mirror.remove.length > 0 && <p>副面板独有的协议和端口 {mirror.remove.join("、")}</p>}
+            {mirror.remove.length > 0 && <label className="flex items-center gap-2 text-destructive"><input type="checkbox" checked={allowDelete} onChange={event => setAllowDelete(event.target.checked)} />允许首次同步删除上述副面板独有入站</label>}
+            <p>出站{mirror.outboundsDiffer ? "有差异" : "一致"}，路由规则{mirror.routingDiffers ? "有差异" : "一致"}。</p>
+          </div>
         )}
+        {mirrorDone && <p className="text-emerald-600">整面板同步完成：新增 {mirrorDone.created}、更新 {mirrorDone.updated}、删除 {mirrorDone.removed} 条入站，出站与路由{mirrorDone.xrayUpdated ? "已更新" : "原本一致"}。</p>}
       </div>
     </section>
   );
