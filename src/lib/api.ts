@@ -74,6 +74,12 @@ export async function testPanelConnection(token: string, panelUrl: string, panel
 }
 
 // Multi-panel APIs
+export function adminSyncPanels(token: string, settings: {
+  source: string; target: string; sourceInbound: number; targetInbound: number; revision?: string;
+}, apply: boolean) {
+  return callEdgeFunction("admin-panels", { ...settings, token, action: apply ? "sync-apply" : "sync-preview" });
+}
+
 export async function adminListPanels(token: string) {
   return callEdgeFunction("admin-panels", { action: "list", token });
 }

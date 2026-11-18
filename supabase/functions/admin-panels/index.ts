@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyAdminToken } from "../_shared/admin-security.ts";
+import { syncPanelClients } from "./sync.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,30 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    if (action === "sync-preview" || action === "sync-apply") {
+      const { source, target, sourceInbound, targetInbound } = body;
+      const headers = { ...corsHeaders, "Content-Type": "application/json" };
+      if (typeof source !== "string" || typeof target !== "string" || source === target ||
+          ![sourceInbound, targetInbound].every(id => Number.isSafeInteger(id) && id > 0)) {
+        return new Response(JSON.stringify({ error: "请选择不同面板并填写有效入站 ID" }), { status: 400, headers });
+      }
+      const { data, error } = await supabase.from("panels")
+        .select("id,panel_url,panel_user,panel_pass").eq("enabled", true).in("id", [source, target]);
+      const main = data?.find(p => p.id === source);
+      const replica = data?.find(p => p.id === target);
+      if (error || !main || !replica) {
+        return new Response(JSON.stringify({ error: "无法读取所选的已启用面板" }), { status: 400, headers });
+      }
+      try {
+        const result = await syncPanelClients(main, replica, sourceInbound, targetInbound, action === "sync-preview", body.revision);
+        return new Response(JSON.stringify(result), { headers });
+      } catch (error) {
+        const message = error instanceof Error && /[\u4e00-\u9fff]/.test(error.message)
+          ? error.message : "面板连接或响应异常，请检查连接后重试";
+        return new Response(JSON.stringify({ error: message }), { status: 502, headers });
+      }
+    }
 
     if (action === "list") {
       const { data, error } = await supabase

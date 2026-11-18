@@ -6,6 +6,7 @@ import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, ad
 import TutorialContentEditor from "@/components/TutorialContentEditor";
 import CronStatusPanel from "@/components/CronStatusPanel";
 import PanelConnectionTestPanel from "@/components/PanelConnectionTestPanel";
+import PanelSync from "@/components/PanelSync";
 import DataBackupPanel from "@/components/DataBackupPanel";
 import VisitorAnalyticsPanel from "@/components/VisitorAnalyticsPanel";
 import PortalLoginAnalyticsPanel from "@/components/PortalLoginAnalyticsPanel";
@@ -1552,6 +1553,7 @@ export default function AdminDashboard() {
               <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
                 <CronStatusPanel />
               </div>
+              <PanelSync token={token} panels={panels} />
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
                   <PanelConnectionTestPanel token={token} />
