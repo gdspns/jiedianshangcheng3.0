@@ -1,5 +1,5 @@
 type Panel = { id: string; panel_url: string; panel_user: string; panel_pass: string };
-type Client = { id: string; enable: boolean; expiryTime: number; totalGB: number };
+type Client = { id: string; email?: string; enable: boolean; expiryTime: number; totalGB: number; flow?: string; security?: string; limitIp?: number };
 
 async function readInbound(panel: Panel, id: number) {
   const url = new URL(panel.panel_url);
@@ -23,58 +23,77 @@ async function readInbound(panel: Panel, id: number) {
     throw new Error("同步支持 VLESS 和 VMess 客户端");
   }
   const byId = new Map<string, Client>();
+  const emails = new Set<string>();
   for (const client of clients) {
-    if (typeof client?.id !== "string" || !/^[\da-f-]{36}$/i.test(client.id)) continue;
+    if (typeof client?.email === "string") emails.add(client.email.trim().toLowerCase());
+    if (typeof client?.id !== "string" || !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(client.id)) continue;
     const key = client.id.toLowerCase();
     if (byId.has(key)) throw new Error("入站中存在重复 UUID");
     byId.set(key, client);
   }
-  return { protocol: result.obj.protocol, byId, request, cookie };
+  return { protocol: result.obj.protocol, byId, emails, request, cookie };
 }
 
-export async function syncPanelClients(source: Panel, target: Panel, sourceId: number, targetId: number, preview: boolean, expectedRevision?: string) {
+export async function syncPanelClients(source: Panel, target: Panel, sourceId: number, targetId: number, preview: boolean, expectedRevision?: string, addMissing = false) {
   if (new URL(source.panel_url).href.replace(/\/+$/, "") === new URL(target.panel_url).href.replace(/\/+$/, "")) {
     throw new Error("主副面板地址必须不同");
   }
   const [main, replica] = await Promise.all([readInbound(source, sourceId), readInbound(target, targetId)]);
   if (main.protocol !== replica.protocol) throw new Error("两端入站协议必须一致");
-  const changes = [];
+  const changes: { kind: "add" | "update"; client: Client }[] = [];
   let matched = 0;
+  let conflicts = 0;
   for (const [id, client] of main.byId) {
     const existing = replica.byId.get(id);
-    if (!existing) continue;
-    matched++;
+    if (existing) matched++;
+    if (!existing && !addMissing) continue;
     const { enable, expiryTime, totalGB } = client;
     if (typeof enable !== "boolean" || !Number.isSafeInteger(expiryTime) || !Number.isSafeInteger(totalGB) || totalGB < 0) {
       throw new Error("主面板返回的客户端配置无效");
     }
-    if (enable !== existing.enable || expiryTime !== existing.expiryTime || totalGB !== existing.totalGB) {
-      changes.push({ ...existing, enable, expiryTime, totalGB });
+    if (!existing) {
+      const email = client.email?.trim();
+      if (!email || replica.emails.has(email.toLowerCase())) {
+        conflicts++;
+        continue;
+      }
+      replica.emails.add(email.toLowerCase());
+      changes.push({ kind: "add", client: {
+        id: client.id, email, enable, expiryTime, totalGB,
+        limitIp: Number.isSafeInteger(client.limitIp) ? client.limitIp : 0,
+        ...(main.protocol === "vless" ? { flow: client.flow || "" } : { security: client.security || "auto" }),
+      } });
+    } else if (enable !== existing.enable || expiryTime !== existing.expiryTime || totalGB !== existing.totalGB) {
+      changes.push({ kind: "update", client: { ...existing, enable, expiryTime, totalGB } });
     }
   }
   const revisionBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
-    JSON.stringify([source.id, target.id, sourceId, targetId, changes]),
+    JSON.stringify([source.id, target.id, sourceId, targetId, addMissing, changes]),
   ));
   const revision = Array.from(new Uint8Array(revisionBytes), byte => byte.toString(16).padStart(2, "0")).join("");
   if (!preview && expectedRevision !== revision) throw new Error("面板配置已变化，请重新预览");
   let updated = 0;
+  let added = 0;
   let failed = 0;
   const batchSize = 5;
   if (!preview) {
-    for (const client of changes.slice(0, batchSize)) {
+    for (const { kind, client } of changes.slice(0, batchSize)) {
       try {
-        const response = await replica.request("/panel/api/inbounds/updateClient/" + encodeURIComponent(client.id), {
+        const endpoint = kind === "add" ? "addClient" : "updateClient/" + encodeURIComponent(client.id);
+        const response = await replica.request("/panel/api/inbounds/" + endpoint, {
           method: "POST",
           headers: { Cookie: replica.cookie, "Content-Type": "application/json" },
           body: JSON.stringify({ id: targetId, settings: JSON.stringify({ clients: [client] }) }),
         });
         if (!response.ok || (await response.json()).success !== true) throw new Error();
-        updated++;
+        if (kind === "add") added++;
+        else updated++;
       } catch {
         failed++;
         break;
       }
     }
   }
-  return { matched, pending: changes.length, unmatched: main.byId.size - matched, updated, failed, batchSize, revision };
+  const additions = changes.filter(change => change.kind === "add").length;
+  return { matched, pending: changes.length, additions, conflicts, unmatched: main.byId.size - matched, added, updated, failed, batchSize, revision };
 }

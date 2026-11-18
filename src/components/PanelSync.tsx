@@ -2,13 +2,14 @@ import { useState } from "react";
 import { adminSyncPanels } from "@/lib/api";
 
 type Panel = { id: string; name: string; enabled: boolean };
-type Result = { matched: number; pending: number; unmatched: number; updated: number; failed: number; batchSize: number; revision: string };
+type Result = { matched: number; pending: number; additions: number; conflicts: number; unmatched: number; added: number; updated: number; failed: number; batchSize: number; revision: string };
 
 export default function PanelSync({ token, panels }: { token: string; panels: Panel[] }) {
   const [source, setSource] = useState("");
   const [target, setTarget] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [targetId, setTargetId] = useState("");
+  const [addMissing, setAddMissing] = useState(false);
   const [result, setResult] = useState<Result>();
   const [previewed, setPreviewed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -19,14 +20,14 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
 
   async function run(apply: boolean) {
     if (!valid || busy) return;
-    if (apply && (!previewed || !window.confirm("确定将主面板配置写入副面板的匹配客户端吗？"))) return;
+    if (apply && (!previewed || !window.confirm("确定执行这一批副面板客户端同步吗？"))) return;
     setBusy(true);
     setError("");
     setPreviewed(false);
     setResult(undefined);
     try {
       setResult(await adminSyncPanels(token, {
-        source, target, sourceInbound: Number(sourceId), targetInbound: Number(targetId), revision: apply ? result?.revision : undefined,
+        source, target, sourceInbound: Number(sourceId), targetInbound: Number(targetId), addMissing, revision: apply ? result?.revision : undefined,
       }, apply));
       setPreviewed(!apply);
     } catch (error) {
@@ -57,6 +58,10 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
             </label>
           </div>
         ))}
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" checked={addMissing} onChange={event => setAddMissing(event.target.checked)} />
+          同时在副面板补齐缺少的客户端
+        </label>
       </fieldset>
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!valid || busy} onClick={() => void run(false)} className="rounded-lg border px-4 py-2 disabled:opacity-50">预览同步</button>
@@ -66,9 +71,10 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
         {busy && "正在处理…"}
         {error && <p className="text-destructive">{error}</p>}
         {result && (
-          <p>匹配 {result.matched} 个，主面板独有 {result.unmatched} 个，本轮差异 {result.pending} 个，已更新 {result.updated} 个。
+          <p>匹配 {result.matched} 个，主面板独有 {result.unmatched} 个，待新增 {result.additions} 个，待更新 {result.pending - result.additions} 个。已新增 {result.added} 个，已更新 {result.updated} 个。
+            {result.conflicts > 0 && ` 有 ${result.conflicts} 个客户端缺少备注或备注重复，已跳过。`}
             {result.failed > 0 && "写入异常，已停止本批。请重新预览确认副面板状态。"}
-            {result.pending > result.updated && " 每次最多更新 " + result.batchSize + " 个，继续前请重新预览。"}
+            {result.pending > result.updated + result.added && " 每批最多处理 " + result.batchSize + " 个，继续前请重新预览。"}
           </p>
         )}
       </div>

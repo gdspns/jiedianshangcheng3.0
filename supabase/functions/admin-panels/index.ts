@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "无法读取所选的已启用面板" }), { status: 400, headers });
       }
       try {
-        const result = await syncPanelClients(main, replica, sourceInbound, targetInbound, action === "sync-preview", body.revision);
+        const result = await syncPanelClients(main, replica, sourceInbound, targetInbound, action === "sync-preview", body.revision, body.addMissing === true);
         return new Response(JSON.stringify(result), { headers });
       } catch (error) {
         const message = error instanceof Error && /[\u4e00-\u9fff]/.test(error.message)
