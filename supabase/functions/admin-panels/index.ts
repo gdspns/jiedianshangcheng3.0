@@ -17,8 +17,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, token, panel } = body;
 
-    const configId = await verifyAdminToken(token);
-    if (!configId) {
+    const isCron = action === "mirror-cron" && req.headers.get("x-cron-secret") === Deno.env.get("PANEL_SYNC_CRON_SECRET");
+
+    const configId = isCron ? "cron" : await verifyAdminToken(token);
+    if (!configId || (action === "mirror-cron" && !isCron)) {
       return new Response(JSON.stringify({ error: "未授权" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -29,6 +31,46 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    if (action === "mirror-schedule-get") {
+      const { data, error } = await supabase.from("panel_mirror_settings").select("*").eq("id", true).single();
+      if (error) throw error;
+      return new Response(JSON.stringify({ settings: data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (action === "mirror-schedule-save") {
+      const { source, target, enabled, allowDelete } = body;
+      if (typeof source !== "string" || typeof target !== "string" || source === target || typeof enabled !== "boolean") {
+        return new Response(JSON.stringify({ error: "自动同步设置无效" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { count } = await supabase.from("panels").select("id", { count: "exact", head: true }).eq("enabled", true).in("id", [source, target]);
+      if (count !== 2) return new Response(JSON.stringify({ error: "请选择两个已启用的不同面板" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { error } = await supabase.from("panel_mirror_settings").upsert({
+        id: true, enabled, source_panel_id: source, target_panel_id: target, allow_delete: allowDelete === true,
+        updated_at: new Date().toISOString(), last_status: enabled ? "等待定时同步" : "自动同步已关闭",
+      });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (action === "mirror-cron") {
+      const { data: settings } = await supabase.from("panel_mirror_settings").select("*").eq("id", true).eq("enabled", true).maybeSingle();
+      if (!settings?.source_panel_id || !settings?.target_panel_id) return new Response(JSON.stringify({ skipped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: rows } = await supabase.from("panels").select("id,panel_url,panel_user,panel_pass").eq("enabled", true).in("id", [settings.source_panel_id, settings.target_panel_id]);
+      const main = rows?.find(p => p.id === settings.source_panel_id), replica = rows?.find(p => p.id === settings.target_panel_id);
+      let result: Record<string, unknown>;
+      try {
+        if (!main || !replica) throw new Error("自动同步面板已停用或不存在");
+        const preview = await previewPanelMirror(main, replica);
+        result = await applyPanelMirror(main, replica, preview.revision, settings.allow_delete === true);
+        await supabase.from("panel_mirror_settings").update({ last_run_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_status: "自动同步成功", last_result: result }).eq("id", true);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "自动同步失败";
+        result = { error: message };
+        await supabase.from("panel_mirror_settings").update({ last_run_at: new Date().toISOString(), last_status: message, last_result: result }).eq("id", true);
+      }
+      return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (["sync-preview", "sync-apply", "mirror-preview", "mirror-apply"].includes(action)) {
       const { source, target, sourceInbound, targetInbound } = body;

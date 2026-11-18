@@ -8,7 +8,7 @@ async function openPanel(panel: Panel) {
   }
   const base = url.href.replace(/\/+$/, "");
   const request = (path: string, init?: RequestInit) =>
-    fetch(base + path, { ...init, redirect: "error", signal: AbortSignal.timeout(8000) });
+    fetch(base + path, { ...init, redirect: "error", signal: AbortSignal.timeout(20000) });
   const login = await request("/login", {
     method: "POST",
     body: new URLSearchParams({ username: panel.panel_user, password: panel.panel_pass }),
@@ -134,7 +134,7 @@ export async function applyPanelMirror(source: Panel, target: Panel, expectedRev
   const post = async (path: string, body?: BodyInit) => {
     const response = await replica.request(path, { method: "POST", headers: { Cookie: replica.cookie }, body });
     const data = await response.json();
-    if (!response.ok || data.success !== true) throw new Error(typeof data.msg === "string" ? data.msg : "副面板写入失败");
+    if (!response.ok || data.success !== true) throw new Error(typeof data.msg === "string" ? `副面板写入失败：${data.msg}` : "副面板写入失败");
   };
   let created = 0, updated = 0, removed = 0;
   for (const [, row] of updates) { await post(`/panel/api/inbounds/update/${current.get(`${row.protocol}:${row.port}`)!.id}`, inboundForm(row)); updated++; }

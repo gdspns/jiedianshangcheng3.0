@@ -17,6 +17,7 @@ async function callEdgeFunction(name: string, body?: Record<string, unknown>) {
     } catch {}
     throw new Error(message);
   }
+  if (data?.error) throw new Error(data.error);
   return data;
 }
 
@@ -80,6 +81,14 @@ export function adminPreviewPanelMirror(token: string, source: string, target: s
 
 export function adminApplyPanelMirror(token: string, source: string, target: string, revision: string, allowDelete: boolean) {
   return callEdgeFunction("admin-panels", { action: "mirror-apply", token, source, target, revision, allowDelete });
+}
+
+export function adminGetPanelMirrorSchedule(token: string) {
+  return callEdgeFunction("admin-panels", { action: "mirror-schedule-get", token });
+}
+
+export function adminSavePanelMirrorSchedule(token: string, settings: { enabled: boolean; source: string; target: string; allowDelete: boolean }) {
+  return callEdgeFunction("admin-panels", { action: "mirror-schedule-save", token, ...settings });
 }
 
 export function adminSyncPanels(token: string, settings: {
