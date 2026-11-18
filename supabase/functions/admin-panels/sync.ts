@@ -59,7 +59,8 @@ async function panelSnapshot(panel: Panel) {
   return { inbounds, template, outboundTestUrl: xray?.outboundTestUrl || "https://www.google.com/generate_204", request, cookie };
 }
 
-type Inbound = { id: number; protocol: string; port: number; listen?: string; enable: boolean; expiryTime: number; total: number; remark: string; settings: string; streamSettings: string; sniffing: string; trafficReset?: string; lastTrafficResetTime?: number };
+type ClientTraffic = { email: string; up: number; down: number };
+type Inbound = { id: number; protocol: string; port: number; listen?: string; enable: boolean; expiryTime: number; total: number; remark: string; settings: string; streamSettings: string; sniffing: string; trafficReset?: string; lastTrafficResetTime?: number; clientStats?: ClientTraffic[] };
 
 function inboundIndex(rows: Inbound[]) {
   const result = new Map<string, Inbound>();
@@ -90,6 +91,18 @@ function inboundForm(row: Inbound) {
     lastTrafficResetTime: String(row.lastTrafficResetTime || 0), listen: row.listen || "", port: String(row.port),
     protocol: row.protocol, settings: row.settings || "{}", streamSettings: row.streamSettings || "{}", sniffing: row.sniffing || "{}",
   });
+}
+
+function trafficIndex(rows: Inbound[]) {
+  const result = new Map<string, ClientTraffic>();
+  for (const row of rows) for (const stat of row.clientStats || []) {
+    const email = typeof stat?.email === "string" ? stat.email.trim() : "";
+    if (!email || !Number.isSafeInteger(stat.up) || !Number.isSafeInteger(stat.down) || stat.up < 0 || stat.down < 0) continue;
+    const existing = result.get(email.toLowerCase());
+    if (existing && (existing.up !== stat.up || existing.down !== stat.down)) throw new Error(`客户端备注 ${email} 重复且流量数据不一致`);
+    result.set(email.toLowerCase(), { email, up: stat.up, down: stat.down });
+  }
+  return result;
 }
 
 async function revisionFor(main: Awaited<ReturnType<typeof panelSnapshot>>, replica: Awaited<ReturnType<typeof panelSnapshot>>) {
@@ -141,9 +154,22 @@ export async function applyPanelMirror(source: Panel, target: Panel, expectedRev
   for (const [, row] of creates) { await post("/panel/api/inbounds/add", inboundForm(row)); created++; }
   const xrayDiffers = normalized(main.template) !== normalized(replica.template) || main.outboundTestUrl !== replica.outboundTestUrl;
   if (xrayDiffers) await post("/panel/xray/update", new URLSearchParams({ xraySetting: JSON.stringify(main.template), outboundTestUrl: main.outboundTestUrl }));
+  const sourceTraffic = trafficIndex(main.inbounds), targetTraffic = trafficIndex(replica.inbounds);
+  let trafficUpdated = 0;
+  for (const [email, stat] of sourceTraffic) {
+    const targetStat = targetTraffic.get(email);
+    if (targetStat && targetStat.up === stat.up && targetStat.down === stat.down) continue;
+    const response = await replica.request(`/panel/api/inbounds/updateClientTraffic/${encodeURIComponent(stat.email)}`, {
+      method: "POST", headers: { Cookie: replica.cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ upload: stat.up, download: stat.down }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.success !== true) throw new Error(`客户端 ${stat.email} 的已用流量同步失败`);
+    trafficUpdated++;
+  }
   // Destructive work is deliberately last, after every additive/configuration write succeeded.
   for (const [, row] of removals) { await post(`/panel/api/inbounds/del/${row.id}`); removed++; }
-  return { success: true, created, updated, removed, xrayUpdated: xrayDiffers };
+  return { success: true, created, updated, removed, xrayUpdated: xrayDiffers, trafficUpdated };
 }
 
 export async function syncPanelClients(source: Panel, target: Panel, sourceId: number, targetId: number, preview: boolean, expectedRevision?: string, addMissing = false) {

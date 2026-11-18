@@ -9,7 +9,7 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
   const [error, setError] = useState("");
   const [mirror, setMirror] = useState<{ sourceCount: number; targetCount: number; create: string[]; update: string[]; remove: string[]; outboundsDiffer: boolean; routingDiffers: boolean; revision: string }>();
   const [allowDelete, setAllowDelete] = useState(false);
-  const [mirrorDone, setMirrorDone] = useState<{ created: number; updated: number; removed: number; xrayUpdated: boolean }>();
+  const [mirrorDone, setMirrorDone] = useState<{ created: number; updated: number; removed: number; xrayUpdated: boolean; trafficUpdated: number }>();
   const [autoSync, setAutoSync] = useState(false);
   const [scheduleStatus, setScheduleStatus] = useState("");
   const [lastRun, setLastRun] = useState("");
@@ -18,15 +18,24 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
     available.some(panel => panel.id === target);
 
   useEffect(() => {
-    void adminGetPanelMirrorSchedule(token).then(({ settings }) => {
-      if (!settings) return;
-      setAutoSync(settings.enabled === true);
-      setSource(settings.source_panel_id || "");
-      setTarget(settings.target_panel_id || "");
-      setAllowDelete(settings.allow_delete === true);
-      setScheduleStatus(settings.last_status || "");
-      setLastRun(settings.last_run_at || "");
-    }).catch(() => {});
+    let active = true;
+    const refresh = async (initial = false) => {
+      try {
+        const { settings } = await adminGetPanelMirrorSchedule(token);
+        if (!active || !settings) return;
+        setAutoSync(settings.enabled === true);
+        setScheduleStatus(settings.last_status || "");
+        setLastRun(settings.last_run_at || "");
+        if (initial) {
+          setSource(settings.source_panel_id || "");
+          setTarget(settings.target_panel_id || "");
+          setAllowDelete(settings.allow_delete === true);
+        }
+      } catch {}
+    };
+    void refresh(true);
+    const timer = window.setInterval(() => void refresh(false), 10_000);
+    return () => { active = false; window.clearInterval(timer); };
   }, [token]);
 
   async function previewMirror() {
@@ -107,7 +116,7 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
             <p>出站{mirror.outboundsDiffer ? "有差异" : "一致"}，路由规则{mirror.routingDiffers ? "有差异" : "一致"}。</p>
           </div>
         )}
-        {mirrorDone && <p className="text-emerald-600">整面板同步完成：新增 {mirrorDone.created}、更新 {mirrorDone.updated}、删除 {mirrorDone.removed} 条入站，出站与路由{mirrorDone.xrayUpdated ? "已更新" : "原本一致"}。</p>}
+        {mirrorDone && <p className="text-emerald-600">整面板同步完成：新增 {mirrorDone.created}、更新 {mirrorDone.updated}、删除 {mirrorDone.removed} 条入站，同步 {mirrorDone.trafficUpdated || 0} 个客户端流量，出站与路由{mirrorDone.xrayUpdated ? "已更新" : "原本一致"}。</p>}
       </div>
     </section>
   );
