@@ -106,8 +106,9 @@ function trafficIndex(rows: Inbound[]) {
 }
 
 async function revisionFor(main: Awaited<ReturnType<typeof panelSnapshot>>, replica: Awaited<ReturnType<typeof panelSnapshot>>) {
+  const configRows = (rows: Inbound[]) => rows.map(row => ({ id: row.id, protocol: row.protocol, port: row.port, config: comparable(row) }));
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({
-    source: main.inbounds, sourceXray: main.template, target: replica.inbounds, targetXray: replica.template,
+    source: configRows(main.inbounds), sourceXray: main.template, target: configRows(replica.inbounds), targetXray: replica.template,
   })));
   return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
 }
