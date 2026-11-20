@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
         subscriptionDomain: data.subscription_domain || "dy.ip520.top",
         softwareNoticeEnabled: data.software_notice_enabled ?? false,
         softwareNotice: data.software_notice || "",
+        softwareApiDomain: data.software_api_domain || "www.ip520.top",
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -129,6 +130,18 @@ Deno.serve(async (req) => {
         .replace(/:\d+$/, "");
       if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(subscriptionDomain)) {
         return new Response(JSON.stringify({ error: "订阅域名格式不正确，请只填写域名，例如 dy.ip520.top" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const softwareApiDomain = String(config.softwareApiDomain || "www.ip520.top")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/[\/?#].*$/, "")
+        .replace(/:\d+$/, "");
+      if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(softwareApiDomain)) {
+        return new Response(JSON.stringify({ error: "软件接口域名格式不正确，请只填写域名，例如 www.ip520.top" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -204,6 +217,7 @@ Deno.serve(async (req) => {
         subscription_domain_history: subscriptionDomainHistory,
         software_notice_enabled: config.softwareNoticeEnabled === true,
         software_notice: String(config.softwareNotice || "").trim().slice(0, 300),
+        software_api_domain: softwareApiDomain,
       };
 
       const { error } = await supabase

@@ -81,6 +81,7 @@ interface AdminConfigData {
   subscriptionDomain: string;
   softwareNoticeEnabled: boolean;
   softwareNotice: string;
+  softwareApiDomain: string;
 }
 
 interface TopupPackageConfig {
@@ -245,6 +246,7 @@ const defaultConfig: AdminConfigData = {
   subscriptionDomain: "dy.ip520.top",
   softwareNoticeEnabled: false,
   softwareNotice: "",
+  softwareApiDomain: "www.ip520.top",
 };
 
 export default function AdminDashboard() {
@@ -2822,6 +2824,20 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                 <span>启用且内容不为空时，公告将在软件标题栏中循环滚动。</span>
                 <span>{config.softwareNotice.length}/300</span>
+              </div>
+              <div className="border-t border-border mt-7 pt-6">
+                <h3 className="font-bold text-lg mb-2">软件接口域名</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  只填写域名，不要填写 http、https 或路径。换域名前请先在这里保存新域名，等待软件同步后再停用旧域名。
+                </p>
+                <input
+                  type="text"
+                  value={config.softwareApiDomain}
+                  onChange={(e) => setConfig({ ...config, softwareApiDomain: e.target.value })}
+                  className="w-full border border-input p-3 rounded-xl bg-background focus:ring-2 focus:ring-sky-500 outline-none"
+                  placeholder="例如：www.ip520.top"
+                />
+                <p className="text-xs text-amber-600 mt-2">软件会自动使用 https://该域名/supabase 访问接口，并保留备用线路。</p>
               </div>
               <button
                 onClick={() => handleSave("saveSoftware")}

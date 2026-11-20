@@ -872,6 +872,7 @@ export type Database = {
           subscription_domain: string
           software_notice: string
           software_notice_enabled: boolean
+          software_api_domain: string
           video_embed: string
         }[]
       }
