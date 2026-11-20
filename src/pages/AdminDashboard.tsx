@@ -82,6 +82,10 @@ interface AdminConfigData {
   softwareNoticeEnabled: boolean;
   softwareNotice: string;
   softwareApiDomain: string;
+  softwarePopupEnabled: boolean;
+  softwarePopupContent: string;
+  softwarePopupVersion: string;
+  softwarePopupDisplayCount: number;
 }
 
 interface TopupPackageConfig {
@@ -247,6 +251,10 @@ const defaultConfig: AdminConfigData = {
   softwareNoticeEnabled: false,
   softwareNotice: "",
   softwareApiDomain: "www.ip520.top",
+  softwarePopupEnabled: false,
+  softwarePopupContent: "",
+  softwarePopupVersion: "",
+  softwarePopupDisplayCount: 1,
 };
 
 export default function AdminDashboard() {
@@ -595,6 +603,31 @@ export default function AdminDashboard() {
       setBtnLoading(btnKey, "❌ 失败");
     }
     clearBtn(btnKey);
+  };
+
+  const publishSoftwarePopup = async () => {
+    const content = config.softwarePopupContent.trim();
+    if (!content) {
+      setBtnLoading("publishSoftwarePopup", "❌ 请填写公告内容");
+      clearBtn("publishSoftwarePopup");
+      return;
+    }
+    setBtnLoading("publishSoftwarePopup", "发布中...");
+    try {
+      const next = {
+        ...config,
+        softwarePopupEnabled: true,
+        softwarePopupContent: content,
+        softwarePopupVersion: String(Date.now()),
+        softwarePopupDisplayCount: Math.max(1, Math.min(20, Number(config.softwarePopupDisplayCount) || 1)),
+      };
+      await saveAdminConfig(token, next);
+      setConfig(next);
+      setBtnLoading("publishSoftwarePopup", "✅ 已发布");
+    } catch {
+      setBtnLoading("publishSoftwarePopup", "❌ 发布失败");
+    }
+    clearBtn("publishSoftwarePopup");
   };
 
   const handleTest = async () => {
@@ -2825,6 +2858,13 @@ export default function AdminDashboard() {
                 <span>启用且内容不为空时，公告将在软件标题栏中循环滚动。</span>
                 <span>{config.softwareNotice.length}/300</span>
               </div>
+              <button
+                onClick={() => handleSave("saveSoftwareNotice")}
+                disabled={!!btnStatus["saveSoftwareNotice"]}
+                className="mt-4 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
+              >
+                {btnStatus["saveSoftwareNotice"] || "保存滚动公告"}
+              </button>
               <div className="border-t border-border mt-7 pt-6">
                 <h3 className="font-bold text-lg mb-2">软件接口域名</h3>
                 <p className="text-xs text-muted-foreground mb-3">
@@ -2838,14 +2878,68 @@ export default function AdminDashboard() {
                   placeholder="例如：www.ip520.top"
                 />
                 <p className="text-xs text-amber-600 mt-2">软件会自动使用 https://该域名/supabase 访问接口，并保留备用线路。</p>
+                <button
+                  onClick={() => handleSave("saveSoftwareDomain")}
+                  disabled={!!btnStatus["saveSoftwareDomain"]}
+                  className="mt-4 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
+                >
+                  {btnStatus["saveSoftwareDomain"] || "保存接口域名"}
+                </button>
               </div>
-              <button
-                onClick={() => handleSave("saveSoftware")}
-                disabled={!!btnStatus["saveSoftware"]}
-                className="mt-5 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
-              >
-                {btnStatus["saveSoftware"] || "保存软件设置"}
-              </button>
+              <div className="border-t border-border mt-7 pt-6">
+                <div className="flex items-center justify-between gap-4 mb-2">
+                  <h3 className="font-bold text-lg">登录用户弹窗公告</h3>
+                  <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.softwarePopupEnabled}
+                      onChange={(e) => setConfig({ ...config, softwarePopupEnabled: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    启用
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">只对已经解析登录的用户显示。重新点击“发布弹窗公告”会作为新公告重新推送。</p>
+                <textarea
+                  value={config.softwarePopupContent}
+                  onChange={(e) => setConfig({ ...config, softwarePopupContent: e.target.value })}
+                  rows={5}
+                  maxLength={1000}
+                  className="w-full border border-input p-3 rounded-xl bg-background focus:ring-2 focus:ring-violet-500 outline-none"
+                  placeholder="请输入需要弹窗展示的公告内容..."
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3 mt-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    每位用户最多显示
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={config.softwarePopupDisplayCount}
+                      onChange={(e) => setConfig({ ...config, softwarePopupDisplayCount: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })}
+                      className="w-20 border border-input p-2 rounded-lg bg-background"
+                    />
+                    次
+                  </label>
+                  <span className="text-xs text-muted-foreground">当前发布版本：{config.softwarePopupVersion || "尚未发布"}</span>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={publishSoftwarePopup}
+                    disabled={!!btnStatus["publishSoftwarePopup"]}
+                    className="bg-violet-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-violet-700 disabled:opacity-70"
+                  >
+                    {btnStatus["publishSoftwarePopup"] || "发布弹窗公告"}
+                  </button>
+                  <button
+                    onClick={() => handleSave("saveSoftwarePopup")}
+                    disabled={!!btnStatus["saveSoftwarePopup"]}
+                    className="border border-border px-5 py-2.5 rounded-xl font-bold hover:bg-muted disabled:opacity-70"
+                  >
+                    {btnStatus["saveSoftwarePopup"] || (config.softwarePopupEnabled ? "保存弹窗设置" : "保存并关闭弹窗")}
+                  </button>
+                </div>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="analytics">

@@ -873,6 +873,10 @@ export type Database = {
           software_notice: string
           software_notice_enabled: boolean
           software_api_domain: string
+          software_popup_content: string
+          software_popup_display_count: number
+          software_popup_enabled: boolean
+          software_popup_version: string
           video_embed: string
         }[]
       }

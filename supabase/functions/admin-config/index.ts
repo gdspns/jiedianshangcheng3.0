@@ -96,6 +96,10 @@ Deno.serve(async (req) => {
         softwareNoticeEnabled: data.software_notice_enabled ?? false,
         softwareNotice: data.software_notice || "",
         softwareApiDomain: data.software_api_domain || "www.ip520.top",
+        softwarePopupEnabled: data.software_popup_enabled ?? false,
+        softwarePopupContent: data.software_popup_content || "",
+        softwarePopupVersion: data.software_popup_version || "",
+        softwarePopupDisplayCount: data.software_popup_display_count ?? 1,
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -218,6 +222,10 @@ Deno.serve(async (req) => {
         software_notice_enabled: config.softwareNoticeEnabled === true,
         software_notice: String(config.softwareNotice || "").trim().slice(0, 300),
         software_api_domain: softwareApiDomain,
+        software_popup_enabled: config.softwarePopupEnabled === true,
+        software_popup_content: String(config.softwarePopupContent || "").trim().slice(0, 1000),
+        software_popup_version: String(config.softwarePopupVersion || "").trim().slice(0, 50),
+        software_popup_display_count: Math.max(1, Math.min(20, Math.floor(Number(config.softwarePopupDisplayCount) || 1))),
       };
 
       const { error } = await supabase
