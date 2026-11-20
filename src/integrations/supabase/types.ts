@@ -870,6 +870,8 @@ export type Database = {
           topup_packages: Json
           topup_price: number
           subscription_domain: string
+          software_notice: string
+          software_notice_enabled: boolean
           video_embed: string
         }[]
       }

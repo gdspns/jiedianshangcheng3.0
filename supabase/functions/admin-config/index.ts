@@ -93,6 +93,8 @@ Deno.serve(async (req) => {
         topupPackages: Array.isArray(data.topup_packages) ? data.topup_packages : [],
         topupBlacklist: data.topup_blacklist || "",
         subscriptionDomain: data.subscription_domain || "dy.ip520.top",
+        softwareNoticeEnabled: data.software_notice_enabled ?? false,
+        softwareNotice: data.software_notice || "",
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -200,6 +202,8 @@ Deno.serve(async (req) => {
         topup_blacklist: typeof config.topupBlacklist === "string" ? config.topupBlacklist : "",
         subscription_domain: subscriptionDomain,
         subscription_domain_history: subscriptionDomainHistory,
+        software_notice_enabled: config.softwareNoticeEnabled === true,
+        software_notice: String(config.softwareNotice || "").trim().slice(0, 300),
       };
 
       const { error } = await supabase

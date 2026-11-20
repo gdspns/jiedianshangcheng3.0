@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Server, QrCode, Bitcoin, CheckCircle2, ShieldCheck, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText, CalendarDays, WalletCards, BarChart3 } from "lucide-react";
+import { Settings, Server, QrCode, Bitcoin, CheckCircle2, ShieldCheck, Plus, Trash2, Package, ClipboardList, Search, ChevronLeft, ChevronRight, ShoppingCart, CreditCard, MapPin, ChevronDown, BookOpen, FileText, CalendarDays, WalletCards, BarChart3, Megaphone } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getAdminConfig, saveAdminConfig, testPanelConnection, adminGetPlans, adminCreatePlan, adminUpdatePlan, adminDeletePlan, adminGetOrders, adminGetOrderRevenueStats, adminDeleteOrder, adminBatchDeleteOrders, adminGetRegions, adminCreateRegion, adminUpdateRegion, adminDeleteRegion, adminAssignPlanRegion, adminUnassignPlanRegion, adminChangePassword, adminGetTutorials, adminCreateTutorial, adminUpdateTutorial, adminDeleteTutorial, adminGetArticles, adminCreateArticle, adminUpdateArticle, adminDeleteArticle, adminGetRegionInbounds, adminCreateRegionInbound, adminUpdateRegionInbound, adminDeleteRegionInbound, adminAssignInboundPlan, adminUnassignInboundPlan, adminListPanels, adminCreatePanel, adminUpdatePanel, adminSetPrimaryPanel, adminDeletePanel, runAutoResetTraffic, adminListTrafficRules, adminCreateTrafficRule, adminUpdateTrafficRule, adminDeleteTrafficRule } from "@/lib/api";
 import TutorialContentEditor from "@/components/TutorialContentEditor";
@@ -79,6 +79,8 @@ interface AdminConfigData {
   topupPackages: TopupPackageConfig[];
   topupBlacklist: string;
   subscriptionDomain: string;
+  softwareNoticeEnabled: boolean;
+  softwareNotice: string;
 }
 
 interface TopupPackageConfig {
@@ -241,6 +243,8 @@ const defaultConfig: AdminConfigData = {
   topupPackages: [],
   topupBlacklist: "",
   subscriptionDomain: "dy.ip520.top",
+  softwareNoticeEnabled: false,
+  softwareNotice: "",
 };
 
 export default function AdminDashboard() {
@@ -1014,7 +1018,7 @@ export default function AdminDashboard() {
 
         {/* Tab Menu */}
         <Tabs defaultValue="panel" className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto min-h-12 bg-card border border-border rounded-2xl p-1">
+          <TabsList className="w-full grid grid-cols-3 lg:grid-cols-9 h-auto min-h-12 bg-card border border-border rounded-2xl p-1">
             <TabsTrigger value="panel" className="rounded-xl data-[state=active]:bg-admin-primary data-[state=active]:text-admin-primary-foreground font-bold text-xs sm:text-sm">
               <Server className="w-4 h-4 mr-1 sm:mr-2" /> 面板对接
             </TabsTrigger>
@@ -1038,6 +1042,9 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="analytics" className="rounded-xl data-[state=active]:bg-indigo-500 data-[state=active]:text-white font-bold text-xs sm:text-sm">
               <BarChart3 className="w-4 h-4 mr-1 sm:mr-2" /> 访问统计
+            </TabsTrigger>
+            <TabsTrigger value="software" className="rounded-xl data-[state=active]:bg-sky-500 data-[state=active]:text-white font-bold text-xs sm:text-sm">
+              <Megaphone className="w-4 h-4 mr-1 sm:mr-2" /> 软件管理
             </TabsTrigger>
           </TabsList>
 
@@ -2786,6 +2793,43 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+          <TabsContent value="software">
+            <div className="bg-card p-6 rounded-2xl shadow-sm border border-border max-w-3xl">
+              <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
+                <h2 className="text-xl font-bold flex items-center text-sky-600">
+                  <Megaphone className="w-5 h-5 mr-2" /> 软件顶部滚动公告
+                </h2>
+                <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.softwareNoticeEnabled}
+                    onChange={(e) => setConfig({ ...config, softwareNoticeEnabled: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  启用公告
+                </label>
+              </div>
+              <textarea
+                value={config.softwareNotice}
+                onChange={(e) => setConfig({ ...config, softwareNotice: e.target.value })}
+                rows={4}
+                maxLength={300}
+                className="w-full border border-input p-3 rounded-xl bg-background focus:ring-2 focus:ring-sky-500 outline-none"
+                placeholder="例如：新增香港节点，请在节点页面刷新订阅后使用"
+              />
+              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                <span>启用且内容不为空时，公告将在软件标题栏中循环滚动。</span>
+                <span>{config.softwareNotice.length}/300</span>
+              </div>
+              <button
+                onClick={() => handleSave("saveSoftware")}
+                disabled={!!btnStatus["saveSoftware"]}
+                className="mt-5 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
+              >
+                {btnStatus["saveSoftware"] || "保存软件设置"}
+              </button>
             </div>
           </TabsContent>
           <TabsContent value="analytics">
