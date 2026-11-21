@@ -93,11 +93,24 @@ export default function PanelSync({ token, panels }: { token: string; panels: Pa
         ))}
       </fieldset>
       <div className="rounded-xl border p-4 space-y-2">
-        <label className="flex items-center gap-3 font-semibold">
-          <input type="checkbox" checked={autoSync} disabled={!selected || busy} onChange={event => void saveSchedule(event.target.checked)} />
-          每 5 分钟自动同步主面板到副面板
-        </label>
-        <p className="text-xs text-muted-foreground">开启后无需停留在后台页面。自动同步会新增、更新客户端与入站，并同步出站和路由；删除仍受“允许删除”设置控制。</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold">主副面板自动同步</div>
+            <p className="text-xs text-muted-foreground mt-1">开启后每 5 分钟同步一次；关闭后立即暂停后台定时同步，手动预览和执行不受影响。</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoSync}
+            disabled={!selected || busy}
+            onClick={() => void saveSchedule(!autoSync)}
+            className={`inline-flex min-w-28 items-center justify-between gap-3 rounded-full px-3 py-2 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${autoSync ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}
+          >
+            <span>{autoSync ? "同步已开启" : "同步已暂停"}</span>
+            <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${autoSync ? "translate-x-0" : "-translate-x-1"}`} />
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">自动同步会新增、更新客户端与入站，并同步出站和路由；删除仍受“允许删除”设置控制。</p>
         {scheduleStatus && <p className="text-sm">状态：{scheduleStatus}{lastRun ? `（最近运行 ${new Date(lastRun).toLocaleString()}）` : ""}</p>}
       </div>
       <div className="flex flex-wrap gap-2">
