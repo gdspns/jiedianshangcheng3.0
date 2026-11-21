@@ -22,6 +22,7 @@ import {
   ShoppingCart,
   Copy,
   Search,
+  Download,
 } from "lucide-react";
 import {
   getPublicConfig,
@@ -108,6 +109,8 @@ interface PublicConfig {
   topup_packages?: TopupPackage[];
   topup_blacklist?: string;
   subscription_domain?: string;
+  software_latest_version?: string;
+  software_windows_download_url?: string;
 }
 
 interface TopupPackage {
@@ -153,39 +156,6 @@ interface RegionItem {
   enabled: boolean;
   max_clients: number;
   current_clients: number;
-}
-
-function wrapResponsiveIframe(iframeHtml: string): string {
-  return `<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">${iframeHtml.replace(/style="[^"]*"/, 'style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"')}</div>`;
-}
-
-function parseVideoEmbed(raw: string): string {
-  if (!raw || !raw.trim()) return "";
-  const s = raw.trim();
-  const iframeAllow = 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"';
-  // Already an iframe
-  if (s.startsWith("<iframe")) {
-    let html = s;
-    if (!html.includes(' allow="')) {
-      html = html.replace("<iframe", `<iframe ${iframeAllow}`);
-    }
-    return wrapResponsiveIframe(html);
-  }
-  // YouTube
-  const ytMatch = s.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/);
-  if (ytMatch)
-    return wrapResponsiveIframe(`<iframe src="https://www.youtube.com/embed/${ytMatch[1]}?playsinline=1" frameborder="0" ${iframeAllow} allowfullscreen style="border:0;"></iframe>`);
-  // Bilibili
-  const biliMatch = s.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/);
-  if (biliMatch)
-    return wrapResponsiveIframe(`<iframe src="//player.bilibili.com/player.html?bvid=${biliMatch[1]}&high_quality=1&danmaku=0" frameborder="0" ${iframeAllow} allowfullscreen sandbox="allow-top-navigation allow-same-origin allow-forms allow-scripts allow-popups" scrolling="no" style="border:0;"></iframe>`);
-  // Direct video link
-  if (/\.(mp4|webm|ogg)(\?|$)/i.test(s))
-    return `<video src="${s}" controls playsinline webkit-playsinline preload="metadata" style="width:100%;border-radius:12px;"></video>`;
-  // Fallback: treat as iframe src
-  if (s.startsWith("http"))
-    return wrapResponsiveIframe(`<iframe src="${s}" frameborder="0" ${iframeAllow} allowfullscreen style="border:0;"></iframe>`);
-  return "";
 }
 
 function fixMobileVideo(html: string): string {
@@ -302,7 +272,6 @@ export default function ClientPortal() {
   const [inboundMatchError, setInboundMatchError] = useState("");
   const [noStockContact, setNoStockContact] = useState("");
   const [countdown, setCountdown] = useState(0);
-  const [videoEmbed, setVideoEmbed] = useState("");
   const [checkoutEmail, setCheckoutEmail] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
   const [lookupOrders, setLookupOrders] = useState<any[]>([]);
@@ -408,15 +377,6 @@ export default function ClientPortal() {
     getAnnouncement()
       .then((data: any) => setAnnouncement(data?.content || ""))
       .catch(() => {});
-    // Fetch video embed
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      (supabase as any)
-        .rpc("get_public_config")
-        .then(({ data }: any) => {
-          const row = Array.isArray(data) ? data[0] : data;
-          if (row?.video_embed) setVideoEmbed(row.video_embed);
-        });
-    });
     // Load jsQR
     if (!(window as any).jsQR) {
       const s = document.createElement("script");
@@ -1345,64 +1305,55 @@ export default function ClientPortal() {
       .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   // Login screen
-  const videoHtml = useMemo(() => parseVideoEmbed(videoEmbed), [videoEmbed]);
-
   if (!logged) {
+    const clientVersion = config?.software_latest_version || "0.3.0";
+    const windowsDownloadUrl = config?.software_windows_download_url || "https://github.com/gdspns/jiedianshangcheng3.0/releases/download/desktop-v0.3.0/IP520-Setup-0.3.0-x64.exe";
+    const downloadFilename = (() => { try { return decodeURIComponent(new URL(windowsDownloadUrl).pathname.split("/").pop() || `IP520-Setup-${clientVersion}-x64.exe`); } catch { return `IP520-Setup-${clientVersion}-x64.exe`; } })();
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-muted p-4 pt-20 sm:pt-4 relative">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20 sm:pt-8 relative overflow-hidden bg-[#070b16] text-slate-100 before:absolute before:inset-0 before:bg-[radial-gradient(900px_420px_at_15%_-10%,rgba(236,72,153,.18),transparent_70%),radial-gradient(760px_420px_at_90%_8%,rgba(139,92,246,.20),transparent_70%)] before:pointer-events-none">
         <Link
           to="/"
-          className="absolute top-4 left-4 text-xl sm:text-2xl font-extrabold text-foreground hover:text-client-primary transition-colors z-20"
+          className="absolute top-4 left-4 text-base font-bold text-slate-300 hover:text-white transition-colors z-20"
         >
           首页
         </Link>
         <div className="absolute top-4 right-4 z-20">
           <ThemeToggle />
         </div>
-        <div
-          className={`flex flex-col items-stretch gap-4 w-full ${videoHtml ? "max-w-4xl" : "max-w-md"}`}
-        >
+        <div className="relative z-10 flex flex-col items-stretch gap-3 w-full max-w-[500px]">
           {/* Announcement bar */}
           {announcement.trim() && (
-            <div className="w-full bg-red-50 dark:bg-red-950/30 border-2 border-red-500 rounded-2xl p-4 shadow-lg">
+            <div className="w-full bg-red-950/35 border border-red-500/70 rounded-2xl p-4 shadow-lg">
               <div
                 className="text-red-600 dark:text-red-400 font-bold text-base leading-relaxed [&_*]:!text-red-600 dark:[&_*]:!text-red-400 [&_*]:!font-bold"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(announcement) }}
               />
             </div>
           )}
-          <div className={`flex items-stretch gap-6 w-full ${videoHtml ? "flex-col md:flex-row" : "flex-col"}`}>
-          {/* Login card */}
-          <div className={`bg-card rounded-2xl shadow-xl overflow-hidden ${videoHtml ? "md:w-1/2 w-full" : "w-full"}`}>
-            <div className="bg-client-primary p-8 text-center">
-              <User className="w-16 h-16 text-client-primary-foreground mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-client-primary-foreground mb-2">充值续费自助服务中心</h1>
-              <p className="text-client-primary-foreground/80 text-sm">支持订阅链接、UUID 或订阅二维码识别</p>
-            </div>
-            <div className="p-8">
+          <div className="w-full rounded-[22px] border border-slate-600/40 bg-gradient-to-b from-[#172034]/95 to-[#0d1321]/95 p-5 shadow-2xl backdrop-blur-md">
               <form onSubmit={handleLogin}>
-                <div className="relative mb-6">
+                <label className="mb-2 block text-sm font-medium text-slate-200">UUID / 订阅链接</label>
+                <div className="relative mb-4">
                   <textarea
                     value={loginInput}
                     onChange={(e) => setLoginInput(e.target.value)}
                     onPaste={handlePaste}
-                    placeholder={
-                      "例如: 550e8400-e29b-41d4...\n或者粘贴完整订阅链接：https://dy.ip520.top/s/UUID\n🌟 支持直接在此处 Ctrl+V 粘贴订阅二维码截图"
-                    }
-                    className="w-full px-4 py-3 rounded-lg border border-input focus:ring-2 focus:ring-client-primary focus:border-transparent outline-none min-h-[120px] resize-none pb-12 bg-background text-foreground"
+                    placeholder="请输入 UUID 或粘贴订阅链接"
+                    className="w-full min-h-[58px] max-h-28 resize-none rounded-[14px] border-2 border-amber-400 bg-[#081124] px-4 py-4 pr-14 text-base text-white outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/20 placeholder:text-slate-500"
                     required
                   />
-                  <div className="absolute bottom-3 right-3 flex items-center space-x-3">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     {qrStatus && (
                       <span className="text-xs font-bold text-client-primary animate-pulse">{qrStatus}</span>
                     )}
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center shadow-sm border border-border hover:opacity-90"
+                      title="识别订阅二维码图片"
+                      aria-label="识别订阅二维码图片"
+                      className="h-9 w-9 rounded-lg border border-slate-600 bg-slate-800/90 text-slate-300 transition hover:text-white flex items-center justify-center"
                     >
-                      <Upload className="w-4 h-4 mr-1.5" />
-                      扫码/传图
+                      <Upload className="w-4 h-4" />
                     </button>
                     <input
                       type="file"
@@ -1417,12 +1368,13 @@ export default function ClientPortal() {
                     />
                   </div>
                 </div>
-                {error && <p className="text-destructive text-sm mb-4">{error}</p>}
+                <p className="-mt-2 mb-4 text-xs text-slate-500">支持 UUID、完整订阅链接，也可点击右侧图标识别二维码</p>
+                {error && <p className="mb-4 rounded-xl border border-red-500/50 bg-red-950/40 px-3 py-2 text-sm text-red-300">{error}</p>}
                 <div className="flex gap-3">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 bg-client-primary hover:opacity-90 text-client-primary-foreground font-bold py-3 rounded-lg transition-colors shadow-lg"
+                    className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3.5 font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {loading ? "智能解析并登录..." : "解析登录"}
                   </button>
@@ -1434,27 +1386,31 @@ export default function ClientPortal() {
                       setUuid("游客_未登录");
                       try { localStorage.setItem("portal_uuid", "游客_未登录"); } catch {}
                     }}
-                    className="flex-1 bg-accent text-accent-foreground hover:opacity-90 font-bold py-3 rounded-lg transition-colors shadow-lg flex justify-center items-center gap-2"
+                    className="flex-1 rounded-xl border border-blue-400/60 bg-blue-950/35 py-3.5 font-bold text-blue-200 transition hover:bg-blue-900/50 flex justify-center items-center gap-2"
                   >
                     <ShoppingCart className="w-5 h-5" />
-                    购买开通
+                     自助购买
                   </button>
                 </div>
               </form>
-            </div>
           </div>
-          {/* Video panel */}
-          {videoHtml && (
-            <div className="md:w-1/2 w-full flex items-center">
-              <div className="w-full bg-card rounded-2xl shadow-xl overflow-hidden p-6">
-                <h2 className="text-lg font-bold text-foreground mb-4 text-center">📺 使用教程</h2>
-                <div dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(videoHtml, true) }} className="rounded-xl overflow-hidden" />
-              </div>
+
+          <div className="w-full rounded-[22px] border border-slate-600/40 bg-gradient-to-b from-[#172034]/95 to-[#0d1321]/95 p-6 shadow-2xl backdrop-blur-md">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-violet-600 shadow-lg shadow-pink-500/20"><Download className="h-5 w-5 text-white" /></div>
+              <div><h1 className="text-lg font-bold text-slate-100">IP520 网络助手</h1><p className="text-xs text-slate-500">Windows 桌面客户端</p></div>
             </div>
-          )}
+            <div className="mb-5 flex flex-wrap gap-2 text-xs"><span className="rounded-md border border-pink-500/20 bg-pink-500/10 px-2.5 py-1 text-pink-300">v{clientVersion}</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">x64</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">约 145 MB</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">安装包</span></div>
+            <a href={windowsDownloadUrl} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:brightness-110"><Download className="h-5 w-5" />下载安装包</a>
+            <p className="mt-2.5 break-all text-center text-xs text-slate-600">{downloadFilename}</p>
+            <ul className="mt-5 space-y-2 border-t border-slate-700/50 pt-4 text-xs leading-6 text-slate-400">
+              <li className="before:mr-2 before:text-pink-500 before:content-['•']">适用于 <b className="text-slate-300">Windows 10 / 11 64 位</b>系统</li>
+              <li className="before:mr-2 before:text-pink-500 before:content-['•']">下载后双击安装包，按提示完成安装</li>
+              <li className="before:mr-2 before:text-pink-500 before:content-['•']">若出现 Windows 保护提示，点击“更多信息”后选择“仍要运行”</li>
+            </ul>
+          </div>
           </div>
         </div>
-      </div>
     );
   }
 
