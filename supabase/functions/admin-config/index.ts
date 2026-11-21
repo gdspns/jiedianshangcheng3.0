@@ -100,6 +100,12 @@ Deno.serve(async (req) => {
         softwarePopupContent: data.software_popup_content || "",
         softwarePopupVersion: data.software_popup_version || "",
         softwarePopupDisplayCount: data.software_popup_display_count ?? 1,
+        softwareUpdateEnabled: data.software_update_enabled ?? false,
+        softwareLatestVersion: data.software_latest_version || "",
+        softwareWindowsDownloadUrl: data.software_windows_download_url || "",
+        softwareMacosDownloadUrl: data.software_macos_download_url || "",
+        softwareUpdateNotes: data.software_update_notes || "",
+        softwareForceUpdate: data.software_force_update ?? false,
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -149,6 +155,20 @@ Deno.serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      const updateVersion = String(config.softwareLatestVersion || "").trim().replace(/^v/i, "");
+      const windowsDownloadUrl = String(config.softwareWindowsDownloadUrl || "").trim();
+      const macosDownloadUrl = String(config.softwareMacosDownloadUrl || "").trim();
+      if (config.softwareUpdateEnabled === true) {
+        if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(updateVersion)) {
+          return new Response(JSON.stringify({ error: "启用软件更新前，请填写正确版本号，例如 0.3.1" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (!/^https:\/\//i.test(windowsDownloadUrl)) {
+          return new Response(JSON.stringify({ error: "启用软件更新前，请填写 HTTPS Windows 安装包地址" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+      if (macosDownloadUrl && !/^https:\/\//i.test(macosDownloadUrl)) {
+        return new Response(JSON.stringify({ error: "macOS 下载地址必须使用 HTTPS" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const { data: existingConfig } = await supabase
         .from("admin_config")
@@ -226,6 +246,12 @@ Deno.serve(async (req) => {
         software_popup_content: String(config.softwarePopupContent || "").trim().slice(0, 1000),
         software_popup_version: String(config.softwarePopupVersion || "").trim().slice(0, 50),
         software_popup_display_count: Math.max(1, Math.min(20, Math.floor(Number(config.softwarePopupDisplayCount) || 1))),
+        software_update_enabled: config.softwareUpdateEnabled === true,
+        software_latest_version: updateVersion.slice(0, 30),
+        software_windows_download_url: windowsDownloadUrl.slice(0, 1000),
+        software_macos_download_url: macosDownloadUrl.slice(0, 1000),
+        software_update_notes: String(config.softwareUpdateNotes || "").trim().slice(0, 3000),
+        software_force_update: config.softwareForceUpdate === true,
       };
 
       const { error } = await supabase

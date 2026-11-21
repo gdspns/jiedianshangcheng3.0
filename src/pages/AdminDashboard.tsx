@@ -87,6 +87,12 @@ interface AdminConfigData {
   softwarePopupContent: string;
   softwarePopupVersion: string;
   softwarePopupDisplayCount: number;
+  softwareUpdateEnabled: boolean;
+  softwareLatestVersion: string;
+  softwareWindowsDownloadUrl: string;
+  softwareMacosDownloadUrl: string;
+  softwareUpdateNotes: string;
+  softwareForceUpdate: boolean;
 }
 
 interface TopupPackageConfig {
@@ -256,6 +262,12 @@ const defaultConfig: AdminConfigData = {
   softwarePopupContent: "",
   softwarePopupVersion: "",
   softwarePopupDisplayCount: 1,
+  softwareUpdateEnabled: false,
+  softwareLatestVersion: "",
+  softwareWindowsDownloadUrl: "",
+  softwareMacosDownloadUrl: "",
+  softwareUpdateNotes: "",
+  softwareForceUpdate: false,
 };
 
 export default function AdminDashboard() {
@@ -2943,6 +2955,40 @@ export default function AdminDashboard() {
                   className="mt-4 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
                 >
                   {btnStatus["saveSoftwareDomain"] || "保存接口域名"}
+                </button>
+              </div>
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 mb-5">
+                  <div>
+                    <h3 className="font-bold text-lg flex items-center gap-2"><Package className="w-5 h-5 text-emerald-500" />软件版本更新</h3>
+                    <p className="text-xs text-muted-foreground mt-1">上传新版安装包后，在这里发布版本。软件会自动检查并提示用户下载更新。</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
+                    <input type="checkbox" checked={config.softwareUpdateEnabled} onChange={(e) => setConfig({ ...config, softwareUpdateEnabled: e.target.checked })} className="w-4 h-4" />
+                    启用更新
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <label className="text-sm font-semibold">最新版本号
+                    <input type="text" value={config.softwareLatestVersion} onChange={(e) => setConfig({ ...config, softwareLatestVersion: e.target.value })} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="例如：0.3.1" />
+                  </label>
+                  <label className="flex items-center gap-2 self-end rounded-xl border border-border p-3 text-sm font-semibold cursor-pointer">
+                    <input type="checkbox" checked={config.softwareForceUpdate} onChange={(e) => setConfig({ ...config, softwareForceUpdate: e.target.checked })} className="w-4 h-4" />
+                    强制更新（用户不能点击稍后更新）
+                  </label>
+                  <label className="text-sm font-semibold lg:col-span-2">Windows 安装包 HTTPS 地址
+                    <input type="url" value={config.softwareWindowsDownloadUrl} onChange={(e) => setConfig({ ...config, softwareWindowsDownloadUrl: e.target.value })} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="https://download.ip520.top/windows/IP520-Setup-0.3.1-x64.exe" />
+                  </label>
+                  <label className="text-sm font-semibold lg:col-span-2">macOS 安装包 HTTPS 地址（暂时没有可以留空）
+                    <input type="url" value={config.softwareMacosDownloadUrl} onChange={(e) => setConfig({ ...config, softwareMacosDownloadUrl: e.target.value })} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="https://download.ip520.top/macos/IP520-0.3.1.dmg" />
+                  </label>
+                  <label className="text-sm font-semibold lg:col-span-2">更新说明
+                    <textarea value={config.softwareUpdateNotes} onChange={(e) => setConfig({ ...config, softwareUpdateNotes: e.target.value })} rows={5} maxLength={3000} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="例如：新增自动更新、修复订阅解析和连接模式切换。" />
+                  </label>
+                </div>
+                <p className="text-xs text-amber-600 mt-3">请先确认安装包地址可以直接下载，再启用更新。第一版自动更新安装包仍需用户手动安装一次。</p>
+                <button onClick={() => handleSave("saveSoftwareUpdate")} disabled={!!btnStatus["saveSoftwareUpdate"]} className="mt-4 bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-70">
+                  {btnStatus["saveSoftwareUpdate"] || "保存并发布更新"}
                 </button>
               </div>
               <SoftwareTelemetryPanel token={token} />
