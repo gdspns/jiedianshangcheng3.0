@@ -79,19 +79,26 @@ const seoTopics = [
 export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [landingImages, setLandingImages] = useState<string[]>([]);
+  const [windowsDownloadUrl, setWindowsDownloadUrl] = useState("");
+  const [softwareVersion, setSoftwareVersion] = useState("");
+  const [publicConfigLoaded, setPublicConfigLoaded] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [heroImageReady, setHeroImageReady] = useState(false);
   const [faqs, setFaqs] = useState<{ q: string; a: string }[]>([...defaultFaqs, ...networkFaqs]);
   const [activeSeoTopic, setActiveSeoTopic] = useState<(typeof seoTopics)[number] | null>(null);
 
   useEffect(() => {
-    (supabase as any)
-      .rpc("get_public_config")
-      .then(({ data }: any) => {
+    void (async () => {
+      try {
+        const { data } = await (supabase as any).rpc("get_public_config");
         const row = Array.isArray(data) ? data[0] : data;
-        if (row?.landing_image) {
-          setLandingImages(parseLandingImages(row.landing_image));
-        }
-      });
+        if (row?.landing_image) setLandingImages(parseLandingImages(row.landing_image));
+        setWindowsDownloadUrl(String(row?.software_windows_download_url || "").trim());
+        setSoftwareVersion(String(row?.software_latest_version || "").trim());
+      } finally {
+        setPublicConfigLoaded(true);
+      }
+    })();
 
     (supabase as any)
       .from("articles")
@@ -171,7 +178,14 @@ export default function LandingPage() {
         .lp-hero-features { list-style: none; margin: 25px 0; padding: 0; }
         .lp-hero-features li { position: relative; padding-left: 30px; margin-bottom: 12px; font-size: 1.05rem; color: var(--lp-text-dark); }
         .lp-hero-features li::before { content: '✓'; position: absolute; left: 0; top: 0; color: var(--lp-primary); font-weight: bold; font-size: 1.2rem; }
-        .lp-hero-image { flex: 1; text-align: right; }
+        .lp-hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 30px; }
+        .lp-client-download { display: inline-flex; align-items: center; justify-content: center; min-width: 180px; min-height: 50px; padding: 12px 26px; border-radius: 12px; background: var(--lp-primary); color: #ffffff; text-decoration: none; font-size: 1.05rem; font-weight: 800; box-shadow: 0 10px 24px rgba(43,122,59,0.28); transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease; }
+        .lp-client-download:hover { background: var(--lp-primary-hover); transform: translateY(-2px); box-shadow: 0 14px 30px rgba(43,122,59,0.34); }
+        .dark .lp-client-download { color: #07110a; }
+        .lp-client-download.is-disabled { cursor: wait; background: #334155; color: #94a3b8; box-shadow: none; transform: none; }
+        .lp-hero-image-placeholder { width: 100%; min-height: 320px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(148,163,184,.22); background: rgba(148,163,184,.08); color: var(--lp-text-gray); }
+        .lp-hero-image { flex: 1; min-height: 320px; text-align: right; }
+        .lp-hero-image-loading { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(148,163,184,.22); background: rgba(148,163,184,.08); color: var(--lp-text-gray); }
         .lp-hero-image img { max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 8px solid white; transform: rotate(2deg); transition: transform 0.3s ease; }
         .dark .lp-hero-image img { border-color: #21262d; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
         .lp-hero-image img:hover { transform: rotate(0deg) scale(1.02); }
@@ -241,6 +255,7 @@ export default function LandingPage() {
           .lp-hero { flex-direction: column-reverse; text-align: center; padding: 40px 5%; }
           .lp-hero-content { max-width: 100%; }
           .lp-hero-features { text-align: left; display: inline-block; }
+          .lp-hero-actions { justify-content: center; }
           .lp-hero h1 { font-size: 2.5rem; }
           .lp-hero-image { margin-bottom: 30px; }
           .lp-hero-image img { transform: rotate(0); }
@@ -292,14 +307,29 @@ export default function LandingPage() {
               <li>防平台风控，彻底告别跨境电商IP变动风险</li>
               <li>原生真实物理节点，保障账号高权重与推流</li>
             </ul>
+            <div className="lp-hero-actions">
+              {windowsDownloadUrl ? (
+                <a className="lp-client-download" href={windowsDownloadUrl}>
+                  客户端{softwareVersion ? ` v${softwareVersion}` : ""}
+                </a>
+              ) : (
+                <span className="lp-client-download is-disabled">
+                  {publicConfigLoaded ? "客户端暂未发布" : "客户端加载中"}
+                </span>
+              )}
+            </div>
           </div>
           <div className="lp-hero-image" style={{ position: "relative", overflow: "hidden" }}>
+            {landingImages.length > 0 && !heroImageReady && (
+              <div className="lp-hero-image-loading">顶部展示图加载中</div>
+            )}
             {landingImages.length > 0 ? (
               landingImages.map((img, idx) => (
                 <img
                   key={idx}
                   src={publicImageUrl(img)}
                   alt="企业级静态住宅IP，专业解决AI降智、Claude封号、跨境短视频限流问题"
+                  onLoad={() => setHeroImageReady(true)}
                   style={{
                     position: idx === 0 ? "relative" : "absolute",
                     top: 0, left: 0, width: "100%",
@@ -308,7 +338,11 @@ export default function LandingPage() {
                   }}
                 />
               ))
-            ) : null}
+            ) : (
+              <div className="lp-hero-image-placeholder">
+                {publicConfigLoaded ? "暂未设置落地页展示图" : "展示图加载中"}
+              </div>
+            )}
             {landingImages.length > 1 && (
               <>
                 {/* Left arrow */}

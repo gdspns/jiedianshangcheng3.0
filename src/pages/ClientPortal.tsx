@@ -1306,8 +1306,8 @@ export default function ClientPortal() {
 
   // Login screen
   if (!logged) {
-    const clientVersion = config?.software_latest_version || "0.3.0";
-    const windowsDownloadUrl = config?.software_windows_download_url || "https://github.com/gdspns/jiedianshangcheng3.0/releases/download/desktop-v0.3.0/IP520-Setup-0.3.0-x64.exe";
+    const clientVersion = config?.software_latest_version?.trim() || "未发布";
+    const windowsDownloadUrl = config?.software_windows_download_url?.trim() || "";
     const downloadFilename = (() => { try { return decodeURIComponent(new URL(windowsDownloadUrl).pathname.split("/").pop() || `IP520-Setup-${clientVersion}-x64.exe`); } catch { return `IP520-Setup-${clientVersion}-x64.exe`; } })();
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20 sm:pt-8 relative overflow-hidden bg-[#070b16] text-slate-100 before:absolute before:inset-0 before:bg-[radial-gradient(900px_420px_at_15%_-10%,rgba(236,72,153,.18),transparent_70%),radial-gradient(760px_420px_at_90%_8%,rgba(139,92,246,.20),transparent_70%)] before:pointer-events-none">
@@ -1401,7 +1401,11 @@ export default function ClientPortal() {
               <div><h1 className="text-lg font-bold text-slate-100">IP520 网络助手</h1><p className="text-xs text-slate-500">Windows 桌面客户端</p></div>
             </div>
             <div className="mb-5 flex flex-wrap gap-2 text-xs"><span className="rounded-md border border-pink-500/20 bg-pink-500/10 px-2.5 py-1 text-pink-300">v{clientVersion}</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">x64</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">约 145 MB</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">安装包</span></div>
-            <a href={windowsDownloadUrl} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:brightness-110"><Download className="h-5 w-5" />下载安装包</a>
+            {windowsDownloadUrl ? (
+              <a href={windowsDownloadUrl} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:brightness-110"><Download className="h-5 w-5" />下载安装包</a>
+            ) : (
+              <div className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-700 px-5 py-3.5 font-bold text-slate-400"><Download className="h-5 w-5" />安装包暂未发布</div>
+            )}
             <p className="mt-2.5 break-all text-center text-xs text-slate-600">{downloadFilename}</p>
             <ul className="mt-5 space-y-2 border-t border-slate-700/50 pt-4 text-xs leading-6 text-slate-400">
               <li className="before:mr-2 before:text-pink-500 before:content-['•']">适用于 <b className="text-slate-300">Windows 10 / 11 64 位</b>系统</li>
