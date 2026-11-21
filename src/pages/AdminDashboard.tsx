@@ -10,6 +10,7 @@ import PanelSync from "@/components/PanelSync";
 import DataBackupPanel from "@/components/DataBackupPanel";
 import VisitorAnalyticsPanel from "@/components/VisitorAnalyticsPanel";
 import PortalLoginAnalyticsPanel from "@/components/PortalLoginAnalyticsPanel";
+import SoftwareTelemetryPanel from "@/components/SoftwareTelemetryPanel";
 import { publicImageUrl } from "@/lib/publicImage";
 
 interface Tutorial {
@@ -2831,7 +2832,9 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
           <TabsContent value="software">
-            <div className="bg-card p-6 rounded-2xl shadow-sm border border-border max-w-3xl">
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
               <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
                 <h2 className="text-xl font-bold flex items-center text-sky-600">
                   <Megaphone className="w-5 h-5 mr-2" /> 软件顶部滚动公告
@@ -2865,28 +2868,8 @@ export default function AdminDashboard() {
               >
                 {btnStatus["saveSoftwareNotice"] || "保存滚动公告"}
               </button>
-              <div className="border-t border-border mt-7 pt-6">
-                <h3 className="font-bold text-lg mb-2">软件接口域名</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  只填写域名，不要填写 http、https 或路径。换域名前请先在这里保存新域名，等待软件同步后再停用旧域名。
-                </p>
-                <input
-                  type="text"
-                  value={config.softwareApiDomain}
-                  onChange={(e) => setConfig({ ...config, softwareApiDomain: e.target.value })}
-                  className="w-full border border-input p-3 rounded-xl bg-background focus:ring-2 focus:ring-sky-500 outline-none"
-                  placeholder="例如：www.ip520.top"
-                />
-                <p className="text-xs text-amber-600 mt-2">软件会自动使用 https://该域名/supabase 访问接口，并保留备用线路。</p>
-                <button
-                  onClick={() => handleSave("saveSoftwareDomain")}
-                  disabled={!!btnStatus["saveSoftwareDomain"]}
-                  className="mt-4 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
-                >
-                  {btnStatus["saveSoftwareDomain"] || "保存接口域名"}
-                </button>
               </div>
-              <div className="border-t border-border mt-7 pt-6">
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
                 <div className="flex items-center justify-between gap-4 mb-2">
                   <h3 className="font-bold text-lg">登录用户弹窗公告</h3>
                   <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
@@ -2940,6 +2923,29 @@ export default function AdminDashboard() {
                   </button>
                 </div>
               </div>
+              </div>
+              <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
+                <h3 className="font-bold text-lg mb-2">软件接口域名</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  只填写域名，不要填写 http、https 或路径。换域名前请先在这里保存新域名，等待软件同步后再停用旧域名。
+                </p>
+                <input
+                  type="text"
+                  value={config.softwareApiDomain}
+                  onChange={(e) => setConfig({ ...config, softwareApiDomain: e.target.value })}
+                  className="w-full border border-input p-3 rounded-xl bg-background focus:ring-2 focus:ring-sky-500 outline-none"
+                  placeholder="例如：www.ip520.top"
+                />
+                <p className="text-xs text-amber-600 mt-2">软件会自动使用 https://该域名/supabase 访问接口，并保留备用线路。</p>
+                <button
+                  onClick={() => handleSave("saveSoftwareDomain")}
+                  disabled={!!btnStatus["saveSoftwareDomain"]}
+                  className="mt-4 bg-sky-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-sky-600 disabled:opacity-70"
+                >
+                  {btnStatus["saveSoftwareDomain"] || "保存接口域名"}
+                </button>
+              </div>
+              <SoftwareTelemetryPanel token={token} />
             </div>
           </TabsContent>
           <TabsContent value="analytics">

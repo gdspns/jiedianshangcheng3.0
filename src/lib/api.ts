@@ -442,3 +442,15 @@ export async function updatePanelTestConfig(
     ...config,
   });
 }
+
+export async function adminGetSoftwareTelemetry(token: string) {
+  return callEdgeFunction("software-telemetry", { action: "admin-list", token });
+}
+
+export async function adminDeleteSoftwareSubscriptionLog(token: string, id: string) {
+  return callEdgeFunction("software-telemetry", {
+    action: "admin-delete-subscription",
+    token,
+    id,
+  });
+}
