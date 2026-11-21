@@ -2853,7 +2853,7 @@ export default function AdminDashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 mb-5">
                   <div>
                     <h2 className="text-xl font-bold text-blue-600">内置应急节点</h2>
-                    <p className="text-xs text-muted-foreground mt-1">用于平台线路临时不可用时应急。启用后只显示在软件首页的“出口”选择框，不会出现在节点页面。</p>
+                    <p className="text-xs text-muted-foreground mt-1">用于平台线路临时不可用时应急。启用后只显示在软件首页的“入口”选择框，不会出现在节点页面。</p>
                   </div>
                   <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
                     <input type="checkbox" checked={config.softwareEmergencyNodesEnabled} onChange={(e) => setConfig({ ...config, softwareEmergencyNodesEnabled: e.target.checked })} className="w-4 h-4" />
@@ -2863,7 +2863,7 @@ export default function AdminDashboard() {
                 <label className="text-sm font-semibold">内置订阅链接
                   <input type="url" value={config.softwareEmergencySubscriptionUrl} onChange={(e) => setConfig({ ...config, softwareEmergencySubscriptionUrl: e.target.value })} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="https://example.com/subscription" />
                 </label>
-                <p className="text-xs text-amber-600 mt-2">保存后，已登录软件会自动刷新配置；关闭开关后，出口选择框会移除全部“内置应急节点”。</p>
+                <p className="text-xs text-amber-600 mt-2">保存后，已登录软件会自动刷新配置；关闭开关后，入口选择框会移除全部“内置应急节点”。</p>
                 <button onClick={() => handleSave("saveEmergencyNodes")} disabled={!!btnStatus["saveEmergencyNodes"]} className="mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-70">
                   {btnStatus["saveEmergencyNodes"] || "保存应急节点"}
                 </button>
