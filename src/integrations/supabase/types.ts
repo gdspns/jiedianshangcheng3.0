@@ -877,6 +877,8 @@ export type Database = {
           software_popup_display_count: number
           software_popup_enabled: boolean
           software_popup_version: string
+          software_emergency_nodes_enabled: boolean
+          software_emergency_subscription_url: string
           video_embed: string
         }[]
       }

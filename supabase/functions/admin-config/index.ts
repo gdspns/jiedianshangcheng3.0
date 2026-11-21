@@ -106,6 +106,8 @@ Deno.serve(async (req) => {
         softwareMacosDownloadUrl: data.software_macos_download_url || "",
         softwareUpdateNotes: data.software_update_notes || "",
         softwareForceUpdate: data.software_force_update ?? false,
+        softwareEmergencyNodesEnabled: data.software_emergency_nodes_enabled ?? false,
+        softwareEmergencySubscriptionUrl: data.software_emergency_subscription_url || "",
       };
 
       return new Response(JSON.stringify({ config: frontendConfig }), {
@@ -169,6 +171,10 @@ Deno.serve(async (req) => {
       }
       if (macosDownloadUrl && !/^https:\/\//i.test(macosDownloadUrl)) {
         return new Response(JSON.stringify({ error: "macOS 下载地址必须使用 HTTPS" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const emergencySubscriptionUrl = String(config.softwareEmergencySubscriptionUrl || "").trim();
+      if (config.softwareEmergencyNodesEnabled === true && !/^https:\/\//i.test(emergencySubscriptionUrl)) {
+        return new Response(JSON.stringify({ error: "启用内置应急节点前，请填写 HTTPS 订阅链接" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const { data: existingConfig } = await supabase
         .from("admin_config")
@@ -252,6 +258,8 @@ Deno.serve(async (req) => {
         software_macos_download_url: macosDownloadUrl.slice(0, 1000),
         software_update_notes: String(config.softwareUpdateNotes || "").trim().slice(0, 3000),
         software_force_update: config.softwareForceUpdate === true,
+        software_emergency_nodes_enabled: config.softwareEmergencyNodesEnabled === true,
+        software_emergency_subscription_url: emergencySubscriptionUrl.slice(0, 2000),
       };
 
       const { error } = await supabase
