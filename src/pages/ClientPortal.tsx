@@ -1402,7 +1402,7 @@ export default function ClientPortal() {
             </div>
             <div className="mb-5 flex flex-wrap gap-2 text-xs"><span className="rounded-md border border-pink-500/20 bg-pink-500/10 px-2.5 py-1 text-pink-300">v{clientVersion}</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">x64</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">约 145 MB</span><span className="rounded-md border border-slate-600/40 bg-slate-700/30 px-2.5 py-1 text-slate-400">安装包</span></div>
             {windowsDownloadUrl ? (
-              <a href={windowsDownloadUrl} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:brightness-110"><Download className="h-5 w-5" />下载安装包</a>
+              <a href={windowsDownloadUrl} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-5 py-3.5 font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 hover:brightness-110"><Download className="h-5 w-5" />下载客户端</a>
             ) : (
               <div className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-700 px-5 py-3.5 font-bold text-slate-400"><Download className="h-5 w-5" />安装包暂未发布</div>
             )}
