@@ -1304,11 +1304,12 @@ export default function ClientPortal() {
       .toString()
       .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
+  const clientVersion = config?.software_latest_version?.trim() || "未发布";
+  const windowsDownloadUrl = config?.software_windows_download_url?.trim() || "";
+  const downloadFilename = (() => { try { return decodeURIComponent(new URL(windowsDownloadUrl).pathname.split("/").pop() || `IP520-Setup-${clientVersion}-x64.exe`); } catch { return `IP520-Setup-${clientVersion}-x64.exe`; } })();
+
   // Login screen
   if (!logged) {
-    const clientVersion = config?.software_latest_version?.trim() || "未发布";
-    const windowsDownloadUrl = config?.software_windows_download_url?.trim() || "";
-    const downloadFilename = (() => { try { return decodeURIComponent(new URL(windowsDownloadUrl).pathname.split("/").pop() || `IP520-Setup-${clientVersion}-x64.exe`); } catch { return `IP520-Setup-${clientVersion}-x64.exe`; } })();
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20 sm:pt-8 relative overflow-hidden bg-[#070b16] text-slate-100 before:absolute before:inset-0 before:bg-[radial-gradient(900px_420px_at_15%_-10%,rgba(236,72,153,.18),transparent_70%),radial-gradient(760px_420px_at_90%_8%,rgba(139,92,246,.20),transparent_70%)] before:pointer-events-none">
         <Link
@@ -1539,6 +1540,14 @@ export default function ClientPortal() {
           >
             <BookOpen className="w-5 h-5 mr-3" /> 使用教程
           </button>
+          {windowsDownloadUrl && (
+            <a
+              href={windowsDownloadUrl}
+              className="w-full flex items-center justify-center px-4 py-3 rounded-xl transition-all font-bold bg-gradient-to-r from-pink-500 to-violet-600 text-white shadow-md hover:-translate-y-0.5 hover:brightness-110"
+            >
+              <Download className="w-5 h-5 mr-3" /> 安装客户端
+            </a>
+          )}
         </div>
 
         <div className="md:col-span-3 bg-card rounded-2xl shadow-sm border border-border p-8">
