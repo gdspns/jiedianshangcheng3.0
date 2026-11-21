@@ -28,15 +28,16 @@ const localTime = (value: string) => value ? new Date(value).toLocaleString("zh-
 export default function SoftwareTelemetryPanel({ token }: { token: string }) {
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [logs, setLogs] = useState<SubscriptionLog[]>([]);
+  const [userPage, setUserPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = useCallback(async (quiet = false) => {
+  const load = useCallback(async (quiet = false, includeLogs = true) => {
     if (!quiet) setLoading(true);
     try {
-      const data = await adminGetSoftwareTelemetry(token);
+      const data = await adminGetSoftwareTelemetry(token, includeLogs);
       setUsers(data.users || []);
-      setLogs(data.subscriptionLogs || []);
+      if (Array.isArray(data.subscriptionLogs)) setLogs(data.subscriptionLogs);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "读取软件使用记录失败");
@@ -47,11 +48,15 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
 
   useEffect(() => {
     load();
-    const timer = window.setInterval(() => load(true), 15_000);
+    const timer = window.setInterval(() => load(true, false), 5_000);
     return () => window.clearInterval(timer);
   }, [load]);
 
   const onlineCount = useMemo(() => users.filter((user) => user.online).length, [users]);
+  const usersPerPage = 10;
+  const userPages = Math.max(1, Math.ceil(users.length / usersPerPage));
+  const visibleUsers = useMemo(() => users.slice((userPage - 1) * usersPerPage, userPage * usersPerPage), [users, userPage]);
+  useEffect(() => setUserPage((page) => Math.min(page, userPages)), [userPages]);
   const removeLog = async (id: string) => {
     if (!window.confirm("确定删除这条第三方订阅记录吗？")) return;
     await adminDeleteSoftwareSubscriptionLog(token, id);
@@ -63,7 +68,7 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
       <div className="p-6 border-b border-border flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-lg flex items-center gap-2"><Activity className="w-5 h-5" />软件使用情况</h3>
-          <p className="text-sm text-muted-foreground mt-1">在线状态每 15 秒自动刷新；超过 90 秒没有心跳会显示离线。</p>
+          <p className="text-sm text-muted-foreground mt-1">在线状态每 5 秒自动刷新；超过 90 秒没有心跳会显示离线。</p>
         </div>
         <button type="button" onClick={() => load()} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-muted disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />刷新数据
@@ -83,7 +88,7 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
           <div className="px-4 py-3 bg-muted/40 font-semibold flex items-center gap-2"><Users className="w-4 h-4" />软件用户在线状态</div>
           <div className="max-h-[430px] overflow-auto divide-y divide-border">
             {!users.length && <div className="p-6 text-center text-muted-foreground">还没有软件用户记录</div>}
-            {users.map((user) => (
+            {visibleUsers.map((user) => (
               <div key={user.id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><div className="font-medium truncate">{user.user_remark || "未设置备注"}</div><div className="text-xs text-muted-foreground break-all">{user.user_identifier}</div></div>
@@ -97,6 +102,16 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
               </div>
             ))}
           </div>
+          {users.length > usersPerPage && (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm">
+              <span className="text-muted-foreground">每页 10 条，共 {users.length} 条</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setUserPage((page) => Math.max(1, page - 1))} disabled={userPage === 1} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted disabled:opacity-40">上一页</button>
+                <span>{userPage} / {userPages}</span>
+                <button type="button" onClick={() => setUserPage((page) => Math.min(userPages, page + 1))} disabled={userPage === userPages} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted disabled:opacity-40">下一页</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-border overflow-hidden">

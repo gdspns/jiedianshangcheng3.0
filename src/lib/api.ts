@@ -443,8 +443,8 @@ export async function updatePanelTestConfig(
   });
 }
 
-export async function adminGetSoftwareTelemetry(token: string) {
-  return callEdgeFunction("software-telemetry", { action: "admin-list", token });
+export async function adminGetSoftwareTelemetry(token: string, includeLogs: boolean = true) {
+  return callEdgeFunction("software-telemetry", { action: "admin-list", token, includeLogs });
 }
 
 export async function adminDeleteSoftwareSubscriptionLog(token: string, id: string) {

@@ -69,19 +69,22 @@ Deno.serve(async (req) => {
 
     if (action === "admin-list") {
       if (!await verifyAdminToken(body?.token)) return json({ error: "未授权" }, 401);
-      const [{ data: users, error: usersError }, { data: logs, error: logsError }] = await Promise.all([
-        supabase.from("software_online_users").select("*").order("last_seen", { ascending: false }).limit(500),
-        supabase.from("software_subscription_logs").select("*").order("first_seen", { ascending: false }).limit(1000),
-      ]);
+      const includeLogs = body?.includeLogs !== false;
+      const { data: users, error: usersError } = await supabase.from("software_online_users").select("*").order("last_seen", { ascending: false }).limit(500);
       if (usersError) throw usersError;
-      if (logsError) throw logsError;
+      let logs: any[] | undefined;
+      if (includeLogs) {
+        const { data, error: logsError } = await supabase.from("software_subscription_logs").select("*").order("first_seen", { ascending: false }).limit(1000);
+        if (logsError) throw logsError;
+        logs = data || [];
+      }
       const cutoff = Date.now() - 90_000;
       return json({
         users: (users || []).map((user: any) => ({
           ...user,
           online: user.is_online === true && new Date(user.last_seen).getTime() >= cutoff,
         })),
-        subscriptionLogs: logs || [],
+        ...(includeLogs ? { subscriptionLogs: logs || [] } : {}),
         generatedAt: new Date().toISOString(),
       });
     }
