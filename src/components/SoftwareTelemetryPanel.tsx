@@ -29,6 +29,7 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
   const [users, setUsers] = useState<OnlineUser[]>([]);
   const [logs, setLogs] = useState<SubscriptionLog[]>([]);
   const [userPage, setUserPage] = useState(1);
+  const [logPage, setLogPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -56,7 +57,11 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
   const usersPerPage = 10;
   const userPages = Math.max(1, Math.ceil(users.length / usersPerPage));
   const visibleUsers = useMemo(() => users.slice((userPage - 1) * usersPerPage, userPage * usersPerPage), [users, userPage]);
+  const logsPerPage = 10;
+  const logPages = Math.max(1, Math.ceil(logs.length / logsPerPage));
+  const visibleLogs = useMemo(() => logs.slice((logPage - 1) * logsPerPage, logPage * logsPerPage), [logs, logPage]);
   useEffect(() => setUserPage((page) => Math.min(page, userPages)), [userPages]);
+  useEffect(() => setLogPage((page) => Math.min(page, logPages)), [logPages]);
   const removeLog = async (id: string) => {
     if (!window.confirm("确定删除这条第三方订阅记录吗？")) return;
     await adminDeleteSoftwareSubscriptionLog(token, id);
@@ -118,7 +123,7 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
           <div className="px-4 py-3 bg-muted/40 font-semibold flex items-center gap-2"><Link2 className="w-4 h-4" />第三方订阅日志</div>
           <div className="max-h-[430px] overflow-auto divide-y divide-border">
             {!logs.length && <div className="p-6 text-center text-muted-foreground">还没有第三方订阅记录</div>}
-            {logs.map((item) => (
+            {visibleLogs.map((item) => (
               <div key={item.id} className="p-4 flex items-start gap-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="font-medium">{item.subscription_label || "未命名订阅"}</div>
@@ -130,6 +135,16 @@ export default function SoftwareTelemetryPanel({ token }: { token: string }) {
               </div>
             ))}
           </div>
+          {logs.length > logsPerPage && (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm">
+              <span className="text-muted-foreground">每页 10 条，共 {logs.length} 条</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setLogPage((page) => Math.max(1, page - 1))} disabled={logPage === 1} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted disabled:opacity-40">上一页</button>
+                <span>{logPage} / {logPages}</span>
+                <button type="button" onClick={() => setLogPage((page) => Math.min(logPages, page + 1))} disabled={logPage === logPages} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted disabled:opacity-40">下一页</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
