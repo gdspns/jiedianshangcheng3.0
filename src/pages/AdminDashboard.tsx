@@ -622,6 +622,24 @@ export default function AdminDashboard() {
     clearBtn(btnKey);
   };
 
+  const saveEmergencyNodes = async () => {
+    setBtnLoading("saveEmergencyNodes", "保存中...");
+    try {
+      const url = config.softwareEmergencySubscriptionUrl.trim();
+      const next = {
+        ...config,
+        softwareEmergencySubscriptionUrl: url,
+        softwareEmergencyNodesEnabled: Boolean(url) && config.softwareEmergencyNodesEnabled,
+      };
+      await saveAdminConfig(token, next);
+      setConfig(next);
+      setBtnLoading("saveEmergencyNodes", url ? "✅ 已保存" : "✅ 已清空并关闭");
+    } catch {
+      setBtnLoading("saveEmergencyNodes", "❌ 失败");
+    }
+    clearBtn("saveEmergencyNodes");
+  };
+
   const publishSoftwarePopup = async () => {
     const content = config.softwarePopupContent.trim();
     if (!content) {
@@ -2864,7 +2882,7 @@ export default function AdminDashboard() {
                   <input type="url" value={config.softwareEmergencySubscriptionUrl} onChange={(e) => setConfig({ ...config, softwareEmergencySubscriptionUrl: e.target.value })} className="mt-1 w-full border border-input p-3 rounded-xl bg-background" placeholder="https://example.com/subscription" />
                 </label>
                 <p className="text-xs text-amber-600 mt-2">保存后，已登录软件会自动刷新配置；关闭开关后，入口选择框会移除全部“内置应急节点”。</p>
-                <button onClick={() => handleSave("saveEmergencyNodes")} disabled={!!btnStatus["saveEmergencyNodes"]} className="mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-70">
+                <button onClick={saveEmergencyNodes} disabled={!!btnStatus["saveEmergencyNodes"]} className="mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-70">
                   {btnStatus["saveEmergencyNodes"] || "保存应急节点"}
                 </button>
               </div>
