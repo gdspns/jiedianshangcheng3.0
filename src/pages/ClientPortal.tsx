@@ -1545,7 +1545,7 @@ export default function ClientPortal() {
               href={windowsDownloadUrl}
               className="w-full flex items-center justify-center px-4 py-3 rounded-xl transition-all font-bold bg-gradient-to-r from-pink-500 to-violet-600 text-white shadow-md hover:-translate-y-0.5 hover:brightness-110"
             >
-              <Download className="w-5 h-5 mr-3" /> 安装客户端
+              <Download className="w-5 h-5 mr-3" /> Windows 客户端
             </a>
           )}
         </div>

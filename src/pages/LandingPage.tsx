@@ -178,11 +178,25 @@ export default function LandingPage() {
         .lp-hero-features { list-style: none; margin: 25px 0; padding: 0; }
         .lp-hero-features li { position: relative; padding-left: 30px; margin-bottom: 12px; font-size: 1.05rem; color: var(--lp-text-dark); }
         .lp-hero-features li::before { content: '✓'; position: absolute; left: 0; top: 0; color: var(--lp-primary); font-weight: bold; font-size: 1.2rem; }
-        .lp-hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 30px; }
-        .lp-client-download { display: inline-flex; align-items: center; justify-content: center; min-width: 180px; min-height: 50px; padding: 12px 26px; border-radius: 12px; background: var(--lp-primary); color: #ffffff; text-decoration: none; font-size: 1.05rem; font-weight: 800; box-shadow: 0 10px 24px rgba(43,122,59,0.28); transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease; }
-        .lp-client-download:hover { background: var(--lp-primary-hover); transform: translateY(-2px); box-shadow: 0 14px 30px rgba(43,122,59,0.34); }
-        .dark .lp-client-download { color: #07110a; }
-        .lp-client-download.is-disabled { cursor: wait; background: #334155; color: #94a3b8; box-shadow: none; transform: none; }
+        .lp-client-showcase { max-width: 1120px; margin: 0 auto 32px; padding: 22px; border: 1px solid #dbe3ee; border-radius: 20px; background: #ffffff; box-shadow: 0 12px 35px rgba(15,23,42,.07); text-align: left; }
+        .dark .lp-client-showcase { border-color: #2b3442; background: #10151d; box-shadow: 0 12px 35px rgba(0,0,0,.25); }
+        .lp-client-showcase-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
+        .lp-client-showcase-head h3 { margin: 0; color: #172033; font-size: 1.25rem; }
+        .dark .lp-client-showcase-head h3 { color: #f1f5f9; }
+        .lp-client-showcase-head p { margin: 4px 0 0; color: #7b879b; font-size: .88rem; }
+        .lp-client-showcase-head span { color: #3b7f4b; font-size: .8rem; font-weight: 700; }
+        .lp-client-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+        .lp-client-card { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 76px; padding: 14px; border: 1px solid #dce4ef; border-radius: 15px; color: #172033; background: #f8fafc; text-decoration: none; transition: transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+        .dark .lp-client-card { border-color: #2e3949; color: #eef4ff; background: #171e29; }
+        a.lp-client-card:hover { transform: translateY(-2px); border-color: #4b9b5d; box-shadow: 0 10px 22px rgba(43,122,59,.14); }
+        .lp-client-card-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 13px; color: white; background: linear-gradient(135deg,#3478f6,#7b55ed); font-size: 1.35rem; }
+        .lp-client-card-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+        .lp-client-card-copy b { font-size: .98rem; }
+        .lp-client-card-copy small { overflow: hidden; color: #7e8ba1; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+        .lp-client-card-status { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; color: #176b37; background: #dff6e7; font-size: .72rem; font-weight: 800; }
+        .lp-client-card.is-pending { cursor: not-allowed; opacity: .72; }
+        .lp-client-card.is-pending .lp-client-card-icon { background: #58657a; }
+        .lp-client-card.is-pending .lp-client-card-status { color: #8a5a08; background: #fff0c7; }
         .lp-hero-image-placeholder { width: 100%; min-height: 320px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(148,163,184,.22); background: rgba(148,163,184,.08); color: var(--lp-text-gray); }
         .lp-hero-image { flex: 1; min-height: 320px; text-align: right; }
         .lp-hero-image-loading { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(148,163,184,.22); background: rgba(148,163,184,.08); color: var(--lp-text-gray); }
@@ -255,7 +269,9 @@ export default function LandingPage() {
           .lp-hero { flex-direction: column-reverse; text-align: center; padding: 40px 5%; }
           .lp-hero-content { max-width: 100%; }
           .lp-hero-features { text-align: left; display: inline-block; }
-          .lp-hero-actions { justify-content: center; }
+          .lp-client-showcase { padding: 17px; }
+          .lp-client-showcase-head { align-items: flex-start; flex-direction: column; gap: 5px; }
+          .lp-client-grid { grid-template-columns: 1fr; }
           .lp-hero h1 { font-size: 2.5rem; }
           .lp-hero-image { margin-bottom: 30px; }
           .lp-hero-image img { transform: rotate(0); }
@@ -307,17 +323,6 @@ export default function LandingPage() {
               <li>防平台风控，彻底告别跨境电商IP变动风险</li>
               <li>原生真实物理节点，保障账号高权重与推流</li>
             </ul>
-            <div className="lp-hero-actions">
-              {windowsDownloadUrl ? (
-                <a className="lp-client-download" href={windowsDownloadUrl}>
-                  客户端{softwareVersion ? ` v${softwareVersion}` : ""}
-                </a>
-              ) : (
-                <span className="lp-client-download is-disabled">
-                  {publicConfigLoaded ? "客户端暂未发布" : "客户端加载中"}
-                </span>
-              )}
-            </div>
           </div>
           <div className="lp-hero-image" style={{ position: "relative", overflow: "hidden" }}>
             {landingImages.length > 0 && !heroImageReady && (
@@ -391,6 +396,37 @@ export default function LandingPage() {
 
         {/* Supported Models */}
         <section className="lp-supported">
+          <div className="lp-client-showcase">
+            <div className="lp-client-showcase-head">
+              <div><h3>IP520 网络助手客户端</h3><p>选择对应系统下载安装，解析登录后即可使用</p></div>
+              <span>{softwareVersion ? `当前版本 v${softwareVersion}` : "版本信息加载中"}</span>
+            </div>
+            <div className="lp-client-grid">
+              {windowsDownloadUrl ? (
+                <a className="lp-client-card" href={windowsDownloadUrl}>
+                  <span className="lp-client-card-icon">▣</span>
+                  <span className="lp-client-card-copy"><b>Windows 客户端</b><small>Windows 10 / 11 · 64 位系统</small></span>
+                  <span className="lp-client-card-status">立即下载</span>
+                </a>
+              ) : (
+                <div className="lp-client-card is-pending">
+                  <span className="lp-client-card-icon">▣</span>
+                  <span className="lp-client-card-copy"><b>Windows 客户端</b><small>Windows 10 / 11 · 64 位系统</small></span>
+                  <span className="lp-client-card-status">{publicConfigLoaded ? "待发布" : "加载中"}</span>
+                </div>
+              )}
+              <div className="lp-client-card is-pending">
+                <span className="lp-client-card-icon">●</span>
+                <span className="lp-client-card-copy"><b>macOS 客户端</b><small>Apple Silicon / Intel 芯片</small></span>
+                <span className="lp-client-card-status">待上架</span>
+              </div>
+              <div className="lp-client-card is-pending">
+                <span className="lp-client-card-icon">▯</span>
+                <span className="lp-client-card-copy"><b>手机应用</b><small>Android / iOS 移动设备</small></span>
+                <span className="lp-client-card-status">待上架</span>
+              </div>
+            </div>
+          </div>
           <h2>完美支持主流 AI 大模型与跨境内容平台</h2>
           <div className="lp-platform-group">
             <div className="lp-platform-label">AI 网页版 · API · 桌面端 · IDE 与命令行客户端</div>
