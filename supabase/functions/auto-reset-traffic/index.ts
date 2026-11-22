@@ -688,11 +688,18 @@ Deno.serve(async (req) => {
       if (rec.plan_id && planRegionMap.has(rec.plan_id)) {
         for (const rid of planRegionMap.get(rec.plan_id)!) if (!regionIds.includes(rid)) regionIds.push(rid);
       }
-      // Fallback: infer region(s) from inbound remark by matching region names (e.g. "马来西亚-住宅独享" -> 马来西亚)
+      // The live inbound remark is the authoritative region source. Historical
+      // records may point at an old plan whose plan_regions no longer matches
+      // the client's actual inbound; keeping both would let a stale 80GB region
+      // rule override the current 50GB exclusive rule.
       if (inboundRemark) {
         const rk = String(inboundRemark);
+        const inferredRegionIds: string[] = [];
         for (const r of regionNameList) {
-          if (r.name && rk.includes(r.name) && !regionIds.includes(r.id)) regionIds.push(r.id);
+          if (r.name && rk.includes(r.name)) inferredRegionIds.push(r.id);
+        }
+        if (inferredRegionIds.length > 0) {
+          regionIds.splice(0, regionIds.length, ...inferredRegionIds);
         }
       }
       // Fallback category inference from inbound remark text (e.g. "美国住宅共享224" -> shared)
@@ -788,16 +795,38 @@ Deno.serve(async (req) => {
       // anchor — they were never supposed to be reset at that anchor.
       const createdMs = rec.created_at ? new Date(rec.created_at).getTime() : 0;
       const lastReset = Number(rec.last_reset_expiry) || 0;
+      const defaultBytes = effectiveGB * 1073741824;
       if (lastReset === 0 && createdMs > anchor) {
         await pushSkipWithQuotaCheck("created-after-anchor");
         continue;
       }
       if (lastReset >= anchor) {
+        // If the account has fully expired and the administrator changed its
+        // default traffic rule after this anchor was processed, reconcile the
+        // stored quota to the latest rule. Active accounts are deliberately
+        // excluded so purchased traffic packs are never erased mid-cycle.
+        const currentTotalBytes = normalizeTrafficLimitBytes(
+          rec.is_socks5 ? found.inbound?.total : found.entry?.totalGB,
+        );
+        if (expiry <= now && currentTotalBytes !== defaultBytes) {
+          const corrected = await resetClientToDefault(
+            rec.panel_url, cookie, found.inbound, found.settings,
+            found.email, rec.is_socks5, defaultBytes,
+          );
+          if (corrected) {
+            await supabase.from("client_records")
+              .update({ last_reset_expiry: anchor, client_email: found.email })
+              .eq("id", rec.id);
+            results.push({ uuid: rec.uuid, reset: true, corrected: true, gb: effectiveGB, anchor: new Date(anchor).toISOString() });
+          } else {
+            results.push({ uuid: rec.uuid, reset: false, corrected: true, error: "update-failed" });
+          }
+          continue;
+        }
         await pushSkipWithQuotaCheck("already-reset");
         continue;
       }
 
-      const defaultBytes = effectiveGB * 1073741824;
       const ok = await resetClientToDefault(
         rec.panel_url, cookie, found.inbound, found.settings,
         found.email, rec.is_socks5, defaultBytes,
