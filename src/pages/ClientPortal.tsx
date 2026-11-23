@@ -1608,6 +1608,14 @@ export default function ClientPortal() {
                       </button>
                       <span className="text-xs opacity-75">节点域名变化后，在客户端更新订阅即可</span>
                     </div>
+                    <div className="mt-2 flex items-center flex-wrap gap-1.5 text-xs">
+                      <span className="font-medium opacity-80">支持的代理软件客户端：</span>
+                      {["v2rayN", "Karing", "Clash", "Shadowrocket 小火箭"].map((client) => (
+                        <span key={client} className="rounded-full border border-client-primary/20 bg-background/70 px-2 py-0.5 font-medium text-client-primary">
+                          {client}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
