@@ -347,8 +347,9 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         // 或没有上一次快照（无法判断是否还在跑），都必须整条 inbound 保存并重启 Xray，
         // 否则已建立的旧连接会一直存活（之前"看着已关闭却还能用"的根因）。
         const before = prevUsed.get(String(identifier));
+        const missingPreviousSnapshot = typeof before !== "number";
         const trafficIncreasedAfterDisable = typeof before === "number" && used > before + STALE_CONNECTION_ALERT_BYTES;
-        const stillAliveSuspect = trafficIncreasedAfterDisable || runtimeMayStillBeEnabled;
+        const stillAliveSuspect = missingPreviousSnapshot || trafficIncreasedAfterDisable || runtimeMayStillBeEnabled;
         if (!wasEnabledInSettings && stillAliveSuspect) {
           needXrayRestart = true;
           changed = true; // 触发 /panel/api/inbounds/update，等同于面板里手动「编辑→保存」
@@ -396,6 +397,7 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
           alreadyDisabled: !wasEnabledInSettings && !runtimeMayStillBeEnabled,
           stillAliveSuspect,
           previousUsed: before,
+          missingPreviousSnapshot,
           trafficIncreasedAfterDisable,
           autoClientSaveReason: autoClientSaveReason || undefined,
           autoClientSaveApplied,
