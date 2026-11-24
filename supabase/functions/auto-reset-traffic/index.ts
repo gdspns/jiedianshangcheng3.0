@@ -287,6 +287,9 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
   // 上一次强制关闭时记录的已用流量，用于判断「已禁用但仍在跑流量」的客户端
   const prevUsed = new Map<string, number>();
   const lastPanelRestartAt = new Map<string, number>();
+  // Persisted through each cron log so one over-quota event can restart a panel
+  // at most once. The marker is cleared after the client returns under quota.
+  const restartedQuotaKeys = new Set<string>();
   try {
     const { data: recentLogs } = await supabase
       .from("cron_execution_logs")
@@ -295,6 +298,9 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
       .order("created_at", { ascending: false })
       .limit(12);
     const newestLog = recentLogs?.[0];
+    for (const key of (newestLog?.details?.restartedQuotaKeys || [])) {
+      if (typeof key === "string" && key) restartedQuotaKeys.add(key);
+    }
     for (const r of (newestLog?.details?.results || [])) {
       if (r?.panel && r?.inboundId != null && r?.identifier && typeof r.used === "number") {
         prevUsed.set(quotaSnapshotKey(r.panel, r.inboundId, r.identifier), r.used);
@@ -312,6 +318,7 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
 
   for (const panel of allPanels) {
     let needXrayRestart = false;
+    const pendingRestartKeys = new Set<string>();
     const cookie = await login3xui(panel.panel_url, panel.panel_user, panel.panel_pass);
     if (!cookie) {
       failed++;
@@ -347,7 +354,10 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         );
         const used = trafficUsedBytes(stats?.up, stats?.down);
         const total = normalizeTrafficLimitBytes(c.totalGB || stats?.total);
+        const snapshotKey = quotaSnapshotKey(panel.panel_url, inbound.id, identifier);
         if (total <= 0 || used < total) {
+          // A reset, renewal or quota increase starts a fresh quota lifecycle.
+          restartedQuotaKeys.delete(snapshotKey);
           skipped++;
           continue;
         }
@@ -360,14 +370,15 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         }
         // 已是 enable=false 的超额客户端：只有相邻两轮检查确认流量仍在增长，
         // 才重启整个 Xray，避免首次禁用时影响同面板的其他正常用户。
-        const before = prevUsed.get(quotaSnapshotKey(panel.panel_url, inbound.id, identifier));
+        const before = prevUsed.get(snapshotKey);
         const trafficIncreasedAfterDisable = typeof before === "number" && used > before + STALE_CONNECTION_ALERT_BYTES;
         // Do not restart the whole panel merely because this is the first snapshot.
         // First disable/save the client, then only restart if a later 5-minute
         // snapshot proves that traffic is still increasing.
         const stillAliveSuspect = trafficIncreasedAfterDisable;
-        if (!wasEnabledInSettings && stillAliveSuspect) {
+        if (!wasEnabledInSettings && stillAliveSuspect && !restartedQuotaKeys.has(snapshotKey)) {
           needXrayRestart = true;
+          pendingRestartKeys.add(snapshotKey);
           changed = true; // 触发 /panel/api/inbounds/update，等同于面板里手动「编辑→保存」
         }
 
@@ -521,10 +532,14 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         });
       } else {
         const restart = await doRestart();
+        if (restart.ok) {
+          for (const key of pendingRestartKeys) restartedQuotaKeys.add(key);
+        }
         results.push({
           panel: panel.panel_url,
           xrayRestarted: restart.ok,
           xrayRestartCount: restart.ok ? 1 : 0,
+          xrayRestartQuotaKeys: restart.ok ? Array.from(pendingRestartKeys) : undefined,
           error: restart.ok ? undefined : `restart-failed ${restart.err}`,
         });
       }
@@ -541,7 +556,11 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
       skipped_count: skipped,
       failed_count: failed,
       trigger_source: triggerSource,
-      details: { panels: allPanels.length, results: results.slice(0, 200) },
+      details: {
+        panels: allPanels.length,
+        restartedQuotaKeys: Array.from(restartedQuotaKeys),
+        results: results.slice(0, 200),
+      },
     });
   } catch {}
 
