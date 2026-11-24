@@ -23,19 +23,19 @@ function downloadJson(data: unknown, prefix = "admin-settings-backup") {
 
 export default function DataBackupPanel({ token }: { token: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<"backup" | "restore" | null>(null);
+  const [busy, setBusy] = useState<"settings" | "full" | "restore" | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function handleBackup() {
-    setBusy("backup");
+  async function handleBackup(scope: "settings" | "full") {
+    setBusy(scope);
     setError("");
     setMessage("");
     try {
-      const result = await exportAdminSettings(token);
+      const result = await exportAdminSettings(token, scope);
       if (!result?.backup) throw new Error(result?.error || "服务器未返回备份数据");
-      downloadJson(result.backup);
-      setMessage("备份文件已下载，请妥善保管");
+      downloadJson(result.backup, scope === "full" ? "full-site-backup" : "admin-settings-backup");
+      setMessage(scope === "full" ? "完整数据备份已下载，请妥善保管" : "设置备份已下载，请妥善保管");
     } catch (error: unknown) {
       setError(errorMessage(error, "备份失败"));
     } finally {
@@ -61,7 +61,7 @@ export default function DataBackupPanel({ token }: { token: string }) {
       if (!window.confirm(`确定恢复 ${createdAt} 创建的备份吗？\n\n当前后台设置将被覆盖。恢复前系统会自动下载一份当前设置的安全备份。`)) return;
 
       setBusy("restore");
-      const current = await exportAdminSettings(token);
+      const current = await exportAdminSettings(token, "full");
       if (!current?.backup) throw new Error("无法创建恢复前安全备份，已取消恢复");
       downloadJson(current.backup, "before-restore-admin-settings");
 
@@ -82,21 +82,30 @@ export default function DataBackupPanel({ token }: { token: string }) {
       </h3>
 
       <p className="text-xs text-muted-foreground leading-5 mb-4">
-        备份管理员后台的系统配置、面板、套餐、地区、入口绑定、教程公告、流量规则和检测配置。
+        设置备份包含全部后台设置；完整备份还包含订单、客户重置记录、访问/登录统计、软件日志及任务历史。
       </p>
 
       {error && <div className="text-xs text-destructive mb-3 p-2 bg-destructive/10 rounded">{error}</div>}
       {message && <div className="text-xs text-emerald-600 mb-3 p-2 bg-emerald-500/10 rounded">✅ {message}</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3 gap-3">
         <button
           type="button"
-          onClick={handleBackup}
+          onClick={() => handleBackup("settings")}
           disabled={busy !== null}
           className="text-xs bg-admin-primary hover:bg-admin-primary/90 text-white px-3 py-2.5 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-2"
         >
-          {busy === "backup" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {busy === "backup" ? "正在备份..." : "下载设置备份"}
+          {busy === "settings" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {busy === "settings" ? "正在备份..." : "下载设置备份"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleBackup("full")}
+          disabled={busy !== null}
+          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2.5 rounded font-medium disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {busy === "full" ? <Loader2 className="w-4 h-4 animate-spin" /> : <DatabaseBackup className="w-4 h-4" />}
+          {busy === "full" ? "正在完整备份..." : "下载完整备份"}
         </button>
         <button
           type="button"
@@ -112,7 +121,7 @@ export default function DataBackupPanel({ token }: { token: string }) {
 
       <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-[11px] leading-5 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
         <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>备份含面板账号、支付密钥等敏感信息，请勿分享。恢复不会覆盖管理员登录密码，也不包含订单、客户记录和运行日志。</span>
+        <span>备份含面板账号、支付密钥、客户资料等敏感信息，请勿分享。恢复会覆盖对应备份范围内的数据，但不会覆盖管理员登录密码、服务器环境变量、Edge Function 密钥、3x-ui 面板内部数据或服务器图片文件。</span>
       </div>
     </div>
   );

@@ -38,8 +38,8 @@ export async function saveAdminConfig(token: string, config: object) {
   return callEdgeFunction("admin-config", { action: "save", token, config });
 }
 
-export async function exportAdminSettings(token: string) {
-  return callEdgeFunction("admin-backup", { action: "backup", token });
+export async function exportAdminSettings(token: string, scope: "settings" | "full" = "settings") {
+  return callEdgeFunction("admin-backup", { action: "backup", scope, token });
 }
 
 export async function restoreAdminSettings(token: string, backup: object) {
