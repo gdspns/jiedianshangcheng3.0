@@ -16,6 +16,11 @@ async function safeJson(res: Response): Promise<any> {
 
 const GB = 1073741824;
 const STALE_CONNECTION_ALERT_BYTES = 10 * 1024 * 1024;
+const XRAY_RESTART_COOLDOWN_MS = 30 * 60 * 1000;
+
+function quotaSnapshotKey(panel: any, inboundId: any, identifier: any): string {
+  return `${String(panel || "")}::${String(inboundId || "")}::${String(identifier || "")}`;
+}
 
 function normalizeTrafficLimitBytes(value: any): number {
   const n = Number(value || 0);
@@ -281,16 +286,27 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
 
   // 上一次强制关闭时记录的已用流量，用于判断「已禁用但仍在跑流量」的客户端
   const prevUsed = new Map<string, number>();
+  const lastPanelRestartAt = new Map<string, number>();
   try {
-    const { data: lastLog } = await supabase
+    const { data: recentLogs } = await supabase
       .from("cron_execution_logs")
-      .select("details")
+      .select("created_at,details")
       .eq("job_name", "enforce-disabled-quota")
       .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-    for (const r of (lastLog?.details?.results || [])) {
-      if (r?.identifier && typeof r.used === "number") prevUsed.set(String(r.identifier), r.used);
+      .limit(12);
+    const newestLog = recentLogs?.[0];
+    for (const r of (newestLog?.details?.results || [])) {
+      if (r?.panel && r?.inboundId != null && r?.identifier && typeof r.used === "number") {
+        prevUsed.set(quotaSnapshotKey(r.panel, r.inboundId, r.identifier), r.used);
+      }
+    }
+    for (const log of recentLogs || []) {
+      const at = new Date(log.created_at).getTime();
+      for (const r of (log?.details?.results || [])) {
+        if (!r?.panel || r?.xrayRestarted !== true || !Number.isFinite(at)) continue;
+        const previous = lastPanelRestartAt.get(String(r.panel)) || 0;
+        if (at > previous) lastPanelRestartAt.set(String(r.panel), at);
+      }
     }
   } catch {}
 
@@ -341,15 +357,15 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         if (wasEnabledInSettings) {
           c.enable = false;
           changed = true;
-          needXrayRestart = true; // 新关闭：需要重启 Xray 才能踢掉已建立的连接
         }
-        // 已是 enable=false 的超额客户端：只要流量仍在增长、运行态仍是启用、
-        // 或没有上一次快照（无法判断是否还在跑），都必须整条 inbound 保存并重启 Xray，
-        // 否则已建立的旧连接会一直存活（之前"看着已关闭却还能用"的根因）。
-        const before = prevUsed.get(String(identifier));
-        const missingPreviousSnapshot = typeof before !== "number";
+        // 已是 enable=false 的超额客户端：只有相邻两轮检查确认流量仍在增长，
+        // 才重启整个 Xray，避免首次禁用时影响同面板的其他正常用户。
+        const before = prevUsed.get(quotaSnapshotKey(panel.panel_url, inbound.id, identifier));
         const trafficIncreasedAfterDisable = typeof before === "number" && used > before + STALE_CONNECTION_ALERT_BYTES;
-        const stillAliveSuspect = missingPreviousSnapshot || trafficIncreasedAfterDisable || runtimeMayStillBeEnabled;
+        // Do not restart the whole panel merely because this is the first snapshot.
+        // First disable/save the client, then only restart if a later 5-minute
+        // snapshot proves that traffic is still increasing.
+        const stillAliveSuspect = trafficIncreasedAfterDisable;
         if (!wasEnabledInSettings && stillAliveSuspect) {
           needXrayRestart = true;
           changed = true; // 触发 /panel/api/inbounds/update，等同于面板里手动「编辑→保存」
@@ -397,7 +413,6 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
           alreadyDisabled: !wasEnabledInSettings && !runtimeMayStillBeEnabled,
           stillAliveSuspect,
           previousUsed: before,
-          missingPreviousSnapshot,
           trafficIncreasedAfterDisable,
           autoClientSaveReason: autoClientSaveReason || undefined,
           autoClientSaveApplied,
@@ -465,7 +480,9 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
       }
     }
 
-    // 重启 Xray：3x-ui 只有重启内核才会踢掉超额客户端已建立的连接
+    // Only restart Xray after confirmed post-disable traffic growth. All affected
+    // users on this panel are merged into this single restart, with a 30-minute
+    // cooldown to avoid repeatedly interrupting healthy users.
     if (needXrayRestart) {
       // 3x-ui has moved this route across versions. Try current API routes first,
       // then retain legacy routes for older installations.
@@ -493,18 +510,24 @@ async function enforceQuotaOnAllPanels(supabase: any, triggerSource: string) {
         return { ok: false, err };
       };
 
-      // 第一次重启后，3x-ui 自己还会因为刚才的 inbound 保存做一次延迟的配置重建，
-      // 可能把旧连接重新带起来；等待几秒后再重启一次，确保按最新配置生效。
-      const first = await doRestart();
-      await new Promise((r) => setTimeout(r, 5000));
-      const second = await doRestart();
-      const restarted = first.ok || second.ok;
-      results.push({
-        panel: panel.panel_url,
-        xrayRestarted: restarted,
-        xrayRestartCount: (first.ok ? 1 : 0) + (second.ok ? 1 : 0),
-        error: restarted ? undefined : `restart-failed ${second.err || first.err}`,
-      });
+      const previousRestart = lastPanelRestartAt.get(String(panel.panel_url)) || 0;
+      const cooldownRemaining = XRAY_RESTART_COOLDOWN_MS - (Date.now() - previousRestart);
+      if (cooldownRemaining > 0) {
+        results.push({
+          panel: panel.panel_url,
+          xrayRestarted: false,
+          xrayRestartSkipped: "cooldown",
+          cooldownRemainingSeconds: Math.ceil(cooldownRemaining / 1000),
+        });
+      } else {
+        const restart = await doRestart();
+        results.push({
+          panel: panel.panel_url,
+          xrayRestarted: restart.ok,
+          xrayRestartCount: restart.ok ? 1 : 0,
+          error: restart.ok ? undefined : `restart-failed ${restart.err}`,
+        });
+      }
     }
 
   }
