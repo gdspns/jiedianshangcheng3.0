@@ -112,7 +112,12 @@ async function readAllRows(supabase: AdminClient, table: string) {
 async function insertRows(supabase: AdminClient, table: string, rows: any[]) {
   const pageSize = 500;
   for (let from = 0; from < rows.length; from += pageSize) {
-    const { error } = await supabase.from(table).insert(rows.slice(from, from + pageSize));
+    const chunk = rows.slice(from, from + pageSize).map((row) => {
+      if (table !== "admin_login_attempts") return row;
+      const { id: _legacyIdentity, ...rest } = row;
+      return rest;
+    });
+    const { error } = await supabase.from(table).insert(chunk);
     if (error) throw new Error(`恢复 ${table} 失败：${error.message}`);
   }
 }
